@@ -1,0 +1,19 @@
+[package]
+name = "leakscope-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+[package.metadata]
+cargo-fuzz = true
+[dependencies]
+libfuzzer-sys = "=0.4.10"
+leakscope-capture = { path = "../../crates/capture" }
+leakscope-protocol = { path = "../../crates/protocol" }
+prost = "=0.14.3"
+[workspace]
+[[bin]]
+name = "capture"
+path = "capture.rs"
+test = false
+doc = false
+bench = false

@@ -1,0 +1,25 @@
+name: Session lifecycle soak
+on:
+  schedule:
+    - cron: '0 2 * * 6'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  soak:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: ./.github/actions/setup
+      - run: |
+          .venv/bin/leakscope serve > /tmp/leakscope-soak.log 2>&1 &
+          collector_pid=$!
+          trap 'kill -INT "$collector_pid"; wait "$collector_pid" || true' EXIT
+          sleep 3
+          .venv/bin/python tests/soak/run.py --duration 3600 > /tmp/leakscope-soak-result.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: soak-evidence
+          path: /tmp/leakscope-soak*

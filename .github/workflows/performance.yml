@@ -1,0 +1,24 @@
+name: Controlled hardware benchmarks
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * 1'
+permissions:
+  contents: read
+jobs:
+  benchmark:
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, linux, x64, leakscope-performance]
+    environment: performance
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: ./.github/actions/setup
+      - run: cargo build --workspace --release --locked
+      - run: make benchmark
+      - name: Check sensor baseline memory target
+        run: .venv/bin/python -c 'import json;d=json.load(open("artifacts/benchmark.json"));assert all(r["sensor_rss_bytes"] < 64*1024*1024 for r in d["results"]),"sensor baseline RSS exceeded 64 MiB"'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: benchmark-evidence
+          path: artifacts/benchmark.json

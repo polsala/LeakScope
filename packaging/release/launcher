@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+prefix="$(cd "$(dirname "$0")/.." && pwd)"
+export PATH="$prefix/bin:$PATH"
+export LEAKSCOPE_WEB_DIST="$prefix/web-dist"
+exec "$prefix/venv/bin/leakscope" "$@"

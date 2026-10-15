@@ -1,0 +1,13 @@
+services:
+  leakscope:
+    build:
+      context: ../..
+      dockerfile: packaging/docker/Dockerfile
+    network_mode: host
+    read_only: true
+    tmpfs: [/tmp]
+    volumes: [leakscope-data:/data]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+volumes:
+  leakscope-data:

@@ -1,0 +1,21 @@
+name: Sensor collector integration
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: ./.github/actions/setup
+      - run: bash scripts/build-python27.sh ucs4 release
+      - run: bash scripts/test-legacy.sh
+        env:
+          PYTHON27: ${{ github.workspace }}/.cache/python27/install-ucs4-release/bin/python2.7
+      - run: make test-integration
+        env:
+          PYTHON27: ${{ github.workspace }}/.cache/python27/install-ucs4-release/bin/python2.7

@@ -1,0 +1,23 @@
+name: Parser fuzzing
+on:
+  pull_request:
+  schedule:
+    - cron: '0 3 * * 3'
+permissions:
+  contents: read
+jobs:
+  parsers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: ./.github/actions/setup
+      - run: .venv/bin/python tests/fuzz/fuzz_capture.py
+      - run: rustup toolchain install nightly-2026-04-01 --profile minimal
+      - run: cargo install cargo-fuzz --version 0.13.1 --locked
+      - run: cargo +nightly-2026-04-01 fuzz run capture --fuzz-dir tests/fuzz -- -max_total_time=60 -max_len=65536
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: failure()
+        with:
+          name: fuzz-crashes
+          path: tests/fuzz/artifacts

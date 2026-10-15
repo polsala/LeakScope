@@ -1,0 +1,27 @@
+name: Isolated kernel validation
+on:
+  schedule:
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  kernel:
+    # Never run untrusted PR code on a host with tracing capabilities.
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, linux, x64, leakscope-kernel]
+    environment: kernel-validation
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: ./.github/actions/setup
+      - run: make test-native
+      - run: .venv/bin/leakscope doctor --json > artifacts/kernel-capabilities.json
+      - name: Require verified attachment before declaring kernel coverage
+        run: |
+          .venv/bin/python -c 'import json;d=json.load(open("artifacts/kernel-capabilities.json"));assert d["native_sensor"]["capabilities"]["external_allocations"], "External probe loader is unimplemented; kernel tracing release gate is intentionally failing"'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: kernel-evidence
+          path: artifacts/kernel-capabilities.json

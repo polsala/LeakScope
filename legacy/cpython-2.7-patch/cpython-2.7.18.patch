@@ -1,0 +1,43 @@
+--- a/Objects/obmalloc.c
++++ b/Objects/obmalloc.c
+@@ -1,0 +2,2 @@
++#include "leakscope_lab.h"
++
+@@ -796 +798 @@
+-PyObject_Malloc(size_t nbytes)
++ls_original_Malloc(size_t nbytes)
+@@ -1000 +1002 @@
+-PyObject_Free(void *p)
++ls_original_Free(void *p)
+@@ -1231 +1233 @@
+-PyObject_Realloc(void *p, size_t nbytes)
++ls_original_Realloc(void *p, size_t nbytes)
+@@ -1317 +1319 @@
+-PyObject_Malloc(size_t n)
++ls_original_Malloc(size_t n)
+@@ -1323 +1325 @@
+-PyObject_Realloc(void *p, size_t n)
++ls_original_Realloc(void *p, size_t n)
+@@ -1329 +1331 @@
+-PyObject_Free(void *p)
++ls_original_Free(void *p)
+@@ -1996,0 +1999,19 @@
++
++/* LeakScope laboratory wrappers. Recursion is suppressed per native thread. */
++void *PyObject_Malloc(size_t size) {
++    void *p; int outer=ls_depth++ == 0;
++    p=ls_original_Malloc(size); --ls_depth;
++    if (outer) ls_record(1,p,NULL,size);
++    return p;
++}
++void PyObject_Free(void *p) {
++    int outer=ls_depth++ == 0;
++    if (outer) ls_record(2,p,NULL,0);
++    ls_original_Free(p); --ls_depth;
++}
++void *PyObject_Realloc(void *old, size_t size) {
++    void *p; int outer=ls_depth++ == 0;
++    p=ls_original_Realloc(old,size); --ls_depth;
++    if (outer) ls_record(3,p,old,size);
++    return p;
++}

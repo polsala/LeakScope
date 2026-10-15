@@ -1,0 +1,9 @@
+Package: leakscope
+Version: 0.1.0
+Section: devel
+Priority: optional
+Architecture: amd64
+Depends: python3 (>= 3.11), python3-venv, python3-pip, libc6 (>= 2.35), libgcc-s1
+Maintainer: LeakScope maintainers <maintainers@example.invalid>
+Description: Local process memory investigations with explicit evidence quality
+ Offline installer, native sensor, collector, CLI and browser interface.

@@ -1,0 +1,27 @@
+name: Browser journeys
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: ./.github/actions/setup
+      - run: bash scripts/build-python27.sh ucs4 release
+      - run: corepack pnpm --dir apps/web exec playwright install --with-deps chromium
+      - run: make test-e2e
+        env:
+          PYTHON27: ${{ github.workspace }}/.cache/python27/install-ucs4-release/bin/python2.7
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: failure()
+        with:
+          name: browser-failure-evidence
+          path: |
+            apps/web/test-results
+            apps/web/playwright-report
+          retention-days: 7

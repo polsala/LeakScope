@@ -1,0 +1,18 @@
+name: Pull request quality gates
+on: [pull_request]
+permissions:
+  contents: read
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: ./.github/actions/setup
+      - run: make lint typecheck test
+      - run: cargo fmt --all -- --check
+      - run: .venv/bin/ruff format --check apps/api scripts tests --exclude tests/fixtures
+      - run: make build contracts
+      - run: git diff --exit-code -- schemas/openapi/v1.json packages/api-client/schema.d.ts
+      - run: .venv/bin/python tests/fuzz/fuzz_capture.py
+      - run: corepack pnpm audit --prod

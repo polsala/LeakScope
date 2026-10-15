@@ -1,0 +1,12 @@
+[package]
+name = "leakscope-sensor"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+leakscope-common = { path = "../common" }
+leakscope-procfs = { path = "../procfs" }
+leakscope-protocol = { path = "../protocol" }
+leakscope-symbolizer = { path = "../symbolizer" }
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true

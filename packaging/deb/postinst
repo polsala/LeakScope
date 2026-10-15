@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+# Do not start process monitoring or create privileged credentials during install.
+if [ "$1" = configure ]; then
+  echo 'LeakScope distribution installed in /opt/leakscope-distribution.'
+  echo 'Run its install.sh as your monitored service UID to create the application environment.'
+fi

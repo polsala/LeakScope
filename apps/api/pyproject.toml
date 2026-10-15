@@ -1,0 +1,3 @@
+# The root pyproject.toml is authoritative so backend and CLI share one lockfile.
+[tool.leakscope]
+workspace-project = "../../pyproject.toml"

@@ -1,0 +1,10 @@
+"""Call configure_after_fork from a uWSGI postfork hook, or after lazy app load."""
+def configure_after_fork():
+    try:
+        import leakscope_agent
+        leakscope_agent.after_fork()
+        leakscope_agent.initialize()
+        leakscope_agent.mark('worker_started', {'worker_type': 'uwsgi'})
+        return True
+    except (ImportError, RuntimeError, OSError):
+        return False

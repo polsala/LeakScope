@@ -1,0 +1,15 @@
+# Standalone v0.1: environment override LEAKSCOPE_DATA selects the private data directory.
+data_path: .data
+listen: 127.0.0.1:7831
+max_storage_mb: 1024
+allow_remote_access: false
+profiling:
+  max_duration_seconds: 600
+  default_sample_interval_ms: 1000
+  max_capture_mb: 50
+  max_concurrent_sessions: 2
+  max_sensor_rss_mb: 128
+retention:
+  process_metrics_days: 7
+  raw_captures_hours: 24
+  summaries_days: 30

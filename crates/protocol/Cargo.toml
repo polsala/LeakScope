@@ -1,0 +1,8 @@
+[package]
+name = "leakscope-protocol"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+prost.workspace = true
+serde_json.workspace = true
+tokio.workspace = true

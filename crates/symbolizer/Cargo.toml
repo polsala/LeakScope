@@ -1,0 +1,7 @@
+[package]
+name = "leakscope-symbolizer"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+object.workspace = true
+serde.workspace = true

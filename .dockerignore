@@ -1,0 +1,15 @@
+.git
+.cache
+.venv
+.data
+.env
+target
+node_modules
+apps/web/node_modules
+apps/web/test-results
+apps/web/playwright-report
+artifacts/*
+!artifacts/leakscope-0.1.0-linux-x86_64
+!artifacts/leakscope-0.1.0-linux-x86_64/**
+**/__pycache__
+**/*.pyc

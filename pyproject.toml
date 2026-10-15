@@ -1,0 +1,56 @@
+[project]
+name = "leakscope"
+version = "0.1.0"
+description = "Local memory investigations with explicit evidence quality"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi==0.143.1",
+  "uvicorn==0.34.3",
+  "pydantic==2.11.7",
+  "sqlalchemy==2.0.41",
+  "alembic==1.16.2",
+  "zstandard==0.23.0",
+  "protobuf==6.33.5",
+  "PyYAML==6.0.2",
+  "httpx==0.28.1",
+  "starlette==1.8.0",
+]
+
+[project.scripts]
+leakscope = "leakscope_api.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest==9.0.3",
+    "ruff==0.12.0",
+    "mypy==1.16.1",
+    "types-PyYAML==6.0.12.20250516",
+    "pip-audit==2.9.0",
+    "uv==0.11.15",
+]
+
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["apps/api"]
+include = ["leakscope_api*"]
+
+[tool.setuptools.package-data]
+leakscope_api = ["migrations/*.py", "migrations/versions/*.py"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+exclude = ["legacy", ".venv"]
+
+[tool.pytest.ini_options]
+testpaths = ["apps/api/tests", "tests/integration", "tests/security"]
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+python_version = "3.11"
+ignore_missing_imports = true
+check_untyped_defs = true
+files = ["apps/api/leakscope_api"]

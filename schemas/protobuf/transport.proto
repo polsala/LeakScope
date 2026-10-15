@@ -1,0 +1,10 @@
+syntax = "proto3";
+package leakscope.v1;
+// A 4-byte big-endian length prefixes each Envelope, capped at 1 MiB.
+// JSON payloads use the versioned JSON contracts; never application values.
+message Envelope {
+  uint32 version = 1;
+  string token = 2;
+  uint64 sequence = 3;
+  bytes payload = 4;
+}

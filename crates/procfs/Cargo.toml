@@ -1,0 +1,8 @@
+[package]
+name = "leakscope-procfs"
+version.workspace = true
+edition.workspace = true
+[dependencies]
+leakscope-common = { path = "../common" }
+serde.workspace = true
+serde_json.workspace = true
