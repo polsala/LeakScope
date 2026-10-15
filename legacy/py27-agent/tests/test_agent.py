@@ -54,19 +54,39 @@ class AgentTest(unittest.TestCase):
         finally:
             gc.enable()
 
+    def test_reentrant_safe_point_drops_without_deadlock(self):
+        original = agent.json.dumps
+        before = agent.health()['reentrant_dropped']
+        def nested(value, **kw):
+            self.assertFalse(agent.mark('nested_finalizer_marker'))
+            return original(value, **kw)
+        agent.json.dumps = nested
+        try:
+            self.assertTrue(agent.mark('outer_marker'))
+        finally:
+            agent.json.dumps = original
+        self.assertEqual(agent.health()['reentrant_dropped'], before + 1)
+        self.assertEqual(json.loads(self.sock.recv(32768))['payload']['name'], 'outer_marker')
+
     def test_fork_threads_and_disconnect(self):
         threads = [threading.Thread(target=lambda: agent.mark('thread')) for _ in range(4)]
         for thread in threads:
             thread.start()
         for thread in threads:
             thread.join()
-        for _ in threads:
-            self.assertEqual(json.loads(self.sock.recv(32768))['kind'], 'marker')
+        packets = [json.loads(self.sock.recv(32768)) for _ in threads]
+        self.assertTrue(all(packet['kind'] == 'marker' for packet in packets))
+        self.assertEqual(len(set(packet['sequence'] for packet in packets)), len(threads))
+        self.assertEqual([packet['sequence'] for packet in packets], sorted(packet['sequence'] for packet in packets))
+        agent._send_lock.acquire()
         child = os.fork()
         if child == 0:
+            import signal
+            signal.alarm(2)
             agent.after_fork()
             agent.mark('child')
             os._exit(0)
+        agent._send_lock.release()
         os.waitpid(child, 0)
         self.assertEqual(json.loads(self.sock.recv(32768))['pid'], child)
         self.sock.close()

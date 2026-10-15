@@ -12,6 +12,8 @@ import _leakscope_native as native
 _local = threading.local()
 _pid = os.getpid()
 _sequence = 0
+_send_lock = threading.Lock()
+_reentrant_drops = 0
 _pattern = re.compile(r'^[A-Za-z_][A-Za-z0-9_.: -]{0,79}$')
 _keys = frozenset(['operation', 'model', 'method', 'phase', 'worker_type'])
 
@@ -47,14 +49,25 @@ def _identity():
 
 
 def _send(kind, payload):
-    global _pid, _sequence, _local
+    global _pid, _sequence, _local, _send_lock, _reentrant_drops
     if _pid != os.getpid():
         _pid, _sequence, _local = os.getpid(), 0, threading.local()
-    _sequence += 1
-    event = {'version': 1, 'pid': _pid, 'start_ticks': _identity(), 'sequence': _sequence,
-             'thread': threading.current_thread().ident, 'timestamp': time.time(),
-             'kind': kind, 'payload': payload}
-    return native.send(json.dumps(event, separators=(',', ':')))
+        _send_lock = threading.Lock()
+    if getattr(_local, 'sending', False):
+        _reentrant_drops += 1
+        return False
+    _local.sending = True
+    # Serialize safe-point packets across I/O-induced GIL releases. The native
+    # datagram send remains nonblocking, with no retries or collector dependency.
+    try:
+        with _send_lock:
+            _sequence += 1
+            event = {'version': 1, 'pid': _pid, 'start_ticks': _identity(), 'sequence': _sequence,
+                     'thread': threading.current_thread().ident, 'timestamp': time.time(),
+                     'kind': kind, 'payload': payload}
+            return native.send(json.dumps(event, separators=(',', ':')))
+    finally:
+        _local.sending = False
 
 
 def mark(name, metadata=None, capture_stack=False):
@@ -104,8 +117,9 @@ def operation(name, model=None, method=None):
 
 
 def after_fork():
-    global _pid, _sequence, _local
+    global _pid, _sequence, _local, _send_lock
     _pid, _sequence, _local = os.getpid(), 0, threading.local()
+    _send_lock = threading.Lock()
     # Native descriptors are closed lazily on the next send; no inherited locks.
 
 
@@ -114,4 +128,6 @@ def shutdown():
 
 
 def health():
-    return native.health()
+    result = native.health()
+    result['reentrant_dropped'] = _reentrant_drops
+    return result

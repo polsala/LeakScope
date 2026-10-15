@@ -1,0 +1,40 @@
+{
+  "kind": "measured_local_procfs_transport",
+  "environment": "6.19.14+kali-amd64",
+  "results": [
+    {
+      "fixture_workers": 1,
+      "visible_processes": 190,
+      "discovery_ms_p50": 13.729571000112628,
+      "discovery_ms_p95": 15.352734999396489,
+      "discovery_ms_p99": 15.352734999396489,
+      "sensor_rss_bytes": 5480448,
+      "sensor_cpu_ticks": 26,
+      "iterations": 20
+    },
+    {
+      "fixture_workers": 10,
+      "visible_processes": 199,
+      "discovery_ms_p50": 13.77125149974745,
+      "discovery_ms_p95": 14.727477999258554,
+      "discovery_ms_p99": 14.727477999258554,
+      "sensor_rss_bytes": 5492736,
+      "sensor_cpu_ticks": 51,
+      "iterations": 20
+    },
+    {
+      "fixture_workers": 100,
+      "visible_processes": 293,
+      "discovery_ms_p50": 19.877583000379673,
+      "discovery_ms_p95": 21.890632999202353,
+      "discovery_ms_p99": 21.890632999202353,
+      "sensor_rss_bytes": 5492736,
+      "sensor_cpu_ticks": 88,
+      "iterations": 20
+    }
+  ],
+  "limitations": [
+    "Not an application overhead or allocation-probe throughput measurement.",
+    "Do not extrapolate shared-host latency into production SLOs."
+  ]
+}

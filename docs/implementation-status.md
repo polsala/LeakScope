@@ -35,7 +35,7 @@ Node 24.13.0 and genuine CPython 2.7.18.
 | Parquet / durable sensor spool | Unsupported | metrics metadata in SQLite; allocation data not silently stored there |
 | CLI, native binaries, frontend, wheel/source distribution | Built locally | artifacts and target/release; offline installer, migration resources and API factory validated |
 | Debian/OCI/systemd/release scripts | Packages and OCI built; deployment matrix pending | packaging scripts and release workflow |
-| 1/10/100-worker discovery benchmark | Measured locally | artifacts/benchmark.json: sensor RSS approximately 5.5 MB, discovery p95 15–22 ms |
+| 1/10/100-worker discovery benchmark | Measured locally | docs/development/benchmark-evidence-2026-10-15.json: sensor RSS approximately 5.5 MB, discovery p95 15–22 ms |
 | Production CPU/latency targets, 100k/s real probes, long soak | Unverified | no production SLO claimed |
 | GitHub Actions workflows | Implemented, not run on GitHub here | all required workflow files; trusted runner setup required |
 
@@ -62,7 +62,11 @@ were statically validated with actionlint; no claim is made that GitHub hosted o
 privileged runner workflows have executed. Review docs/self-review.md and the
 release gates before operational deployment.
 
-Rust audit note: cargo-audit 0.21.2 built successfully but could not parse a
-current CVSS 4 advisory. The advisory database is preserved; no advisories were
-removed or ignored to manufacture a passing audit. A compatible auditor is
-required before claiming native dependency audit success.
+## Native dependency audit resolution
+
+The current cargo-audit 0.22.2 parsed the complete advisory database. It found
+RUSTSEC-2026-0344 in ruzstd 0.8.3, pulled by object’s unused default compressed
+section reader. The symbol inspector reads ELF symbols/build IDs and does not
+implement compressed DWARF, so that unused feature was removed. The vulnerable
+crate is absent from Cargo.lock; Rust tests and Clippy pass, and the final native
+audit reports zero vulnerabilities and no warnings. No advisory was ignored.

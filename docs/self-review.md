@@ -36,3 +36,9 @@ claim is made from passing portable tests.
 Additional real checks confirmed bounded sensor loss after 256 unacknowledged
 samples, installed capture finalization before export, and ERP business-operation
 continuity when diagnostic marker delivery raises an exception.
+
+Final agent concurrency review also found that procfs reads can release the GIL
+between sequence assignment and packet serialization. Safe-point sends now use a
+fork-reset lock, with a thread-local reentrancy guard and a visible reentrant-drop
+counter. Genuine Python 2 tests verify distinct ordered thread sequences, fork
+while the parent lock is held, and nested safe-point calls without deadlock.
