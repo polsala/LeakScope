@@ -110,6 +110,16 @@ time.sleep(4)
             assert any(x["name"] == "job_started" for x in timeline["markers"])
             caps = client.get("/api/v1/processes/%s/capabilities" % p["key"]).json()
             assert caps["capabilities"]["deep"]
+            strict = client.post(
+                "/api/v1/sessions",
+                json={
+                    "process_key": p["key"],
+                    "mode": "observe",
+                    "allocation_domains": ["gc_objects"],
+                    "allow_downgrade": False,
+                },
+            )
+            assert strict.status_code == 409, strict.text
         finally:
             child.terminate()
             child.wait(timeout=3)

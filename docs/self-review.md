@@ -42,3 +42,9 @@ between sequence assignment and packet serialization. Safe-point sends now use a
 fork-reset lock, with a thread-local reentrancy guard and a visible reentrant-drop
 counter. Genuine Python 2 tests verify distinct ordered thread sequences, fork
 while the parent lock is held, and nested safe-point calls without deadlock.
+
+Bounded trend sampling was checked on captures just below a sampling stride
+boundary: the 256 selected points now span the complete time window, including
+its final sample. Rust/Python regression assertions cover growth confined to the
+second half. Strict Observe requests for GC evidence are rejected or explicitly
+downgraded, even when a cooperative agent is registered.

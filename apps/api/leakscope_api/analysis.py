@@ -11,7 +11,8 @@ LIMITATIONS = [
 
 
 def slope(points):
-    points = points[:: max(1, len(points) // 256)][:256]
+    count = min(len(points), 256)
+    points = [points[i * (len(points) - 1) // max(1, count - 1)] for i in range(count)]
     rates = [
         (b[1] - a[1]) / (b[0] - a[0])
         for i, a in enumerate(points)

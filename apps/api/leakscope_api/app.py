@@ -454,7 +454,8 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
         deep_available = bool(agent and time.time() - agent["last_seen"] < 300)
         supported_mode = body.mode == "observe" or (body.mode == "deep" and deep_available)
         unsupported = not supported_mode or any(
-            d not in {"os_process", "gc_objects"} or (d == "gc_objects" and not deep_available)
+            d not in {"os_process", "gc_objects"}
+            or (d == "gc_objects" and (not deep_available or body.mode != "deep"))
             for d in body.allocation_domains
         )
         if unsupported and not body.allow_downgrade:

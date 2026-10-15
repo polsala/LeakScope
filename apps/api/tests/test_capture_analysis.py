@@ -42,6 +42,8 @@ def test_recovery_corruption_and_limits(tmp_path):
 
 
 def test_robust_trend_and_honest_scoring():
+    # A bounded estimator must sample the whole capture, including its later half.
+    assert 0.2 < slope([(i, max(0, i - 255)) for i in range(511)]) < 0.8
     assert slope([(0, 0), (1, 2), (2, 999), (3, 6), (4, 8)]) == 2
     rising = [{"timestamp": i, "rss": 1000000 + i * 100000} for i in range(30)]
     summary = summarize(rising)

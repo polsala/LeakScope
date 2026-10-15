@@ -156,11 +156,9 @@ impl Lifecycle {
 }
 pub fn theil_sen(points: &[(f64, f64)]) -> Option<f64> {
     // Bound quadratic work to 256 evenly spaced points; no synthetic measurements.
-    let step = (points.len() / 256).max(1);
-    let p: Vec<_> = points
-        .iter()
-        .step_by(step)
-        .take(256)
+    let count = points.len().min(256);
+    let p: Vec<_> = (0..count)
+        .map(|i| &points[i * points.len().saturating_sub(1) / count.saturating_sub(1).max(1)])
         .filter(|(t, v)| t.is_finite() && v.is_finite())
         .collect();
     let mut slopes = Vec::new();
@@ -232,6 +230,11 @@ mod tests {
     }
     #[test]
     fn resistant_trend() {
+        let full: Vec<_> = (0..511)
+            .map(|i| (i as f64, (i as f64 - 255.0).max(0.0)))
+            .collect();
+        let rate = theil_sen(&full).unwrap();
+        assert!(rate > 0.2 && rate < 0.8);
         assert_eq!(
             theil_sen(&[(0., 0.), (1., 2.), (2., 999.), (3., 6.), (4., 8.)]),
             Some(2.)
