@@ -60,7 +60,7 @@
     "incomplete": false
   },
   "native_sha256": {
-    "leakscope-sensor": "a6651475de468ebb37a754dd0b89bda515b6b92fb343c8a1933dee8d095fcdbd",
+    "leakscope-sensor": "b4e212d7c69faaea135c2079bee2b0e56f0629cbc3099bd5b51fcefea16ce30a",
     "leakscope-analyzer": "b870bf2bc38a8b3ad2537ab9bf8ae8dc4f4b16730c6f37e67e43ffc4d2929f47"
   },
   "ubuntu_runtime_abi": [

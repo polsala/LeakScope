@@ -25,6 +25,9 @@ run the web API as root or disable perf/ptrace/AppArmor settings automatically.
 
 Remaining restrictions:
 
+- Foreign procfs mounts are rejected rather than silently using incompatible PIDs.
+  Child target PID namespaces use the observer coordinates; the full nested
+  namespace deployment matrix is not certified.
 - One selected libc/provider domain; no Python-block/arena probe loader.
 - Native frame-pointer stacks plus actual caller PC; no Python stack attribution.
 - Attach-time module snapshot; later dlopen/dlclose and symbol replacement can

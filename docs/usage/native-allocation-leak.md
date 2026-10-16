@@ -11,6 +11,19 @@ why tracing is unavailable. The target must share the sensor's UID. An operator
 must provision tracing privileges to the sensor; see kernel-gaps.md. The API
 must remain unprivileged. No sysctl or security policy is changed by LeakScope.
 
+For a standard kernel whose policy permits the narrower sensor capabilities,
+an operator can provision only the native sensor, using its actual installed path:
+
+```bash
+sudo setcap cap_bpf,cap_perfmon=ep /path/to/leakscope/bin/leakscope-sensor
+```
+
+The hardened validation host needed additional capabilities as recorded in
+kernel-gaps.md; that broad test configuration is not a default installation.
+The provided web systemd service has NoNewPrivileges and remains metrics-only
+unless an independently provisioned same-UID sensor is supplied through
+LEAKSCOPE_SENSOR_SOCKET. Do not grant tracing capabilities to Python/Uvicorn.
+
 For a genuine controlled leak:
 
 ```bash

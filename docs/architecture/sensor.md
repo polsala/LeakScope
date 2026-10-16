@@ -14,8 +14,9 @@ specific failure. A successful BPF load is eligibility, not proof of attachment.
 
 C probes correlate outermost calls per host TID, retaining only bounded pending
 state. Stacks are captured at entry, including the actual caller PC at SP on
-x86_64. PID namespace device/inode and bpf_get_ns_current_pid_tgid prevent container
-PID filtering errors. Forked children do not inherit attribution. Raw scheduler
+x86_64. The sensor namespace device/inode and bpf_get_ns_current_pid_tgid keep event
+PIDs in the same coordinates as discovery, including targets in child namespaces.
+Foreign procfs mounts exposing multiple NSpid coordinates are rejected explicitly. Forked children do not inherit attribution. Raw scheduler
 tracepoints clean abandoned thread state and disable capture on exec. Process
 exit/replacement stops the lease and retires its address space in analysis.
 
