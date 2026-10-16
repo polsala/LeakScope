@@ -24,7 +24,7 @@ TRANSITIONS = {
     "processing": {"ready", "degraded", "failed", "expired"},
     "degraded": {"stopping", "processing", "failed"},
     "ready": set(),
-    "failed": set(),
+    "failed": {"processing"},
     "cancelled": set(),
     "expired": set(),
 }

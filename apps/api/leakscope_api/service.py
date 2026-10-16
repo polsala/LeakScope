@@ -4,6 +4,9 @@ import json
 import os
 import time
 import logging
+import errno
+from pathlib import Path
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import select, delete
 from . import models as m
 from .capture import Writer, Reader, integrity
@@ -41,6 +44,9 @@ class Collector:
         self.guard_trips = 0
         self.agents: dict[str, dict] = {}
         self.agent_dropped = 0
+        self.capture_dir = (
+            Path(config.capture_path).resolve() if config.capture_path else data / "captures"
+        )
 
     def track(self, session_id):
         task = asyncio.create_task(self.record(session_id))
@@ -103,7 +109,16 @@ class Collector:
         return result["processes"]
 
     def disk_usage(self):
-        return sum(p.stat().st_size for p in self.data.rglob("*") if p.is_file())
+        total = 0
+        roots = [self.data] + (
+            [] if self.capture_dir.is_relative_to(self.data) else [self.capture_dir]
+        )
+        for root in roots:
+            for path in root.rglob("*"):
+                with contextlib.suppress(OSError):
+                    if path.is_file():
+                        total += path.stat().st_size
+        return total
 
     def samples(self, session_id, start=None, end=None, limit=10000):
         stmt = select(m.ProcessSample).where(m.ProcessSample.session_id == session_id)
@@ -139,6 +154,8 @@ class Collector:
                 profiling_policy=cfg.get("profiling_policy") or "native_detailed",
                 min_allocation_size=cfg.get("min_allocation_size", 65536),
                 native_stacks=cfg.get("native_stacks", "full"),
+                overhead_budget=self.config.overhead.model_dump(),
+                prior_metrics_cpu_percent=cfg.get("prior_metrics_cpu_percent"),
             )
             expected_policy = cfg.get("profiling_policy") or "native_detailed"
             observed_policy = confirmation.get("quality", {}).get("profiling_policy")
@@ -192,13 +209,34 @@ class Collector:
                 s.reason, s.ended_at = str(error), time.time()
 
     async def record(self, session_id):
+        try:
+            await self._record(session_id)
+        except BaseException as error:
+            # Covers failures before writer initialization and shutdown timeout.
+            # Bounded emergency cleanup is independent of database availability.
+            with contextlib.suppress(SensorError):
+                await self.call("stop", session=session_id)
+                await self.call("release", session=session_id)
+            with contextlib.suppress(SQLAlchemyError, OSError, ValueError):
+                with self.db.begin() as db:
+                    s = db.get(m.Session, session_id)
+                    if s and s.state in ACTIVE:
+                        transition(s, "failed")
+                        s.ended_at = time.time()
+                        s.reason = "collector_task_failure: " + type(error).__name__
+                        s.quality = {**s.quality, "incomplete": True, "recovery_required": True}
+            raise
+
+    async def _record(self, session_id):
         disconnected_since = None
-        spool = self.data / "captures" / (session_id + ".stream.partial")
+        lag_ms = None
+        spool = self.capture_dir / (session_id + ".stream.partial")
         with self.db() as db:
             session = db.get(m.Session, session_id)
             metadata = {"session": session_id, "quality": session.quality, "format": 1}
-        writer = Writer.resume(spool, metadata)
+        writer = None
         try:
+            writer = Writer.resume(spool, metadata)
             while True:
                 with self.db() as db:
                     s = db.get(m.Session, session_id)
@@ -206,7 +244,13 @@ class Collector:
                     duration, created = s.config["duration_seconds"], s.created_at
                 try:
                     response = await self.call(
-                        "stop" if stop else "poll", session=session_id, ack=ack
+                        "stop" if stop else "poll",
+                        session=session_id,
+                        ack=ack,
+                        collector_lag_ms=lag_ms,
+                        external_latency_increase_percent=s.quality.get(
+                            "external_latency_increase_percent"
+                        ),
                     )
                     disconnected_since = None
                 except SensorError as error:
@@ -223,8 +267,19 @@ class Collector:
                     await asyncio.sleep(0.5)
                     continue
                 events = response.get("events", [])
+                stamps = [
+                    e.get("event", {}).get("timestamp", e.get("sample", {}).get("timestamp"))
+                    for e in events
+                ]
+                stamps = [v for v in stamps if isinstance(v, (int, float))]
+                lag_ms = max(0, (time.time() - min(stamps)) * 1000) if stamps else None
                 new_events = [event for event in events if event["sequence"] > writer.last]
                 if new_events:
+                    estimated = len(json.dumps(new_events).encode()) + 4096
+                    if self.disk_usage() + estimated > self.config.max_storage_mb * 1024**2:
+                        raise OSError(
+                            errno.EDQUOT, "Capture would exceed the configured storage quota"
+                        )
                     writer.chunk(new_events)
                     os.fsync(
                         writer.out.fileno()
@@ -275,12 +330,21 @@ class Collector:
         except asyncio.CancelledError:
             raise
         except Exception as error:
-            with self.db.begin() as db:
-                s = db.get(m.Session, session_id)
-                s.quality = {**s.quality, "incomplete": True}
-                s.reason = "collector_error: " + type(error).__name__
+            # Storage failure must stop the probes immediately, even if SQLite
+            # itself cannot record the failure. The sensor also has its lease.
+            with contextlib.suppress(SensorError):
+                await self.call("stop", session=session_id)
+            with contextlib.suppress(SQLAlchemyError, OSError):
+                with self.db.begin() as db:
+                    s = db.get(m.Session, session_id)
+                    s.quality = {**s.quality, "incomplete": True}
+                    s.reason = "collector_error: " + type(error).__name__
         finally:
-            writer.close()
+            if writer is not None:
+                with contextlib.suppress(OSError):
+                    writer.close()
+                if not writer.out.closed:
+                    writer.out.close()
         # Cooperative sends never wait for us. Give already emitted datagrams a
         # bounded drain before sealing the capture. Missing Lab end confirmation
         # still invalidates survivors; timeout is never treated as an ACK.
@@ -309,6 +373,8 @@ class Collector:
                 transition(s, "stopping")
             if s.state == "stopping":
                 transition(s, "processing")
+            if s.state == "failed":
+                transition(s, "processing")  # Explicit recovery, never reattach.
             s.ended_at = time.time()
             p = db.get(m.Process, s.process_key)
             if self.agent_dropped > s.quality.get("agent_dropped_baseline", self.agent_dropped):
@@ -333,7 +399,7 @@ class Collector:
                 "quality": s.quality,
                 "version": "0.1.0",
             }
-        final = self.data / "captures" / (session_id + ".lscap")
+        final = self.capture_dir / (session_id + ".lscap")
         temporary = final.with_suffix(".partial")
         try:
             temporary.unlink(missing_ok=True)
@@ -345,7 +411,7 @@ class Collector:
                         .where(m.ProcessSample.session_id == session_id)
                         .order_by(m.ProcessSample.sequence)
                     )
-                    spool = self.data / "captures" / (session_id + ".stream.partial")
+                    spool = self.capture_dir / (session_id + ".stream.partial")
                     if spool.exists():
                         reader = Reader(spool)
                         for batch in reader.chunks():
@@ -419,7 +485,7 @@ class Collector:
                 if not w.out.closed:
                     w.out.close()
             os.replace(temporary, final)
-            spool = self.data / "captures" / (session_id + ".stream.partial")
+            spool = self.capture_dir / (session_id + ".stream.partial")
             spool.unlink(missing_ok=True)
             derived = None
             analysis_error = None
@@ -483,7 +549,7 @@ class Collector:
                 )
             ):
                 db.execute(delete(m.AgentRecord).where(m.AgentRecord.session_id == completed.id))
-                (self.data / "captures" / (completed.id + ".analysis.json")).unlink(missing_ok=True)
+                (self.capture_dir / (completed.id + ".analysis.json")).unlink(missing_ok=True)
             db.execute(
                 delete(m.ProcessSample).where(
                     m.ProcessSample.timestamp < now - retention.process_metrics_days * 86400,
@@ -502,7 +568,7 @@ class Collector:
             )
             for s in finished:
                 for suffix in (".lscap", ".manifest.json"):
-                    (self.data / "captures" / (s.id + suffix)).unlink(missing_ok=True)
+                    (self.capture_dir / (s.id + suffix)).unlink(missing_ok=True)
         # Reports are retained; deleting investigations is an explicit user operation.
 
     async def close(self):

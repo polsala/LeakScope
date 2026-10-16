@@ -4,6 +4,109 @@
  */
 
 export interface paths {
+    "/api/v1/monitors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listing */
+        get: operations["listing_api_v1_monitors_get"];
+        put?: never;
+        /** Create */
+        post: operations["create_api_v1_monitors_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/monitors/{identifier}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get */
+        get: operations["get_api_v1_monitors__identifier__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/monitors/{identifier}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop */
+        post: operations["stop_api_v1_monitors__identifier__stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/monitors/{identifier}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Timeline */
+        get: operations["timeline_api_v1_monitors__identifier__timeline_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/monitors/{identifier}/capture": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Capture */
+        post: operations["capture_api_v1_monitors__identifier__capture_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/anomalies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Anomalies */
+        get: operations["anomalies_api_v1_anomalies_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health/live": {
         parameters: {
             query?: never;
@@ -294,6 +397,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{sid}/findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get */
+        get: operations["get_api_v1_sessions__sid__findings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{sid}/performance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Performance */
+        get: operations["performance_api_v1_sessions__sid__performance_get"];
+        put?: never;
+        /** Supplied */
+        post: operations["supplied_api_v1_sessions__sid__performance_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{sid}/experiments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create */
+        post: operations["create_api_v1_sessions__sid__experiments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/experiments/{identifier}/phases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Phase */
+        post: operations["phase_api_v1_experiments__identifier__phases_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/experiments/{identifier}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Results */
+        get: operations["results_api_v1_experiments__identifier__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions/{session_id}/cohorts": {
         parameters: {
             query?: never;
@@ -564,7 +753,8 @@ export interface paths {
         get: operations["report_api_v1_reports__identifier__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Delete Report */
+        delete: operations["delete_report_api_v1_reports__identifier__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -581,6 +771,40 @@ export interface paths {
         get: operations["download_report_api_v1_reports__identifier__download_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{identifier}/capture": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Capture */
+        delete: operations["delete_capture_api_v1_sessions__identifier__capture_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{identifier}/recover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Recover Capture */
+        post: operations["recover_capture_api_v1_sessions__identifier__recover_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -655,6 +879,8 @@ export interface components {
              * @default .data
              */
             data_path: string;
+            /** Capture Path */
+            capture_path?: string | null;
             /**
              * Listen
              * @default 127.0.0.1:7831
@@ -676,19 +902,164 @@ export interface components {
              *       "default_sample_interval_ms": 1000,
              *       "max_capture_mb": 50,
              *       "max_concurrent_sessions": 2,
-             *       "max_sensor_rss_mb": 128
+             *       "max_sensor_rss_mb": 128,
+             *       "allow_automatic_native_capture": false,
+             *       "max_automatic_native_seconds": 15,
+             *       "automatic_capture_cooldown_seconds": 600
              *     } */
             profiling: components["schemas"]["Profiling"];
+            /** @default {
+             *       "enabled": true,
+             *       "minimum_observation_seconds": 900,
+             *       "warmup_seconds": 300,
+             *       "window_seconds": 300,
+             *       "sustained_windows": 3,
+             *       "minimum_growth_bytes": 52428800,
+             *       "minimum_rate_bytes_per_hour": 20971520,
+             *       "maximum_sample_gap_seconds": 60
+             *     } */
+            detection: components["schemas"]["Detection"];
+            /** @default {
+             *       "max_processes": 32,
+             *       "max_samples_per_process": 10000,
+             *       "max_duration_seconds": 604800
+             *     } */
+            monitoring: components["schemas"]["Monitoring"];
+            /** @default {
+             *       "target_cpu_increase_percent": 5,
+             *       "maximum_sensor_cpu_percent": 50,
+             *       "maximum_collector_lag_ms": 500,
+             *       "minimum_observation_seconds": 10,
+             *       "consecutive_violations": 2,
+             *       "maximum_target_latency_increase_percent": 20
+             *     } */
+            overhead: components["schemas"]["Overhead"];
             /**
              * Allow Remote Access
              * @default false
              */
             allow_remote_access: boolean;
         };
+        /** Detection */
+        Detection: {
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Minimum Observation Seconds
+             * @default 900
+             */
+            minimum_observation_seconds: number;
+            /**
+             * Warmup Seconds
+             * @default 300
+             */
+            warmup_seconds: number;
+            /**
+             * Window Seconds
+             * @default 300
+             */
+            window_seconds: number;
+            /**
+             * Sustained Windows
+             * @default 3
+             */
+            sustained_windows: number;
+            /**
+             * Minimum Growth Bytes
+             * @default 52428800
+             */
+            minimum_growth_bytes: number;
+            /**
+             * Minimum Rate Bytes Per Hour
+             * @default 20971520
+             */
+            minimum_rate_bytes_per_hour: number;
+            /**
+             * Maximum Sample Gap Seconds
+             * @default 60
+             */
+            maximum_sample_gap_seconds: number;
+        };
+        /** ExperimentCreate */
+        ExperimentCreate: {
+            /** Operation */
+            operation: string;
+        };
+        /** ExternalPerformance */
+        ExternalPerformance: {
+            /** Baseline Latency Ms */
+            baseline_latency_ms: number;
+            /** Observed Latency Ms */
+            observed_latency_ms: number;
+            /** Sample Count */
+            sample_count: number;
+            /** Measured Interval Seconds */
+            measured_interval_seconds: number;
+        };
+        /** FindingsView */
+        FindingsView: {
+            /** Trend */
+            trend: {
+                [key: string]: unknown;
+            };
+            hypothesis: components["schemas"]["HypothesisView"];
+            /** Recommendations */
+            recommendations: components["schemas"]["RecommendationView"][];
+            /** Session Id */
+            session_id: string;
+            /** Sites */
+            sites: components["schemas"]["RetainedSiteView"][];
+            operations: components["schemas"]["OperationAggregateView"];
+            /** Gc Type Deltas */
+            gc_type_deltas: {
+                [key: string]: unknown;
+            }[];
+            /** Quality */
+            quality: {
+                [key: string]: unknown;
+            };
+            /** Allocation Analysis Unavailable */
+            allocation_analysis_unavailable: string | null;
+            /** Phases */
+            phases: {
+                [key: string]: unknown;
+            }[];
+            /** Experiment Id */
+            experiment_id: string | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HypothesisView */
+        HypothesisView: {
+            /** Classification */
+            classification: string;
+            /** Score */
+            score: number | null;
+            /** Score Kind */
+            score_kind: string;
+            /** Supporting Evidence */
+            supporting_evidence: string[];
+            /** Contradictory Evidence */
+            contradictory_evidence: string[];
+            /** Limitations */
+            limitations: string[];
+            /** Attribution Quality */
+            attribution_quality: string;
+            /** Known Retained Bytes */
+            known_retained_bytes: number | null;
+            /** Process Key */
+            process_key: string;
+            /** Operation */
+            operation: string | null;
+            /** Source Locations */
+            source_locations: components["schemas"]["NativeFrameView"][];
+            recommended_validation: components["schemas"]["RecommendationView"];
         };
         /** IdentityView */
         IdentityView: {
@@ -737,6 +1108,136 @@ export interface components {
             name: string;
             /** Operation */
             operation?: string | null;
+        };
+        /** MonitorCreate */
+        MonitorCreate: {
+            /** Process Key */
+            process_key: string;
+            /**
+             * Interval Seconds
+             * @default 5
+             */
+            interval_seconds: number;
+            /**
+             * Duration Seconds
+             * @default 86400
+             */
+            duration_seconds: number;
+            detection?: components["schemas"]["Detection"] | null;
+            /** Automatic Policy */
+            automatic_policy?: "native_light" | null;
+            /**
+             * Trigger
+             * @default growth
+             * @enum {string}
+             */
+            trigger: "growth" | "periodic";
+            /**
+             * Capture Seconds
+             * @default 5
+             */
+            capture_seconds: number;
+            /**
+             * Capture Interval Seconds
+             * @default 600
+             */
+            capture_interval_seconds: number;
+        };
+        /** MonitorSampleView */
+        MonitorSampleView: {
+            /** Timestamp */
+            timestamp: number;
+            /** Rss */
+            rss: number;
+            /** Pss */
+            pss?: number | null;
+            /** Private Bytes */
+            private_bytes?: number | null;
+            /** Anonymous */
+            anonymous: number;
+            /** Virtual Bytes */
+            virtual_bytes: number;
+            /** Swap */
+            swap: number;
+            /** Threads */
+            threads: number;
+            /** Cpu Ticks */
+            cpu_ticks: number;
+            /** Minor Faults */
+            minor_faults: number;
+            /** Major Faults */
+            major_faults: number;
+            /** Target Cpu Percent */
+            target_cpu_percent?: number | null;
+            /** Operations */
+            operations?: number | null;
+            /**
+             * Operation Counter Partial
+             * @default false
+             */
+            operation_counter_partial: boolean;
+        };
+        /** MonitorTimelineView */
+        MonitorTimelineView: {
+            /** Items */
+            items: components["schemas"]["MonitorSampleView"][];
+            /** Analysis */
+            analysis: {
+                [key: string]: unknown;
+            };
+            /** Windows */
+            windows: components["schemas"]["WindowView"][];
+            /** Continuous Domain */
+            continuous_domain: string;
+            /** Cross Window Exact Survivors */
+            cross_window_exact_survivors: boolean;
+        };
+        /** MonitorView */
+        MonitorView: {
+            /** Id */
+            id: string;
+            /** Process Key */
+            process_key: string;
+            /** State */
+            state: string;
+            /** Created At */
+            created_at: number;
+            /** Ended At */
+            ended_at: number | null;
+            /** Config */
+            config: {
+                [key: string]: unknown;
+            };
+            /** Latest */
+            latest: {
+                [key: string]: unknown;
+            };
+            /** Analysis */
+            analysis: {
+                [key: string]: unknown;
+            };
+            /** Next Capture */
+            next_capture: number;
+            /** Last Error */
+            last_error: string;
+        };
+        /** Monitoring */
+        Monitoring: {
+            /**
+             * Max Processes
+             * @default 32
+             */
+            max_processes: number;
+            /**
+             * Max Samples Per Process
+             * @default 10000
+             */
+            max_samples_per_process: number;
+            /**
+             * Max Duration Seconds
+             * @default 604800
+             */
+            max_duration_seconds: number;
         };
         /** NativeAnalysisView */
         NativeAnalysisView: {
@@ -853,6 +1354,87 @@ export interface components {
                 [key: string]: components["schemas"]["NativeTreeView"];
             };
         };
+        /** OperationAggregateView */
+        OperationAggregateView: {
+            /** Groups */
+            groups: components["schemas"]["OperationGroupView"][];
+            /** Intervals */
+            intervals: {
+                [key: string]: unknown;
+            }[];
+            /** Ownership Established */
+            ownership_established: boolean;
+        };
+        /** OperationGroupView */
+        OperationGroupView: {
+            /** Operation */
+            operation: string;
+            /** Thread */
+            thread: number;
+            /** Execution Count */
+            execution_count: number;
+            /** Completed */
+            completed: number;
+            /** Failed */
+            failed: number;
+            /** Incomplete */
+            incomplete: number;
+            /** Total Duration Ms */
+            total_duration_ms: number;
+            /** P50 Duration Ms */
+            p50_duration_ms: number | null;
+            /** P95 Duration Ms */
+            p95_duration_ms: number | null;
+            /** Rss Delta Bytes */
+            rss_delta_bytes: number | null;
+            /** Rss Aggregation */
+            rss_aggregation: string;
+            /** Known Retained Bytes Per Iteration */
+            known_retained_bytes_per_iteration: number | null;
+            /** Allocation Association */
+            allocation_association?: string | null;
+        };
+        /** Overhead */
+        Overhead: {
+            /**
+             * Target Cpu Increase Percent
+             * @default 5
+             */
+            target_cpu_increase_percent: number;
+            /**
+             * Maximum Sensor Cpu Percent
+             * @default 50
+             */
+            maximum_sensor_cpu_percent: number;
+            /**
+             * Maximum Collector Lag Ms
+             * @default 500
+             */
+            maximum_collector_lag_ms: number;
+            /**
+             * Minimum Observation Seconds
+             * @default 10
+             */
+            minimum_observation_seconds: number;
+            /**
+             * Consecutive Violations
+             * @default 2
+             */
+            consecutive_violations: number;
+            /**
+             * Maximum Target Latency Increase Percent
+             * @default 20
+             */
+            maximum_target_latency_increase_percent: number;
+        };
+        /** PhaseCreate */
+        PhaseCreate: {
+            /**
+             * Phase
+             * @enum {string}
+             */
+            phase: "warmup" | "baseline" | "repetitions" | "cooldown" | "comparison";
+        };
         /** ProcessPage */
         ProcessPage: {
             /** Items */
@@ -908,6 +1490,38 @@ export interface components {
              * @default 128
              */
             max_sensor_rss_mb: number;
+            /**
+             * Allow Automatic Native Capture
+             * @default false
+             */
+            allow_automatic_native_capture: boolean;
+            /**
+             * Max Automatic Native Seconds
+             * @default 15
+             */
+            max_automatic_native_seconds: number;
+            /**
+             * Automatic Capture Cooldown Seconds
+             * @default 600
+             */
+            automatic_capture_cooldown_seconds: number;
+        };
+        /** RecommendationView */
+        RecommendationView: {
+            /** Action */
+            action: string;
+            /** Reason */
+            reason: string;
+            /** Required Capabilities */
+            required_capabilities: string[];
+            /** Expected Observability */
+            expected_observability: string;
+            /** Expected Overhead */
+            expected_overhead: string;
+            /** Operational Risk */
+            operational_risk: string;
+            /** Uncertainty */
+            uncertainty: string;
         };
         /** ReportCreate */
         ReportCreate: {
@@ -928,6 +1542,29 @@ export interface components {
              * @default true
              */
             redact: boolean;
+        };
+        /** RetainedSiteView */
+        RetainedSiteView: {
+            /** Classification */
+            classification: string;
+            /** Known Retained Bytes */
+            known_retained_bytes: number;
+            /** Allocation Count */
+            allocation_count: number;
+            /** Domain */
+            domain: string;
+            /** Attribution Quality */
+            attribution_quality: string;
+            /** Frames */
+            frames: components["schemas"]["NativeFrameView"][];
+            /** Stack Id */
+            stack_id: string;
+            /** Session Id */
+            session_id: string;
+            /** Ownership Established */
+            ownership_established: boolean;
+            /** Validation */
+            validation: string;
         };
         /** Retention */
         Retention: {
@@ -1084,6 +1721,21 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        /** WindowView */
+        WindowView: {
+            /** Session Id */
+            session_id: string;
+            /** Created At */
+            created_at: number;
+            /** Ended At */
+            ended_at: number | null;
+            /** Quality */
+            quality: {
+                [key: string]: unknown;
+            };
+            /** State */
+            state: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -1093,6 +1745,245 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listing_api_v1_monitors_get: {
+        parameters: {
+            query?: {
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_api_v1_monitors_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MonitorCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitorView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_api_v1_monitors__identifier__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitorView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_api_v1_monitors__identifier__stop_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitorView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    timeline_api_v1_monitors__identifier__timeline_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                start?: number | null;
+                end?: number | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitorTimelineView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    capture_api_v1_monitors__identifier__capture_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    anomalies_api_v1_anomalies_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     live_api_v1_health_live_get: {
         parameters: {
             query?: never;
@@ -1665,6 +2556,216 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_api_v1_sessions__sid__findings_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingsView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    performance_api_v1_sessions__sid__performance_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    supplied_api_v1_sessions__sid__performance_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExternalPerformance"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_api_v1_sessions__sid__experiments_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExperimentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    phase_api_v1_experiments__identifier__phases_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhaseCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    results_api_v1_experiments__identifier__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingsView"];
                 };
             };
             /** @description Validation Error */
@@ -2391,11 +3492,110 @@ export interface operations {
             };
         };
     };
+    delete_report_api_v1_reports__identifier__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     download_report_api_v1_reports__identifier__download_get: {
         parameters: {
             query?: {
                 format?: string;
             };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_capture_api_v1_sessions__identifier__capture_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recover_capture_api_v1_sessions__identifier__recover_post: {
+        parameters: {
+            query?: never;
             header?: {
                 authorization?: string | null;
             };

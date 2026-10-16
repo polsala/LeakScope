@@ -21,14 +21,47 @@ class Profiling(Strict):
     max_capture_mb: int = Field(50, ge=1, le=500)
     max_concurrent_sessions: int = Field(2, ge=1, le=2)
     max_sensor_rss_mb: int = Field(128, ge=32, le=128)
+    allow_automatic_native_capture: bool = False
+    max_automatic_native_seconds: int = Field(15, ge=1, le=60)
+    automatic_capture_cooldown_seconds: int = Field(600, ge=10, le=86400)
+
+
+class Detection(Strict):
+    enabled: bool = True
+    minimum_observation_seconds: float = Field(900, ge=1, le=86400)
+    warmup_seconds: float = Field(300, ge=0, le=86400)
+    window_seconds: float = Field(300, ge=0.1, le=86400)
+    sustained_windows: int = Field(3, ge=1, le=12)
+    minimum_growth_bytes: int = Field(50 * 1024**2, ge=4096, le=2**50)
+    minimum_rate_bytes_per_hour: float = Field(20 * 1024**2, ge=0, le=2**50)
+    maximum_sample_gap_seconds: float = Field(60, ge=0.1, le=86400)
+
+
+class Monitoring(Strict):
+    max_processes: int = Field(32, ge=1, le=128)
+    max_samples_per_process: int = Field(10000, ge=100, le=100000)
+    max_duration_seconds: int = Field(604800, ge=60, le=2592000)
+
+
+class Overhead(Strict):
+    target_cpu_increase_percent: float = Field(5, ge=1, le=1000)
+    maximum_sensor_cpu_percent: float = Field(50, ge=1, le=1000)
+    maximum_collector_lag_ms: float = Field(500, ge=100, le=60000)
+    minimum_observation_seconds: float = Field(10, ge=1, le=600)
+    consecutive_violations: int = Field(2, ge=1, le=10)
+    maximum_target_latency_increase_percent: float = Field(20, ge=1, le=1000)
 
 
 class Config(Strict):
     data_path: str = ".data"
+    capture_path: str | None = None
     listen: str = "127.0.0.1:7831"
     max_storage_mb: int = Field(1024, ge=10, le=1048576)
     retention: Retention = Retention()
     profiling: Profiling = Profiling()
+    detection: Detection = Detection()
+    monitoring: Monitoring = Monitoring()
+    overhead: Overhead = Overhead()
     allow_remote_access: bool = False
 
 

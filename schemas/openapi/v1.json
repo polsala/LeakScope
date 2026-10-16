@@ -5,6 +5,468 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/v1/monitors": {
+      "post": {
+        "summary": "Create",
+        "operationId": "create_api_v1_monitors_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MonitorCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonitorView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Listing",
+        "operationId": "listing_api_v1_monitors_get",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/monitors/{identifier}": {
+      "get": {
+        "summary": "Get",
+        "operationId": "get_api_v1_monitors__identifier__get",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonitorView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/monitors/{identifier}/stop": {
+      "post": {
+        "summary": "Stop",
+        "operationId": "stop_api_v1_monitors__identifier__stop_post",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonitorView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/monitors/{identifier}/timeline": {
+      "get": {
+        "summary": "Timeline",
+        "operationId": "timeline_api_v1_monitors__identifier__timeline_get",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 2000,
+              "minimum": 1,
+              "default": 1000,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonitorTimelineView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/monitors/{identifier}/capture": {
+      "post": {
+        "summary": "Capture",
+        "operationId": "capture_api_v1_monitors__identifier__capture_post",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/anomalies": {
+      "get": {
+        "summary": "Anomalies",
+        "operationId": "anomalies_api_v1_anomalies_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/health/live": {
       "get": {
         "summary": "Live",
@@ -992,6 +1454,356 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{sid}/findings": {
+      "get": {
+        "summary": "Get",
+        "operationId": "get_api_v1_sessions__sid__findings_get",
+        "parameters": [
+          {
+            "name": "sid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sid"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FindingsView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{sid}/performance": {
+      "get": {
+        "summary": "Performance",
+        "operationId": "performance_api_v1_sessions__sid__performance_get",
+        "parameters": [
+          {
+            "name": "sid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sid"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Supplied",
+        "operationId": "supplied_api_v1_sessions__sid__performance_post",
+        "parameters": [
+          {
+            "name": "sid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sid"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExternalPerformance"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{sid}/experiments": {
+      "post": {
+        "summary": "Create",
+        "operationId": "create_api_v1_sessions__sid__experiments_post",
+        "parameters": [
+          {
+            "name": "sid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Sid"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExperimentCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/experiments/{identifier}/phases": {
+      "post": {
+        "summary": "Phase",
+        "operationId": "phase_api_v1_experiments__identifier__phases_post",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhaseCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/experiments/{identifier}": {
+      "get": {
+        "summary": "Results",
+        "operationId": "results_api_v1_experiments__identifier__get",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FindingsView"
+                }
               }
             }
           },
@@ -2702,6 +3514,57 @@
             }
           }
         }
+      },
+      "delete": {
+        "summary": "Delete Report",
+        "operationId": "delete_report_api_v1_reports__identifier__delete",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/reports/{identifier}/download": {
@@ -2727,6 +3590,112 @@
               "pattern": "^(html|json)$",
               "default": "html",
               "title": "Format"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{identifier}/capture": {
+      "delete": {
+        "summary": "Delete Capture",
+        "operationId": "delete_capture_api_v1_sessions__identifier__capture_delete",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{identifier}/recover": {
+      "post": {
+        "summary": "Recover Capture",
+        "operationId": "recover_capture_api_v1_sessions__identifier__recover_post",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Identifier"
             }
           },
           {
@@ -3008,6 +3977,17 @@
             "title": "Data Path",
             "default": ".data"
           },
+          "capture_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capture Path"
+          },
           "listen": {
             "type": "string",
             "title": "Listen",
@@ -3035,7 +4015,42 @@
               "default_sample_interval_ms": 1000,
               "max_capture_mb": 50,
               "max_concurrent_sessions": 2,
-              "max_sensor_rss_mb": 128
+              "max_sensor_rss_mb": 128,
+              "allow_automatic_native_capture": false,
+              "max_automatic_native_seconds": 15,
+              "automatic_capture_cooldown_seconds": 600
+            }
+          },
+          "detection": {
+            "$ref": "#/components/schemas/Detection",
+            "default": {
+              "enabled": true,
+              "minimum_observation_seconds": 900.0,
+              "warmup_seconds": 300.0,
+              "window_seconds": 300.0,
+              "sustained_windows": 3,
+              "minimum_growth_bytes": 52428800,
+              "minimum_rate_bytes_per_hour": 20971520.0,
+              "maximum_sample_gap_seconds": 60.0
+            }
+          },
+          "monitoring": {
+            "$ref": "#/components/schemas/Monitoring",
+            "default": {
+              "max_processes": 32,
+              "max_samples_per_process": 10000,
+              "max_duration_seconds": 604800
+            }
+          },
+          "overhead": {
+            "$ref": "#/components/schemas/Overhead",
+            "default": {
+              "target_cpu_increase_percent": 5.0,
+              "maximum_sensor_cpu_percent": 50.0,
+              "maximum_collector_lag_ms": 500.0,
+              "minimum_observation_seconds": 10.0,
+              "consecutive_violations": 2,
+              "maximum_target_latency_increase_percent": 20.0
             }
           },
           "allow_remote_access": {
@@ -3047,6 +4062,211 @@
         "additionalProperties": false,
         "type": "object",
         "title": "Config"
+      },
+      "Detection": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": true
+          },
+          "minimum_observation_seconds": {
+            "type": "number",
+            "maximum": 86400.0,
+            "minimum": 1.0,
+            "title": "Minimum Observation Seconds",
+            "default": 900
+          },
+          "warmup_seconds": {
+            "type": "number",
+            "maximum": 86400.0,
+            "minimum": 0.0,
+            "title": "Warmup Seconds",
+            "default": 300
+          },
+          "window_seconds": {
+            "type": "number",
+            "maximum": 86400.0,
+            "minimum": 0.1,
+            "title": "Window Seconds",
+            "default": 300
+          },
+          "sustained_windows": {
+            "type": "integer",
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Sustained Windows",
+            "default": 3
+          },
+          "minimum_growth_bytes": {
+            "type": "integer",
+            "maximum": 1125899906842624.0,
+            "minimum": 4096.0,
+            "title": "Minimum Growth Bytes",
+            "default": 52428800
+          },
+          "minimum_rate_bytes_per_hour": {
+            "type": "number",
+            "maximum": 1125899906842624.0,
+            "minimum": 0.0,
+            "title": "Minimum Rate Bytes Per Hour",
+            "default": 20971520
+          },
+          "maximum_sample_gap_seconds": {
+            "type": "number",
+            "maximum": 86400.0,
+            "minimum": 0.1,
+            "title": "Maximum Sample Gap Seconds",
+            "default": 60
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Detection"
+      },
+      "ExperimentCreate": {
+        "properties": {
+          "operation": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_.: -]{0,79}$",
+            "title": "Operation"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "operation"
+        ],
+        "title": "ExperimentCreate"
+      },
+      "ExternalPerformance": {
+        "properties": {
+          "baseline_latency_ms": {
+            "type": "number",
+            "maximum": 86400000.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Baseline Latency Ms"
+          },
+          "observed_latency_ms": {
+            "type": "number",
+            "maximum": 86400000.0,
+            "minimum": 0.0,
+            "title": "Observed Latency Ms"
+          },
+          "sample_count": {
+            "type": "integer",
+            "maximum": 10000000.0,
+            "minimum": 10.0,
+            "title": "Sample Count"
+          },
+          "measured_interval_seconds": {
+            "type": "number",
+            "maximum": 86400.0,
+            "minimum": 1.0,
+            "title": "Measured Interval Seconds"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "baseline_latency_ms",
+          "observed_latency_ms",
+          "sample_count",
+          "measured_interval_seconds"
+        ],
+        "title": "ExternalPerformance"
+      },
+      "FindingsView": {
+        "properties": {
+          "trend": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Trend"
+          },
+          "hypothesis": {
+            "$ref": "#/components/schemas/HypothesisView"
+          },
+          "recommendations": {
+            "items": {
+              "$ref": "#/components/schemas/RecommendationView"
+            },
+            "type": "array",
+            "title": "Recommendations"
+          },
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "sites": {
+            "items": {
+              "$ref": "#/components/schemas/RetainedSiteView"
+            },
+            "type": "array",
+            "title": "Sites"
+          },
+          "operations": {
+            "$ref": "#/components/schemas/OperationAggregateView"
+          },
+          "gc_type_deltas": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Gc Type Deltas"
+          },
+          "quality": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Quality"
+          },
+          "allocation_analysis_unavailable": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allocation Analysis Unavailable"
+          },
+          "phases": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Phases"
+          },
+          "experiment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Experiment Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "trend",
+          "hypothesis",
+          "recommendations",
+          "session_id",
+          "sites",
+          "operations",
+          "gc_type_deltas",
+          "quality",
+          "allocation_analysis_unavailable",
+          "phases",
+          "experiment_id"
+        ],
+        "title": "FindingsView"
       },
       "HTTPValidationError": {
         "properties": {
@@ -3060,6 +4280,107 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "HypothesisView": {
+        "properties": {
+          "classification": {
+            "type": "string",
+            "title": "Classification"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "score_kind": {
+            "type": "string",
+            "title": "Score Kind"
+          },
+          "supporting_evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Supporting Evidence"
+          },
+          "contradictory_evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Contradictory Evidence"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Limitations"
+          },
+          "attribution_quality": {
+            "type": "string",
+            "title": "Attribution Quality"
+          },
+          "known_retained_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Known Retained Bytes"
+          },
+          "process_key": {
+            "type": "string",
+            "title": "Process Key"
+          },
+          "operation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operation"
+          },
+          "source_locations": {
+            "items": {
+              "$ref": "#/components/schemas/NativeFrameView"
+            },
+            "type": "array",
+            "title": "Source Locations"
+          },
+          "recommended_validation": {
+            "$ref": "#/components/schemas/RecommendationView"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "classification",
+          "score",
+          "score_kind",
+          "supporting_evidence",
+          "contradictory_evidence",
+          "limitations",
+          "attribution_quality",
+          "known_retained_bytes",
+          "process_key",
+          "operation",
+          "source_locations",
+          "recommended_validation"
+        ],
+        "title": "HypothesisView"
       },
       "IdentityView": {
         "properties": {
@@ -3222,6 +4543,321 @@
           "name"
         ],
         "title": "MarkerCreate"
+      },
+      "MonitorCreate": {
+        "properties": {
+          "process_key": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Process Key"
+          },
+          "interval_seconds": {
+            "type": "number",
+            "maximum": 60.0,
+            "minimum": 0.2,
+            "title": "Interval Seconds",
+            "default": 5
+          },
+          "duration_seconds": {
+            "type": "integer",
+            "maximum": 2592000.0,
+            "minimum": 1.0,
+            "title": "Duration Seconds",
+            "default": 86400
+          },
+          "detection": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Detection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "automatic_policy": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "native_light"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Automatic Policy"
+          },
+          "trigger": {
+            "type": "string",
+            "enum": [
+              "growth",
+              "periodic"
+            ],
+            "title": "Trigger",
+            "default": "growth"
+          },
+          "capture_seconds": {
+            "type": "integer",
+            "maximum": 60.0,
+            "minimum": 1.0,
+            "title": "Capture Seconds",
+            "default": 5
+          },
+          "capture_interval_seconds": {
+            "type": "integer",
+            "maximum": 86400.0,
+            "minimum": 10.0,
+            "title": "Capture Interval Seconds",
+            "default": 600
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "process_key"
+        ],
+        "title": "MonitorCreate"
+      },
+      "MonitorSampleView": {
+        "properties": {
+          "timestamp": {
+            "type": "number",
+            "title": "Timestamp"
+          },
+          "rss": {
+            "type": "integer",
+            "title": "Rss"
+          },
+          "pss": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pss"
+          },
+          "private_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Private Bytes"
+          },
+          "anonymous": {
+            "type": "integer",
+            "title": "Anonymous"
+          },
+          "virtual_bytes": {
+            "type": "integer",
+            "title": "Virtual Bytes"
+          },
+          "swap": {
+            "type": "integer",
+            "title": "Swap"
+          },
+          "threads": {
+            "type": "integer",
+            "title": "Threads"
+          },
+          "cpu_ticks": {
+            "type": "integer",
+            "title": "Cpu Ticks"
+          },
+          "minor_faults": {
+            "type": "integer",
+            "title": "Minor Faults"
+          },
+          "major_faults": {
+            "type": "integer",
+            "title": "Major Faults"
+          },
+          "target_cpu_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Cpu Percent"
+          },
+          "operations": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operations"
+          },
+          "operation_counter_partial": {
+            "type": "boolean",
+            "title": "Operation Counter Partial",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "timestamp",
+          "rss",
+          "anonymous",
+          "virtual_bytes",
+          "swap",
+          "threads",
+          "cpu_ticks",
+          "minor_faults",
+          "major_faults"
+        ],
+        "title": "MonitorSampleView"
+      },
+      "MonitorTimelineView": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MonitorSampleView"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "analysis": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Analysis"
+          },
+          "windows": {
+            "items": {
+              "$ref": "#/components/schemas/WindowView"
+            },
+            "type": "array",
+            "title": "Windows"
+          },
+          "continuous_domain": {
+            "type": "string",
+            "title": "Continuous Domain"
+          },
+          "cross_window_exact_survivors": {
+            "type": "boolean",
+            "title": "Cross Window Exact Survivors"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items",
+          "analysis",
+          "windows",
+          "continuous_domain",
+          "cross_window_exact_survivors"
+        ],
+        "title": "MonitorTimelineView"
+      },
+      "MonitorView": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "process_key": {
+            "type": "string",
+            "title": "Process Key"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "created_at": {
+            "type": "number",
+            "title": "Created At"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config"
+          },
+          "latest": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Latest"
+          },
+          "analysis": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Analysis"
+          },
+          "next_capture": {
+            "type": "number",
+            "title": "Next Capture"
+          },
+          "last_error": {
+            "type": "string",
+            "title": "Last Error"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "process_key",
+          "state",
+          "created_at",
+          "ended_at",
+          "config",
+          "latest",
+          "analysis",
+          "next_capture",
+          "last_error"
+        ],
+        "title": "MonitorView"
+      },
+      "Monitoring": {
+        "properties": {
+          "max_processes": {
+            "type": "integer",
+            "maximum": 128.0,
+            "minimum": 1.0,
+            "title": "Max Processes",
+            "default": 32
+          },
+          "max_samples_per_process": {
+            "type": "integer",
+            "maximum": 100000.0,
+            "minimum": 100.0,
+            "title": "Max Samples Per Process",
+            "default": 10000
+          },
+          "max_duration_seconds": {
+            "type": "integer",
+            "maximum": 2592000.0,
+            "minimum": 60.0,
+            "title": "Max Duration Seconds",
+            "default": 604800
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Monitoring"
       },
       "NativeAnalysisView": {
         "properties": {
@@ -3563,6 +5199,215 @@
         ],
         "title": "NativeTreeView"
       },
+      "OperationAggregateView": {
+        "properties": {
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/OperationGroupView"
+            },
+            "type": "array",
+            "title": "Groups"
+          },
+          "intervals": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Intervals"
+          },
+          "ownership_established": {
+            "type": "boolean",
+            "title": "Ownership Established"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "groups",
+          "intervals",
+          "ownership_established"
+        ],
+        "title": "OperationAggregateView"
+      },
+      "OperationGroupView": {
+        "properties": {
+          "operation": {
+            "type": "string",
+            "title": "Operation"
+          },
+          "thread": {
+            "type": "integer",
+            "title": "Thread"
+          },
+          "execution_count": {
+            "type": "integer",
+            "title": "Execution Count"
+          },
+          "completed": {
+            "type": "integer",
+            "title": "Completed"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "incomplete": {
+            "type": "integer",
+            "title": "Incomplete"
+          },
+          "total_duration_ms": {
+            "type": "number",
+            "title": "Total Duration Ms"
+          },
+          "p50_duration_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P50 Duration Ms"
+          },
+          "p95_duration_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P95 Duration Ms"
+          },
+          "rss_delta_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rss Delta Bytes"
+          },
+          "rss_aggregation": {
+            "type": "string",
+            "title": "Rss Aggregation"
+          },
+          "known_retained_bytes_per_iteration": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Known Retained Bytes Per Iteration"
+          },
+          "allocation_association": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allocation Association"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "operation",
+          "thread",
+          "execution_count",
+          "completed",
+          "failed",
+          "incomplete",
+          "total_duration_ms",
+          "p50_duration_ms",
+          "p95_duration_ms",
+          "rss_delta_bytes",
+          "rss_aggregation",
+          "known_retained_bytes_per_iteration"
+        ],
+        "title": "OperationGroupView"
+      },
+      "Overhead": {
+        "properties": {
+          "target_cpu_increase_percent": {
+            "type": "number",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Target Cpu Increase Percent",
+            "default": 5
+          },
+          "maximum_sensor_cpu_percent": {
+            "type": "number",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Maximum Sensor Cpu Percent",
+            "default": 50
+          },
+          "maximum_collector_lag_ms": {
+            "type": "number",
+            "maximum": 60000.0,
+            "minimum": 100.0,
+            "title": "Maximum Collector Lag Ms",
+            "default": 500
+          },
+          "minimum_observation_seconds": {
+            "type": "number",
+            "maximum": 600.0,
+            "minimum": 1.0,
+            "title": "Minimum Observation Seconds",
+            "default": 10
+          },
+          "consecutive_violations": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Consecutive Violations",
+            "default": 2
+          },
+          "maximum_target_latency_increase_percent": {
+            "type": "number",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Maximum Target Latency Increase Percent",
+            "default": 20
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Overhead"
+      },
+      "PhaseCreate": {
+        "properties": {
+          "phase": {
+            "type": "string",
+            "enum": [
+              "warmup",
+              "baseline",
+              "repetitions",
+              "cooldown",
+              "comparison"
+            ],
+            "title": "Phase"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "phase"
+        ],
+        "title": "PhaseCreate"
+      },
       "ProcessPage": {
         "properties": {
           "items": {
@@ -3692,11 +5537,77 @@
             "minimum": 32.0,
             "title": "Max Sensor Rss Mb",
             "default": 128
+          },
+          "allow_automatic_native_capture": {
+            "type": "boolean",
+            "title": "Allow Automatic Native Capture",
+            "default": false
+          },
+          "max_automatic_native_seconds": {
+            "type": "integer",
+            "maximum": 60.0,
+            "minimum": 1.0,
+            "title": "Max Automatic Native Seconds",
+            "default": 15
+          },
+          "automatic_capture_cooldown_seconds": {
+            "type": "integer",
+            "maximum": 86400.0,
+            "minimum": 10.0,
+            "title": "Automatic Capture Cooldown Seconds",
+            "default": 600
           }
         },
         "additionalProperties": false,
         "type": "object",
         "title": "Profiling"
+      },
+      "RecommendationView": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "required_capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Required Capabilities"
+          },
+          "expected_observability": {
+            "type": "string",
+            "title": "Expected Observability"
+          },
+          "expected_overhead": {
+            "type": "string",
+            "title": "Expected Overhead"
+          },
+          "operational_risk": {
+            "type": "string",
+            "title": "Operational Risk"
+          },
+          "uncertainty": {
+            "type": "string",
+            "title": "Uncertainty"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "action",
+          "reason",
+          "required_capabilities",
+          "expected_observability",
+          "expected_overhead",
+          "operational_risk",
+          "uncertainty"
+        ],
+        "title": "RecommendationView"
       },
       "ReportCreate": {
         "properties": {
@@ -3730,6 +5641,68 @@
           "session_id"
         ],
         "title": "ReportCreate"
+      },
+      "RetainedSiteView": {
+        "properties": {
+          "classification": {
+            "type": "string",
+            "title": "Classification"
+          },
+          "known_retained_bytes": {
+            "type": "integer",
+            "title": "Known Retained Bytes"
+          },
+          "allocation_count": {
+            "type": "integer",
+            "title": "Allocation Count"
+          },
+          "domain": {
+            "type": "string",
+            "title": "Domain"
+          },
+          "attribution_quality": {
+            "type": "string",
+            "title": "Attribution Quality"
+          },
+          "frames": {
+            "items": {
+              "$ref": "#/components/schemas/NativeFrameView"
+            },
+            "type": "array",
+            "title": "Frames"
+          },
+          "stack_id": {
+            "type": "string",
+            "title": "Stack Id"
+          },
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "ownership_established": {
+            "type": "boolean",
+            "title": "Ownership Established"
+          },
+          "validation": {
+            "type": "string",
+            "title": "Validation"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "classification",
+          "known_retained_bytes",
+          "allocation_count",
+          "domain",
+          "attribution_quality",
+          "frames",
+          "stack_id",
+          "session_id",
+          "ownership_established",
+          "validation"
+        ],
+        "title": "RetainedSiteView"
       },
       "Retention": {
         "properties": {
@@ -4080,6 +6053,48 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WindowView": {
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "title": "Session Id"
+          },
+          "created_at": {
+            "type": "number",
+            "title": "Created At"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "quality": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Quality"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "session_id",
+          "created_at",
+          "ended_at",
+          "quality",
+          "state"
+        ],
+        "title": "WindowView"
       }
     }
   }

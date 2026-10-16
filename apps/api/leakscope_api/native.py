@@ -29,6 +29,15 @@ def analyze(path: Path, **filters):
 
 
 def _analyze(path: Path, context_events=None, **filters):
+    binary = analyzer_binary()
+    command = [binary, "--capture", str(path)]
+    for key, value in filters.items():
+        if value is not None:
+            command.extend(["--" + key.replace("_", "-"), str(value)])
+    return _execute_capture(command, path, context_events, filters)
+
+
+def analyzer_binary():
     root = Path(__file__).resolve().parents[3]
     candidates = [
         os.getenv("LEAKSCOPE_ANALYZER_BIN"),
@@ -41,10 +50,37 @@ def _analyze(path: Path, context_events=None, **filters):
         raise NativeAnalysisError(
             "Rust analyzer is unavailable; install the native package or run cargo build --workspace"
         )
-    command = [binary, "--capture", str(path)]
-    for key, value in filters.items():
-        if value is not None:
-            command.extend(["--" + key.replace("_", "-"), str(value)])
+    return binary
+
+
+def diagnose(samples, thresholds, evidence=None):
+    encoded = json.dumps(
+        {"samples": samples, "thresholds": thresholds, "evidence": evidence or {}}, allow_nan=False
+    )
+    if len(encoded.encode()) > 1024 * 1024:
+        raise NativeAnalysisError("Diagnosis metadata exceeds 1 MiB")
+    if not _ANALYSES.acquire(timeout=1):
+        raise NativeAnalysisError("Analysis workers are busy; retry")
+    try:
+        result = subprocess.run(
+            [analyzer_binary(), "--diagnose"],
+            input=encoded.encode(),
+            capture_output=True,
+            timeout=10,
+        )
+        if result.returncode or len(result.stdout) > 1024 * 1024:
+            raise NativeAnalysisError(
+                result.stderr.decode(errors="replace")[:2000]
+                or "Diagnosis response budget exceeded"
+            )
+        return json.loads(result.stdout)
+    except (OSError, ValueError, subprocess.TimeoutExpired) as error:
+        raise NativeAnalysisError("Diagnosis unavailable or timed out") from error
+    finally:
+        _ANALYSES.release()
+
+
+def _execute_capture(command, path, context_events, filters):
     try:
         with contextlib.ExitStack() as resources:
             if context_events is not None:

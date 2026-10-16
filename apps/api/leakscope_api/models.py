@@ -161,3 +161,53 @@ class AgentRecord(Base):
     timestamp: Mapped[float] = mapped_column(Float)
     size: Mapped[int] = mapped_column(Integer)
     data: Mapped[dict] = mapped_column(JSON)
+
+
+class Monitor(Base):
+    __tablename__ = "monitors"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    process_key: Mapped[str] = mapped_column(ForeignKey("processes.key"), index=True)
+    state: Mapped[str] = mapped_column(String, index=True)
+    created_at: Mapped[float] = mapped_column(Float)
+    ended_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+    config: Mapped[dict] = mapped_column(JSON)
+    latest: Mapped[dict] = mapped_column(JSON, default=dict)
+    analysis: Mapped[dict] = mapped_column(JSON, default=dict)
+    next_sample: Mapped[float] = mapped_column(Float, default=0)
+    next_capture: Mapped[float] = mapped_column(Float, default=0)
+    last_error: Mapped[str] = mapped_column(Text, default="")
+
+
+class MonitorSample(Base):
+    __tablename__ = "monitor_samples"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    monitor_id: Mapped[str] = mapped_column(ForeignKey("monitors.id"), index=True)
+    timestamp: Mapped[float] = mapped_column(Float, index=True)
+    data: Mapped[dict] = mapped_column(JSON)
+
+
+class CaptureWindow(Base):
+    __tablename__ = "capture_windows"
+    id: Mapped[str] = mapped_column(ForeignKey("sessions.id"), primary_key=True)
+    monitor_id: Mapped[str] = mapped_column(ForeignKey("monitors.id"), index=True)
+    created_at: Mapped[float] = mapped_column(Float)
+    ended_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+    quality: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class Anomaly(Base):
+    __tablename__ = "anomalies"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    monitor_id: Mapped[str] = mapped_column(ForeignKey("monitors.id"), index=True)
+    process_key: Mapped[str] = mapped_column(String)
+    created_at: Mapped[float] = mapped_column(Float, index=True)
+    evidence: Mapped[dict] = mapped_column(JSON)
+
+
+class Experiment(Base):
+    __tablename__ = "experiments"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id"), index=True)
+    operation: Mapped[str] = mapped_column(String)
+    created_at: Mapped[float] = mapped_column(Float)
+    phases: Mapped[list] = mapped_column(JSON, default=list)

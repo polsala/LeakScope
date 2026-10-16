@@ -2,8 +2,34 @@ import html
 import json
 
 
+def redact_paths(value):
+    if isinstance(value, dict):
+        return {redact_paths(k): redact_paths(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [redact_paths(v) for v in value]
+    if isinstance(value, str) and value.startswith("/"):
+        return value.rsplit("/", 1)[-1]
+    return value
+
+
 def render(document: dict) -> str:
     title = html.escape(document["title"])
+    hypothesis = document.get("findings", {}).get("hypothesis", {})
+    executive = ""
+    if hypothesis:
+        executive = (
+            "<h2>Investigation summary</h2><p>"
+            + html.escape(hypothesis["classification"].replace("_", " "))
+            + ". Heuristic rank: "
+            + html.escape(str(hypothesis.get("score")))
+            + "; this is not a calibrated probability.</p><ul>"
+            + "".join(
+                "<li>" + html.escape(v) + "</li>" for v in hypothesis.get("supporting_evidence", [])
+            )
+            + "</ul><p>"
+            + html.escape(hypothesis.get("recommended_validation", {}).get("reason", ""))
+            + "</p>"
+        )
     samples = document.get("timeline", [])
     plot = ""
     if samples:
@@ -94,4 +120,4 @@ def render(document: dict) -> str:
             + "</table>"
         )
     payload = html.escape(json.dumps(document, indent=2, ensure_ascii=False))
-    return f"""<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:"><title>{title}</title><style>body{{font:16px system-ui;max-width:1000px;margin:48px auto;padding:24px;color:#173038}}h1{{font-size:32px}}pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:#f0f5f4;padding:24px;border-radius:12px}}svg{{width:100%}}</style><h1>{title}</h1><p>LeakScope · reproducible memory investigation · {html.escape(document.get("version", ""))}</p>{plot}{native_plot}{python_plot}{operation_plot}<p>RSS growth is evidence of process growth; it does not establish an allocation leak.</p><pre>{payload}</pre></html>"""
+    return f"""<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:"><title>{title}</title><style>body{{font:16px system-ui;max-width:1000px;margin:48px auto;padding:24px;color:#173038}}h1{{font-size:32px}}pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:#f0f5f4;padding:24px;border-radius:12px}}svg{{width:100%}}</style><h1>{title}</h1><p>LeakScope · reproducible memory investigation · {html.escape(document.get("version", ""))}</p>{executive}{plot}{native_plot}{python_plot}{operation_plot}<p>RSS growth is evidence of process growth; it does not establish an allocation leak.</p><pre>{payload}</pre></html>"""

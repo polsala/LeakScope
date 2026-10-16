@@ -233,6 +233,10 @@ async def receive_agents(collector, path):
                 if old and packet.sequence <= old["sequence"]:
                     continue
                 collector.agents[key] = {
+                    "operations_completed": (old or {}).get("operations_completed", 0),
+                    "context_incomplete": (old or {}).get("context_incomplete", False)
+                    or packet.dropped > 0
+                    or bool(old and packet.sequence != old["sequence"] + 1),
                     "last_seen": time.time(),
                     "sequence": packet.sequence,
                     "visibility": "gc_generation_zero_only",
@@ -245,6 +249,10 @@ async def receive_agents(collector, path):
                     in {"python_codes", "python_profile", "lab_stack", "lab_events"}
                     or (old or {}).get("python_function_boundaries", False),
                 }
+                if packet.kind == "operation":
+                    operation = Operation.model_validate(packet.payload)
+                    if operation.end_ns is not None:
+                        collector.agents[key]["operations_completed"] += 1
                 with collector.db.begin() as db:
                     sessions = list(
                         db.scalars(

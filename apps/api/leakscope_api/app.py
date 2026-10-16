@@ -34,7 +34,7 @@ from .contracts import (
     transition,
 )
 from .db import database
-from .reports import render
+from .reports import render, redact_paths
 from .context_capture import expand
 from .native import analyze as analyze_native, NativeAnalysisError
 from .agent import receive_agents, Snapshot, validate_evidence
@@ -42,6 +42,8 @@ from .sensor import Sensor, SensorError
 from .service import Collector, ACTIVE, session_view
 from .contracts import ProcessView, ProcessPage
 from .limits import BodyLimit
+from .monitoring import Observer, install_routes as monitoring_routes
+from .investigation import Findings, install_routes as findings_routes
 
 LEVELS = {"viewer": 0, "analyst": 1, "operator": 2, "admin": 3}
 ROOT = Path(__file__).resolve().parents[3]
@@ -76,7 +78,10 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
             )
     socket_path = Path(os.getenv("LEAKSCOPE_SENSOR_SOCKET", str(data / "sensor.sock"))).resolve()
     sensor = Sensor(socket_path, sensor_token)
+    captures = Path(cfg.capture_path).resolve() if cfg.capture_path else data / "captures"
+    private_directory(captures)
     collector = Collector(db_factory, sensor, cfg, data)
+    observer = Observer(collector)
 
     async def maintenance():
         while True:
@@ -117,7 +122,11 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
         await collector.reconcile()
         task = asyncio.create_task(maintenance())
         agent_task = asyncio.create_task(receive_agents(collector, data / "agent.sock"))
+        observation_task = asyncio.create_task(observer.run())
         yield
+        observation_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await observation_task
         task.cancel()
         agent_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
@@ -263,6 +272,8 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
         require("operator"),
         require("admin"),
     )
+    monitoring_routes(app, observer, read, operator)
+    app.state.observer = observer
 
     def entity(model, identifier):
         with db_factory() as db:
@@ -659,9 +670,9 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
             unavailable(
                 "Native executable mappings changed; symbols have been invalidated. Restart a bounded session after libraries stabilize"
             )
-        path = data / "captures" / (session_id + ".lscap")
+        path = captures / (session_id + ".lscap")
         if not path.exists():
-            path = data / "captures" / (session_id + ".stream.partial")
+            path = captures / (session_id + ".stream.partial")
         if not path.exists():
             raise HTTPException(409, "Native capture has not reached durable storage yet")
         try:
@@ -714,6 +725,9 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
             for site in result["top_sites"]:
                 site["known_live_bytes"] = None
         return result
+
+    findings_service = Findings(collector, native_result)
+    findings_routes(app, findings_service, read, analyst, operator)
 
     @app.get(
         "/api/v1/sessions/{session_id}/allocations",
@@ -832,7 +846,7 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
                 "timeline": collector.samples(session_id),
                 "redacted": True,
             }
-        path = data / "captures" / (s.id + ".lscap")
+        path = captures / (s.id + ".lscap")
         if not path.exists():
             raise HTTPException(
                 410, "Raw capture expired or unavailable; use persisted metrics or reports"
@@ -843,7 +857,7 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
     async def import_capture(request: Request, role=Depends(operator)):
         if collector.disk_usage() + 50 * 1024 * 1024 > cfg.max_storage_mb * 1024 * 1024:
             raise HTTPException(507, "Import budget exceeds storage quota")
-        path = data / "captures" / (uuid.uuid4().hex + ".upload")
+        path = captures / (uuid.uuid4().hex + ".upload")
         size = 0
         reader = None
         try:
@@ -937,6 +951,10 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
                         if len(markers) > 1000 or len(snapshots) > 100:
                             raise CaptureError("Diagnostic event budget reached")
                         continue
+                    if event.get("kind") in {"capture_window", "policy_transition"}:
+                        if len(json.dumps(event)) > 8192:
+                            raise CaptureError("Capture window metadata exceeds budget")
+                        continue
                     if event.get("kind") in {"allocation", "stack", "modules", "quality"}:
                         if event["kind"] == "allocation":
                             if event.get("event", {}).get("process") != key or event["event"].get(
@@ -1007,7 +1025,7 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
                 quality["imported"] = True
             if native_events or agent_records:
                 # Retain chunks exactly, using the existing format and sequences.
-                spool = data / "captures" / (session_id + ".stream.partial")
+                spool = captures / (session_id + ".stream.partial")
                 shutil.copyfile(path, spool)
                 spool.chmod(0o600)
             with db_factory.begin() as db:
@@ -1129,7 +1147,7 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
         inv = entity(m.Investigation, identifier)
         s = entity(m.Session, inv.session_id)
         return {
-            "items": [summarize(collector.samples(s.id), s.quality)],
+            "items": [findings_service.get(s.id)["hypothesis"]],
             "limitations": "Hypotheses are ranking aids, not diagnoses.",
         }
 
@@ -1211,6 +1229,12 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
             "reproduction_steps": body.reproduction_steps,
             "redacted": body.redact,
         }
+        document["findings"] = findings_service.get(s.id)
+        document["profiling_safety"] = {
+            "controller": s.quality.get("controller"),
+            "capture_window": s.quality.get("capture_window"),
+            "transitions": s.quality.get("policy_transitions", []),
+        }
         if s.quality.get("coverage") in {"native_observed", "lab_observed"} and not s.quality.get(
             "symbolization_invalidated"
         ):
@@ -1242,6 +1266,7 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
                     if evidence in document:
                         document[evidence] = redact_native(document[evidence])
         if body.redact:
+            document["findings"] = redact_paths(document["findings"])
             document["session"] = {
                 k: v for k, v in document["session"].items() if k != "process_key"
             }
@@ -1294,6 +1319,38 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
             headers={"Content-Disposition": f'attachment; filename="leakscope-{r.id}.{format}"'},
         )
 
+    @app.delete("/api/v1/reports/{identifier}")
+    def delete_report(identifier: str, role=Depends(admin)):
+        entity(m.Report, identifier)
+        with db_factory.begin() as db:
+            db.delete(db.get(m.Report, identifier))
+        collector.audit(role, "report.delete", identifier)
+        return {"deleted": True}
+
+    @app.delete("/api/v1/sessions/{identifier}/capture")
+    def delete_capture(identifier: str, role=Depends(admin)):
+        s = entity(m.Session, identifier)
+        if s.state in ACTIVE:
+            raise HTTPException(409, "Active captures are protected")
+        for suffix in (".lscap", ".manifest.json", ".analysis.json", ".stream.partial", ".partial"):
+            (captures / (identifier + suffix)).unlink(missing_ok=True)
+        with db_factory.begin() as db:
+            current = db.get(m.Session, identifier)
+            current.quality = {**current.quality, "capture_deleted_at": time.time()}
+        collector.audit(role, "capture.delete", identifier)
+        return {"deleted": True, "reports_retained": True}
+
+    @app.post("/api/v1/sessions/{identifier}/recover")
+    async def recover_capture(identifier: str, role=Depends(operator)):
+        s = entity(m.Session, identifier)
+        if s.state != "failed" or identifier in collector.tasks:
+            raise HTTPException(409, "Only a failed inactive capture can be recovered")
+        if not (captures / (identifier + ".stream.partial")).exists():
+            raise HTTPException(409, "No durable partial capture exists")
+        await asyncio.to_thread(collector.finalize, identifier)
+        collector.audit(role, "capture.recover", identifier)
+        return session_view(entity(m.Session, identifier))
+
     @app.get("/api/v1/settings")
     def settings(role=Depends(read)):
         return {
@@ -1308,6 +1365,7 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
     def patch_settings(body: Config, role=Depends(admin)):
         if (
             body.data_path not in {".data", cfg.data_path}
+            or body.capture_path != cfg.capture_path
             or body.listen != cfg.listen
             or body.allow_remote_access
         ):
