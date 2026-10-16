@@ -1,4 +1,5 @@
 //! Memory domains never sum: arena backing and object blocks overlap.
+pub mod diagnosis;
 pub use leakscope_protocol::AllocationEvent as Event;
 use serde::Serialize;
 use std::collections::HashMap;

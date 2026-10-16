@@ -62,6 +62,16 @@ fn context_records(
 }
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = std::env::args().collect();
+    if args.iter().any(|a| a == "--diagnose") {
+        let mut raw = String::new();
+        io::stdin().take(1024 * 1024 + 1).read_to_string(&mut raw)?;
+        if raw.len() > 1024 * 1024 {
+            return Err("diagnosis request exceeds 1 MiB".into());
+        }
+        let input: leakscope_analyzer::diagnosis::Input = serde_json::from_str(&raw)?;
+        println!("{}", leakscope_analyzer::diagnosis::analyze(&input)?);
+        return Ok(());
+    }
     let option = |name: &str| {
         args.iter()
             .position(|a| a == name)
@@ -156,6 +166,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut quality = json!({});
     let mut created_cohorts: BTreeMap<i64, (u64, u64)> = BTreeMap::new();
     let mut domain_totals = (0u64, 0u64, 0u64, 0u64, 0u64);
+    let mut capture_epoch: Option<String> = None;
+    let mut capture_gap = false;
     let mut selected_count = 0u64;
     let mut selected_bytes = 0u64;
     let mut sites: BTreeMap<String, (u64, u64, u64, u64)> = BTreeMap::new();
@@ -204,6 +216,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let mut consume = |item: Value| -> Result<(), Box<dyn std::error::Error>> {
         match item["kind"].as_str().unwrap_or("") {
+            "capture_window" => {
+                let epoch = item["window"]["activation_epoch"].as_str();
+                if item["phase"] == "gap"
+                    || (epoch.is_some()
+                        && capture_epoch
+                            .as_deref()
+                            .is_some_and(|old| Some(old) != epoch))
+                {
+                    capture_gap = true;
+                    lifecycle.incomplete = true;
+                    lifecycle.live.clear();
+                }
+                if let Some(epoch) = epoch {
+                    capture_epoch = Some(epoch.to_owned());
+                }
+            }
             "stack" => {
                 if stacks.len() >= 8192 {
                     return Err("stack table budget exceeded".into());
@@ -416,6 +444,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         && !quality["incomplete"].as_bool().unwrap_or(false)
         && lost == 0;
     quality["context_overlay"] = json!(option("--context").is_some());
+    quality["capture_gaps"] = json!(capture_gap);
     quality["tree_nodes_truncated"] = json!(node_budget == 0);
     quality["incomplete"] = json!(!exact);
     quality["exact_survivors"] = json!(exact);
