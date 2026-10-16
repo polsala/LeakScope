@@ -1,3 +1,4 @@
+mod controller;
 mod native;
 use leakscope_common::now;
 use leakscope_procfs::{discover, read_process};
@@ -15,6 +16,14 @@ use std::{
 use tokio::{net::UnixListener, sync::Mutex};
 
 struct Lease {
+    controller: controller::Controller,
+    created: Instant,
+    controller_check: Instant,
+    previous_cpu: Option<(Instant, u64)>,
+    target_cpu: Option<f64>,
+    collector_lag_ms: Option<f64>,
+    feedback_at: Instant,
+    external_latency_increase: Option<f64>,
     pid: u32,
     key: String,
     deadline: Instant,
@@ -46,12 +55,33 @@ struct State {
 fn err(s: &str) -> Value {
     json!({"error":s})
 }
+fn clock_ticks() -> Option<u64> {
+    // SAFETY: sysconf reads a process-independent scalar; no pointers or ownership.
+    let ticks = unsafe { libc::sysconf(libc::_SC_CLK_TCK) };
+    (ticks > 0).then_some(ticks as u64)
+}
+fn kernel_probe_fds() -> usize {
+    fs::read_dir("/proc/self/fd")
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|e| {
+            fs::read_link(e.path()).is_ok_and(|p| {
+                let p = p.to_string_lossy();
+                p.contains("perf_event")
+                    || p.contains("bpf-link")
+                    || p.contains("bpf_link")
+                    || p.contains("bpf_raw_tracepoint")
+            })
+        })
+        .count()
+}
 async fn handle(req: Value, state: &Arc<Mutex<State>>) -> Value {
     let action = req["action"].as_str().unwrap_or("");
     let uid = state.lock().await.uid;
     match action {
         "doctor" => {
-            json!({"capabilities":capabilities(),"host_id":leakscope_procfs::host_id(),"uid":uid,"kernel":fs::read_to_string("/proc/sys/kernel/osrelease").unwrap_or_default().trim(),"architecture":std::env::consts::ARCH,"clock_ticks_per_second":null,"clock_ticks_note":"cpu_ticks are raw kernel units; conversion is not inferred","started":state.lock().await.started})
+            json!({"capabilities":capabilities(),"host_id":leakscope_procfs::host_id(),"uid":uid,"kernel":fs::read_to_string("/proc/sys/kernel/osrelease").unwrap_or_default().trim(),"architecture":std::env::consts::ARCH,"clock_ticks_per_second":clock_ticks(),"started":state.lock().await.started})
         }
         "discover" => json!({"processes":discover(uid)}),
         "health" => {
@@ -70,11 +100,11 @@ async fn handle(req: Value, state: &Arc<Mutex<State>>) -> Value {
                         .max(l.queue_bytes as f64 / (4. * 1024. * 1024.))
                 })
                 .fold(0f64, f64::max);
-            json!({"sample":own.map(|p|p.sample),"ringbuffer_utilization":utilization,"ringbuffer_source":"sensor_ack_queue","kernel_ringbuffer_utilization":null,"active_leases":s.leases.values().filter(|l|!l.stopped).count()})
+            json!({"sample":own.map(|p|p.sample),"ringbuffer_utilization":utilization,"ringbuffer_source":"sensor_ack_queue","kernel_ringbuffer_utilization":null,"kernel_probe_fds":kernel_probe_fds(),"native_traces":s.leases.values().filter(|l|l.trace.is_some()).count(),"active_leases":s.leases.values().filter(|l|!l.stopped).count()})
         }
         "sample" => {
             let pid = req["pid"].as_u64().unwrap_or(0) as u32;
-            match read_process(pid, uid, true) {
+            match read_process(pid, uid, req["expensive"].as_bool().unwrap_or(true)) {
                 Ok(p) => json!(p),
                 Err(e) => err(&e.to_string()),
             }
@@ -147,6 +177,18 @@ async fn handle(req: Value, state: &Arc<Mutex<State>>) -> Value {
                 return err("native probes already attached to this process");
             }
             let mut trace = None;
+            let budget: controller::Budget = match serde_json::from_value(
+                req["overhead_budget"]
+                    .as_object()
+                    .map(|_| req["overhead_budget"].clone())
+                    .unwrap_or(json!({})),
+            ) {
+                Ok(v) => v,
+                Err(_) => return err("invalid overhead budget"),
+            };
+            if !budget.valid() {
+                return err("overhead budget outside allowed bounds");
+            }
             let mut native_quality = json!({});
             if req["native"].as_bool().unwrap_or(false) {
                 let policy = match native::Policy::parse(&req) {
@@ -177,6 +219,17 @@ async fn handle(req: Value, state: &Arc<Mutex<State>>) -> Value {
             s.leases.insert(
                 id.clone(),
                 Lease {
+                    controller: controller::Controller::new(
+                        budget,
+                        req["prior_metrics_cpu_percent"].as_f64(),
+                    ),
+                    created: Instant::now(),
+                    controller_check: Instant::now(),
+                    previous_cpu: None,
+                    target_cpu: None,
+                    collector_lag_ms: None,
+                    feedback_at: Instant::now(),
+                    external_latency_increase: None,
                     trace,
                     native_quality,
                     lost_native: 0,
@@ -211,6 +264,12 @@ async fn handle(req: Value, state: &Arc<Mutex<State>>) -> Value {
             if let Some(l) = s.leases.get_mut(&id)
                 && let Some(t) = &l.trace
             {
+                let window = t.window();
+                enqueue(
+                    l,
+                    json!({"kind":"capture_window","phase":"armed","window":window}),
+                );
+                let t = l.trace.as_ref().unwrap();
                 for m in t.modules() {
                     enqueue(l, m);
                 }
@@ -224,6 +283,13 @@ async fn handle(req: Value, state: &Arc<Mutex<State>>) -> Value {
                 return err("unknown session; sensor may have restarted");
             };
             let ack = req["ack"].as_u64().unwrap_or(0);
+            l.feedback_at = Instant::now();
+            l.collector_lag_ms = req["collector_lag_ms"]
+                .as_f64()
+                .filter(|n| n.is_finite() && *n >= 0.);
+            l.external_latency_increase = req["external_latency_increase_percent"]
+                .as_f64()
+                .filter(|n| n.is_finite());
             while l
                 .queue
                 .front()
@@ -312,13 +378,28 @@ async fn main() -> io::Result<()> {
     let sample_state = state.clone();
     let sampler = tokio::spawn(async move {
         let mut timer = tokio::time::interval(Duration::from_millis(50));
+        let mut own_check = Instant::now() - Duration::from_secs(2);
+        let mut own_cpu: Option<(Instant, u64)> = None;
+        let mut sensor_cpu = None;
+        let mut sensor_rss = 0;
         loop {
             timer.tick().await;
             let mut s = sample_state.lock().await;
             let uid = s.uid;
-            let sensor_rss = read_process(std::process::id(), uid, false)
-                .map(|p| p.sample.rss)
-                .unwrap_or(0);
+            if own_check.elapsed() >= Duration::from_secs(1) {
+                own_check = Instant::now();
+                if let Ok(p) = read_process(std::process::id(), uid, false) {
+                    sensor_rss = p.sample.rss;
+                    if let Some((at, ticks)) = own_cpu {
+                        sensor_cpu = clock_ticks().map(|hz| {
+                            100. * p.sample.cpu_ticks.saturating_sub(ticks) as f64
+                                / hz as f64
+                                / at.elapsed().as_secs_f64()
+                        });
+                    }
+                    own_cpu = Some((Instant::now(), p.sample.cpu_ticks));
+                }
+            }
             for l in s.leases.values_mut() {
                 if l.stopped {
                     finish_trace(l);
@@ -327,7 +408,7 @@ async fn main() -> io::Result<()> {
                 if let Some(trace) = &mut l.trace {
                     match trace.drain(&l.key) {
                         Ok(events) => {
-                            l.native_quality = trace.quality();
+                            l.native_quality = preserve_quality(&l.native_quality, trace.quality());
                             let executed = events.iter().any(|e| e["event"]["kind"] == "exit");
                             let overloaded = trace.lost.iter().sum::<u64>() > 0;
                             let produced = trace.sequence + trace.lost.iter().sum::<u64>();
@@ -418,6 +499,56 @@ async fn main() -> io::Result<()> {
                         continue;
                     }
                 };
+                if let Some((at, ticks)) = l.previous_cpu {
+                    l.target_cpu = clock_ticks().map(|hz| {
+                        100. * p.sample.cpu_ticks.saturating_sub(ticks) as f64
+                            / hz as f64
+                            / at.elapsed().as_secs_f64()
+                    });
+                }
+                l.previous_cpu = Some((Instant::now(), p.sample.cpu_ticks));
+                if l.trace.is_some() && l.controller_check.elapsed() >= Duration::from_secs(1) {
+                    l.controller_check = Instant::now();
+                    let feedback_age = l.feedback_at.elapsed().as_secs_f64();
+                    let telemetry = controller::Telemetry {
+                        target_cpu_percent: l.target_cpu,
+                        sensor_cpu_percent: sensor_cpu,
+                        collector_lag_ms: if feedback_age > 2. {
+                            Some(feedback_age * 1000.)
+                        } else {
+                            l.collector_lag_ms
+                        },
+                        queue_utilization: (l.queue_bytes as f64 / (4. * 1024. * 1024.))
+                            .max(l.queue.len() as f64 / 4096.),
+                        kernel_lost: l.native_quality["lost_events"].as_u64().unwrap_or(0),
+                        collector_lost: l.lost_native,
+                        external_latency_increase_percent: l.external_latency_increase,
+                    };
+                    let action = l
+                        .controller
+                        .evaluate(l.created.elapsed().as_secs_f64(), &telemetry);
+                    l.native_quality["controller"] = l.controller.snapshot.clone();
+                    match action {
+                        controller::Action::None => {}
+                        controller::Action::ReduceStacks(reason) => {
+                            let reduced = l
+                                .trace
+                                .as_mut()
+                                .and_then(|trace| trace.reduce_stacks().ok().flatten());
+                            if let Some(policy) = reduced {
+                                policy_transition(l, policy, reason);
+                            } else {
+                                finish_trace(l);
+                                policy_transition(l, "metrics", reason);
+                            }
+                        }
+                        controller::Action::Detach(reason) => {
+                            finish_trace(l);
+                            l.native_quality["detailed_tracing_stopped"] = json!(reason);
+                            policy_transition(l, "metrics", reason);
+                        }
+                    }
+                }
                 let event = json!({"process_key":l.key,"kind":"metric","sample":p.sample});
                 l.samples += 1;
                 enqueue(l, event);
@@ -495,6 +626,7 @@ fn enqueue(l: &mut Lease, mut event: Value) {
 }
 fn finish_trace(l: &mut Lease) {
     if let Some(mut trace) = l.trace.take() {
+        let detach_clock = Instant::now();
         trace.stop();
         // Bounded final drain. Further/in-flight events invalidate completeness.
         for _ in 0..16 {
@@ -514,8 +646,50 @@ fn finish_trace(l: &mut Lease) {
                 }
             }
         }
-        l.native_quality = trace.quality();
+        l.native_quality = preserve_quality(&l.native_quality, trace.quality());
         l.native_quality["attach_boundary"] =
             json!("Calls already in progress at attach/detach are not covered");
+        drop(trace); // Actual link FD closure, not merely a BPF inactive flag.
+        l.native_quality["capture_window"]["detached_at"] = json!(now());
+        l.native_quality["capture_window"]["detach_seconds"] =
+            json!(detach_clock.elapsed().as_secs_f64());
+        l.native_quality["capture_window"]["physically_detached"] = json!(true);
+        let window = l.native_quality["capture_window"].clone();
+        enqueue(
+            l,
+            json!({"kind":"capture_window","phase":"detached","window":window}),
+        );
     }
+}
+fn preserve_quality(old: &Value, mut new: Value) -> Value {
+    for key in ["controller", "policy_transitions", "effective_policy"] {
+        if !old[key].is_null() {
+            new[key] = old[key].clone();
+        }
+    }
+    new
+}
+fn policy_transition(l: &mut Lease, to: &str, reason: &str) {
+    let mut transitions = l.native_quality["policy_transitions"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    if transitions.len() < 16 {
+        transitions.push(json!({"from":l.native_quality["profiling_policy"],"to":to,"timestamp":now(),"reason":reason}));
+    }
+    l.native_quality["policy_transitions"] = json!(transitions);
+    l.native_quality["effective_policy"] = json!(to);
+    if to == "metrics" {
+        l.native_quality["coverage_gap_after_native"] = json!(true);
+        l.native_quality["incomplete"] = json!(true);
+        let window = l.native_quality["capture_window"].clone();
+        enqueue(
+            l,
+            json!({"kind":"capture_window","phase":"gap","window":window}),
+        );
+    }
+    enqueue(
+        l,
+        json!({"kind":"policy_transition","timestamp":now(),"to":to,"reason":reason}),
+    );
 }

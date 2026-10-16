@@ -107,10 +107,14 @@ fn monotonic_ns() -> Result<u64> {
     Ok(clock.tv_sec as u64 * 1_000_000_000 + clock.tv_nsec as u64)
 }
 pub struct Trace {
+    attach_started: f64,
+    armed_ns: u64,
+    attach_seconds: f64,
     _bpf: Ebpf,
     ring: RingBuf<MapData>,
     pending: aya::maps::HashMap<MapData, u64, [u64; 8]>,
     stop_ns: Option<u64>,
+    disarmed_upper_ns: Option<u64>,
     in_flight: u64,
     after_disarm: u64,
     uncertain_stop: bool,
@@ -131,6 +135,8 @@ pub struct Trace {
 }
 impl Trace {
     pub fn start(pid: u32, policy: Policy) -> Result<Self> {
+        let attach_started = leakscope_common::now();
+        let attach_clock = Instant::now();
         match std::fs::read_to_string("/proc/self/timens_offsets") {
             Ok(text) if !clock_offset_zero(&text)? => return Err("Native tracing in an offset time namespace is unsupported; keep metrics or run the sensor in the host monotonic clock domain".into()),
             Err(e) if e.kind()!=std::io::ErrorKind::NotFound => return Err(e.into()),
@@ -236,13 +242,18 @@ impl Trace {
         let ring = RingBuf::try_from(bpf.take_map("events").ok_or("missing ring")?)?;
         let stacks = StackTraceMap::try_from(bpf.take_map("stacks").ok_or("missing stacks")?)?;
         let losses = PerCpuArray::try_from(bpf.take_map("losses").ok_or("missing losses")?)?;
+        let armed_ns = monotonic_ns()?;
         control.set(1, 1, 0)?; // Attach barrier: never emit half-attached allocator pairs.
         let monotonic = monotonic_ns()? as f64 / 1e9;
         Ok(Self {
+            attach_started,
+            armed_ns,
+            attach_seconds: attach_clock.elapsed().as_secs_f64(),
             _bpf: bpf,
             ring,
             pending,
             stop_ns: None,
+            disarmed_upper_ns: None,
             in_flight: 0,
             after_disarm: 0,
             uncertain_stop: false,
@@ -269,6 +280,22 @@ impl Trace {
             .map(|m| json!({"kind":"modules","mappings":m,"attribution":"native_only"}))
             .collect()
     }
+    pub fn reduce_stacks(&mut self) -> Result<Option<&'static str>> {
+        if self.policy.stacks == 0 {
+            return Ok(None);
+        }
+        self.policy.stacks -= 1;
+        self.control.set(5, self.policy.stacks, 0)?;
+        self.warnings.push("Adaptive controller reduced optional stack collection; allocation selection and lifecycle matching are unchanged".into());
+        Ok(Some(if self.policy.stacks == 0 {
+            "no_stacks"
+        } else {
+            "caller_stacks"
+        }))
+    }
+    pub fn window(&self) -> Value {
+        json!({"activation_epoch":format!("{:x}",self.armed_ns),"attach_started_at":self.attach_started,"armed_monotonic_ns_lower_bound":self.armed_ns,"stop_request_monotonic_ns_lower_bound":self.stop_ns,"disarmed_monotonic_ns_upper_bound":self.disarmed_upper_ns,"attach_seconds":self.attach_seconds,"detached_at":null,"independent_lifetimes":true,"cross_window_exact_survivors":false,"boundary_precision":"userspace bounds; half-attached allocator pairs suppressed; in-flight stop calls invalidate survivors"})
+    }
     pub fn stop(&mut self) {
         self.stop_ns = monotonic_ns().ok();
         self.uncertain_stop |= self.stop_ns.is_none();
@@ -277,6 +304,7 @@ impl Trace {
                 .push("Probe disarm failed; detach will close all links".into());
             self.uncertain_stop = true;
         }
+        self.disarmed_upper_ns = monotonic_ns().ok();
         for key in self.pending.keys() {
             match key {
                 Ok(_) => self.in_flight += 1,
@@ -380,7 +408,7 @@ impl Trace {
         Ok(result)
     }
     pub fn quality(&self) -> Value {
-        json!({"coverage":"native_observed","symbolization_invalidated":self.symbolization_invalidated,"mapping_history":"attach_snapshot_with_one_second_invalidation; transient_remaps_unverified","lost_allocations":self.lost[0],"lost_frees":self.lost[1],"lost_correlations":self.lost[2],"lost_events":self.lost.iter().sum::<u64>(),"allocation_events":self.sequence,"stack_errors":self.stack_errors,"stack_quality":"native_only_frame_pointer","warnings":self.warnings,"profiling_policy":self.policy.name,"minimum_allocation_size":self.policy.minimum,
+        json!({"capture_window":self.window(),"coverage":"native_observed","symbolization_invalidated":self.symbolization_invalidated,"mapping_history":"attach_snapshot_with_one_second_invalidation; transient_remaps_unverified","lost_allocations":self.lost[0],"lost_frees":self.lost[1],"lost_correlations":self.lost[2],"lost_events":self.lost.iter().sum::<u64>(),"allocation_events":self.sequence,"stack_errors":self.stack_errors,"stack_quality":"native_only_frame_pointer","warnings":self.warnings,"profiling_policy":self.policy.name,"minimum_allocation_size":self.policy.minimum,
         "tracked_pointer_capacity":32768,"pointer_evictions":0,
         "sampling":if self.policy.minimum>0 {"threshold_selected_lifetimes"} else {"all_outermost_calls"},
         "selection_semantics":"Selected at allocation or threshold-crossing realloc; selected blocks remain tracked through shrink, realloc and free. Pre-attach and smaller unselected blocks are outside coverage.",
