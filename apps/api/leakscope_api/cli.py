@@ -29,17 +29,22 @@ def duration(value):
 def read_capture(path):
     reader = Reader(Path(path))
     samples = []
+    recorded_quality = reader.metadata.get("quality", {})
     for chunk in reader.chunks():
         for event in chunk:
+            if event.get("kind") == "quality":
+                recorded_quality = event["quality"]
             if event.get("kind") == "metric":
                 samples.append(event["sample"])
         if len(samples) > 100000:
             # Analysis stays bounded even when the streaming parser supports larger files.
             samples = samples[::2]
     quality = {
-        **reader.metadata.get("quality", {}),
-        "incomplete": reader.recovered or reader.missing_sequences > 0,
-        "lost_samples": reader.missing_sequences,
+        **recorded_quality,
+        "incomplete": bool(recorded_quality.get("incomplete"))
+        or reader.recovered
+        or reader.missing_sequences > 0,
+        "lost_samples": max(recorded_quality.get("lost_samples", 0), reader.missing_sequences),
     }
     return samples, quality, reader.metadata
 
@@ -74,6 +79,11 @@ def main():
         if name == "capture":
             command.add_argument("--mode", choices=["observe", "deep", "lab"], default="observe")
             command.add_argument("--duration", type=duration, default=60)
+            command.add_argument(
+                "--native",
+                action="store_true",
+                help="Request real native allocator probes; fail if unsupported",
+            )
             command.add_argument("--output", type=Path)
         if name == "ps":
             command.add_argument("--tree", action="store_true")
@@ -150,6 +160,10 @@ def main():
                     "quality": quality,
                     "integrity": integrity(args.path),
                 }
+                if quality.get("coverage") == "native_observed":
+                    from .native import analyze
+
+                    result["native"] = analyze(args.path)
                 if args.command == "report":
                     document = {
                         "title": "Memory investigation",
@@ -160,6 +174,8 @@ def main():
                         "integrity": result["integrity"],
                         "mode": metadata.get("config", {}).get("mode"),
                     }
+                    if "native" in result:
+                        document["native"] = result["native"]
                     args.output.write_text(render(document))
                     result = {"report": str(args.output), **result}
             print(json.dumps(result, indent=2))
@@ -251,6 +267,10 @@ def main():
                                 "process_key": process["key"],
                                 "mode": args.mode,
                                 "duration_seconds": args.duration,
+                                "allocation_domains": ["os_process", "native"]
+                                if args.native
+                                else ["os_process"],
+                                "allow_downgrade": not args.native,
                             },
                         )
                         session_id = result["id"]

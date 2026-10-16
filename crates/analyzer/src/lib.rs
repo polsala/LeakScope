@@ -1,20 +1,7 @@
 //! Memory domains never sum: arena backing and object blocks overlap.
-use serde::{Deserialize, Serialize};
+pub use leakscope_protocol::AllocationEvent as Event;
+use serde::Serialize;
 use std::collections::HashMap;
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Event {
-    pub sequence: u64,
-    pub process: String,
-    pub domain: String,
-    pub pointer: u64,
-    pub kind: String,
-    pub size: u64,
-    pub old_pointer: Option<u64>,
-    pub timestamp: f64,
-    pub stack: Option<String>,
-    pub operation: Option<String>,
-    pub thread: u64,
-}
 #[derive(Debug, Clone, Serialize)]
 pub struct Allocation {
     pub size: u64,
@@ -28,7 +15,7 @@ type Key = (String, String, u64);
 #[derive(Default)]
 pub struct Lifecycle {
     pub live: HashMap<Key, Allocation>,
-    generations: HashMap<Key, u64>,
+    generation: u64,
     last: u64,
     pub allocated: u64,
     pub freed: u64,
@@ -40,32 +27,35 @@ pub struct Lifecycle {
 }
 impl Lifecycle {
     pub fn apply(&mut self, e: &Event) -> Result<(), String> {
-        if !e.timestamp.is_finite()
+        if e.version != 1
+            || e.source.len() > 64
+            || !e.timestamp.is_finite()
             || e.process.len() > 128
             || e.domain.len() > 64
-            || e.stack.as_ref().is_some_and(|s| s.len() > 4096)
+            || e.stack.as_ref().is_some_and(|s| s.len() > 64)
             || e.operation.as_ref().is_some_and(|s| s.len() > 128)
         {
             return Err("invalid event metadata".into());
         }
         if e.pointer != 0
             && (e.kind == "alloc" || e.kind == "realloc")
-            && (self.allocated.checked_add(e.size).is_none() || self.generations.len() >= 1_000_000)
+            && (self.allocated.checked_add(e.size).is_none() || self.live.len() >= 250_000)
         {
             self.incomplete = true;
-            return Err("allocation accounting or pointer-history budget exceeded".into());
+            return Err("allocation accounting or live pointer budget exceeded".into());
         }
         if e.sequence <= self.last {
             return Err("reordered or duplicate event".into());
         }
-        if self.last > 0 && e.sequence != self.last + 1 {
+        let gap = e.sequence - self.last - 1;
+        if gap > 0 {
             self.incomplete = true;
-            self.lost_events = self.lost_events.saturating_add(e.sequence - self.last - 1);
+            self.lost_events = self.lost_events.saturating_add(gap);
         }
         self.last = e.sequence;
         if e.kind == "lost" {
             self.incomplete = true;
-            self.lost_events = self.lost_events.saturating_add(e.size);
+            self.lost_events = self.lost_events.saturating_add(e.size.saturating_sub(gap));
             return Ok(());
         }
         if e.kind == "exit" {
@@ -116,13 +106,13 @@ impl Lifecycle {
             self.incomplete = true;
             self.live.remove(&key);
         }
-        let generation = self.generations.entry(key.clone()).or_default();
-        *generation += 1;
+        self.generation += 1;
+        let generation = self.generation;
         self.live.insert(
             key,
             Allocation {
                 size: e.size,
-                generation: *generation,
+                generation,
                 timestamp: e.timestamp,
                 stack: e.stack.clone(),
                 operation: e.operation.clone(),
@@ -185,6 +175,10 @@ mod tests {
     use super::*;
     fn e(n: u64, p: u64, k: &str, s: u64) -> Event {
         Event {
+            version: 1,
+            source: "unit_test".into(),
+            pid: 1,
+            monotonic_ns: None,
             sequence: n,
             process: "one".into(),
             domain: "native".into(),
@@ -239,5 +233,73 @@ mod tests {
             theil_sen(&[(0., 0.), (1., 2.), (2., 999.), (3., 6.), (4., 8.)]),
             Some(2.)
         );
+    }
+}
+
+#[cfg(test)]
+mod edge_cases {
+    use super::*;
+    fn e(n: u64, kind: &str, pointer: u64, old: u64, size: u64) -> Event {
+        Event {
+            version: 1,
+            source: "unit_test".into(),
+            pid: 1,
+            monotonic_ns: None,
+            sequence: n,
+            process: "worker".into(),
+            domain: "native".into(),
+            pointer,
+            kind: kind.into(),
+            size,
+            old_pointer: Some(old),
+            timestamp: n as f64,
+            stack: None,
+            operation: None,
+            thread: 1,
+        }
+    }
+    #[test]
+    fn realloc_in_place_null_zero_and_failure() {
+        let mut l = Lifecycle::default();
+        l.apply(&e(1, "realloc", 5, 0, 100)).unwrap();
+        l.apply(&e(2, "realloc", 5, 5, 200)).unwrap();
+        assert_eq!(l.live_by_domain()["native"], 200);
+        assert_eq!((l.allocated, l.freed), (300, 100));
+        l.apply(&e(3, "realloc", 0, 5, 4096)).unwrap();
+        assert_eq!(l.live_by_domain()["native"], 200);
+        assert!(!l.incomplete);
+        l.apply(&e(4, "realloc", 0, 5, 0)).unwrap();
+        assert!(l.incomplete); // Do not assume glibc behavior for every capture.
+    }
+    #[test]
+    fn initial_loss_explicit_loss_and_pointer_collision() {
+        let mut l = Lifecycle::default();
+        l.apply(&e(3, "lost", 0, 0, 2)).unwrap();
+        assert_eq!(l.lost_events, 2);
+        l.apply(&e(4, "alloc", 10, 0, 42)).unwrap();
+        l.apply(&e(5, "alloc", 10, 0, 50)).unwrap();
+        assert!(l.incomplete);
+        assert_eq!(l.live_by_domain()["native"], 50);
+    }
+    #[test]
+    fn worker_exit_and_fork_are_separate() {
+        let mut l = Lifecycle::default();
+        l.apply(&e(1, "alloc", 1, 0, 40)).unwrap();
+        let mut child = e(2, "fork", 0, 0, 0);
+        child.process = "child".into();
+        l.apply(&child).unwrap();
+        assert_eq!(l.live.len(), 1);
+        l.apply(&e(3, "exit", 0, 0, 0)).unwrap();
+        assert!(l.live.is_empty());
+    }
+    #[test]
+    fn streaming_reuse_has_no_pointer_history_growth() {
+        let mut l = Lifecycle::default();
+        for i in 0..100_000 {
+            l.apply(&e(i * 2 + 1, "alloc", i + 1, 0, 8)).unwrap();
+            l.apply(&e(i * 2 + 2, "free", i + 1, 0, 0)).unwrap();
+        }
+        assert!(l.live.is_empty());
+        assert!(!l.incomplete);
     }
 }

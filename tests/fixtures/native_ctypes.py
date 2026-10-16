@@ -1,0 +1,36 @@
+"""Python 2.7.18 driver. Explicit stdin commands control this test workload only."""
+from __future__ import print_function
+import ctypes
+import os
+import json
+import sys
+import time
+lib = ctypes.CDLL(sys.argv[1])
+lib.fixture_step.argtypes = [ctypes.c_uint, ctypes.c_size_t, ctypes.c_uint]
+lib.fixture_step.restype = ctypes.c_int
+lib.fixture_bytes.restype = ctypes.c_size_t
+lib.fixture_blocks.restype = ctypes.c_size_t
+objects = []
+print(json.dumps({'ready': True, 'version': list(sys.version_info[:3])}))
+sys.stdout.flush()
+for line in iter(sys.stdin.readline, ''):
+    command = line.strip().split()
+    if not command:
+        continue
+    started = time.time()
+    if command[0] == 'run':
+        count = int(command[1]) if len(command) > 1 else 48
+        mode = int(command[2]) if len(command) > 2 else 0
+        result = lib.fixture_step(count, 65536, mode)
+        if result:
+            raise RuntimeError('Controlled fixture allocation failed: %s' % result)
+    elif command[0] == 'release':
+        lib.fixture_release()
+    elif command[0] == 'python':
+        objects.extend([dict(value=i) for i in range(10000)])
+    elif command[0] == 'exec':
+        os.execv(sys.executable, [sys.executable, __file__, sys.argv[1]])
+    elif command[0] == 'quit':
+        break
+    print(json.dumps({'bytes': lib.fixture_bytes(), 'blocks': lib.fixture_blocks(), 'python_objects': len(objects), 'elapsed_seconds': time.time()-started}))
+    sys.stdout.flush()

@@ -44,6 +44,7 @@ class SessionCreate(Strict):
     duration_seconds: int = Field(60, ge=1, le=600)
     sample_interval_ms: int = Field(1000, ge=100, le=60000)
     max_capture_mb: int = Field(50, ge=1, le=500)
+    event_rate_limit: int = Field(100000, ge=100, le=1000000)
     cpu_overhead_target: float = Field(1, ge=0.1, le=10)
     max_sensor_rss_mb: int = Field(128, ge=32, le=128)
     allocation_domains: list[
@@ -143,3 +144,50 @@ class ProcessView(Strict):
 class ProcessPage(Strict):
     items: list[ProcessView]
     next_cursor: int | None
+
+
+class NativeFrameView(Strict):
+    address: str | None = None
+    module: str
+    function: str
+    file: str | None = None
+    line: int | None = None
+    build_id: str | None = None
+
+
+class NativeTreeView(Strict):
+    name: str
+    value: int
+    count: int
+    children: dict[str, "NativeTreeView"]
+
+
+class NativeSiteView(Strict):
+    stack_id: str
+    allocated_bytes: int
+    allocation_count: int
+    observed_live_bytes: int
+    known_live_bytes: int | None
+    active_count: int
+    frames: list[NativeFrameView] | None
+
+
+class NativeAnalysisView(Strict):
+    allocated_bytes: int
+    freed_bytes: int
+    allocation_count: int
+    free_count: int
+    selected_allocated_bytes: int
+    selected_allocation_count: int
+    known_live_by_domain: dict[str, int] | None
+    observed_live_by_domain: dict[str, int]
+    exact_survivors: bool
+    incomplete: bool
+    unknown_pre_capture_frees: int
+    lost_events: int
+    quality: dict
+    allocation_tree: NativeTreeView
+    retained_tree: NativeTreeView
+    top_sites: list[NativeSiteView]
+    cohorts: list[dict]
+    limitations: list[str]

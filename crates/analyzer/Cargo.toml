@@ -3,5 +3,7 @@ name = "leakscope-analyzer"
 version.workspace = true
 edition.workspace = true
 [dependencies]
+leakscope-protocol = { path = "../protocol" }
+leakscope-capture = { path = "../capture" }
 serde.workspace = true
 serde_json.workspace = true

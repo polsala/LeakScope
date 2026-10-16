@@ -54,6 +54,7 @@ pub struct Reader<R: Read> {
     input: R,
     pub metadata: serde_json::Value,
     pub recovered: bool,
+    pub last_range: Option<(u64, u64)>,
     pub missing_sequences: u64,
     last: u64,
     ended: bool,
@@ -83,6 +84,7 @@ impl<R: Read> Reader<R> {
             input,
             metadata,
             recovered: false,
+            last_range: None,
             missing_sequences: 0,
             last: 0,
             ended: false,
@@ -141,6 +143,7 @@ impl<R: Read> Reader<R> {
         }
         self.missing_sequences += first - self.last - 1;
         self.last = last;
+        self.last_range = Some((first, last));
         Ok(Some(data))
     }
 }

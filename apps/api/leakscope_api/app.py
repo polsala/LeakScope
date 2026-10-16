@@ -20,11 +20,12 @@ from sqlalchemy import select, func
 
 from . import __version__, models as m
 from .analysis import summarize, compare
-from .capture import Reader, CaptureError
+from .capture import Reader, CaptureError, integrity
 from .config import Config, credential, load_config, private_directory
 from .contracts import (
     SessionCreate,
     SessionView,
+    NativeAnalysisView,
     MarkerCreate,
     InvestigationCreate,
     InvestigationPatch,
@@ -34,6 +35,7 @@ from .contracts import (
 )
 from .db import database
 from .reports import render
+from .native import analyze as analyze_native, NativeAnalysisError
 from .agent import receive_agents, Snapshot
 from .sensor import Sensor, SensorError
 from .service import Collector, ACTIVE, session_view
@@ -89,8 +91,8 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
             except SensorError:
                 candidates = [
                     os.getenv("LEAKSCOPE_SENSOR_BIN", ""),
-                    str(ROOT / "target/release/leakscope-sensor"),
                     str(ROOT / "target/debug/leakscope-sensor"),
+                    str(ROOT / "target/release/leakscope-sensor"),
                     shutil.which("leakscope-sensor"),
                 ]
                 binary = next((p for p in candidates if p and Path(p).is_file()), None)
@@ -128,6 +130,11 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
                 child.wait(timeout=3)
             except subprocess.TimeoutExpired:
                 child.terminate()
+                try:
+                    child.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    child.kill()
+                    child.wait(timeout=2)
         engine.dispose()
 
     app = FastAPI(
@@ -328,9 +335,15 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
             sessions = list(db.scalars(select(m.Session)))
         values = {
             "leakscope_sessions_active": count,
-            "leakscope_sensor_events_total": sum(s.quality.get("event_count", 0) for s in sessions),
+            "leakscope_sensor_events_total": sum(
+                s.quality.get("event_count", 0) + s.quality.get("allocation_events", 0)
+                for s in sessions
+            ),
             "leakscope_sensor_events_lost_total": sum(
-                s.quality.get("lost_samples", 0) for s in sessions
+                s.quality.get("lost_samples", 0)
+                + s.quality.get("lost_events", 0)
+                + s.quality.get("lost_native", 0)
+                for s in sessions
             ),
             "leakscope_capture_bytes_written_total": sum(
                 s.quality.get("integrity", {}).get("size_bytes", 0) for s in sessions
@@ -409,6 +422,8 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
     async def process_capabilities(process_key: str):
         p = entity(m.Process, process_key)
         result = await collector.call("doctor")
+        native = await collector.call("native_capabilities", pid=p.pid)
+        result["capabilities"].update(native["capabilities"])
         result["elf"] = await collector.call("symbols", pid=p.pid)
         agent = collector.agents.get(process_key)
         result["cooperative_agent"] = agent
@@ -452,9 +467,16 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
             raise HTTPException(410, "Target identity changed")
         agent = collector.agents.get(body.process_key)
         deep_available = bool(agent and time.time() - agent["last_seen"] < 300)
+        native_available = False
+        native_reason = ""
+        if "native" in body.allocation_domains:
+            capability = await collector.call("native_capabilities", pid=p.pid)
+            native_available = capability["capabilities"].get("external_allocations", False)
+            native_reason = capability["capabilities"].get("reason", "")
         supported_mode = body.mode == "observe" or (body.mode == "deep" and deep_available)
         unsupported = not supported_mode or any(
-            d not in {"os_process", "gc_objects"}
+            d not in {"os_process", "gc_objects", "native"}
+            or (d == "native" and not native_available)
             or (d == "gc_objects" and (not deep_available or body.mode != "deep"))
             for d in body.allocation_domains
         )
@@ -468,6 +490,10 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
             else ["os_process"],
             "requested": body.model_dump(),
         }
+        if native_available:
+            config_dict["allocation_domains"] = list(
+                dict.fromkeys([*config_dict["allocation_domains"], "native"])
+            )
         session_id = uuid.uuid4().hex
         with db_factory.begin() as db:
             db.add(
@@ -488,7 +514,8 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
                         "sampling": "periodic_procfs",
                         "stack_quality": "unavailable",
                         "downgraded": unsupported,
-                        "warning": "Allocation attribution unavailable; RSS is not proof of a leak.",
+                        "warning": native_reason
+                        or "Allocation attribution unavailable; RSS is not proof of a leak.",
                     },
                     last_sequence=0,
                     reason="",
@@ -597,7 +624,91 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
             "aggregation": "bucket_min_max" if len(raw) > points else "raw",
         }
 
-    for feature in ("allocations", "flamegraph", "calltree", "cohorts", "gc/referrers"):
+    def native_result(session_id, **filters):
+        session = entity(m.Session, session_id)
+        if session.quality.get("coverage") != "native_observed":
+            unavailable(
+                "Native allocation data: "
+                + session.quality.get(
+                    "native_failure", session.quality.get("warning", "metrics-only capture")
+                )
+            )
+        path = data / "captures" / (session_id + ".lscap")
+        if not path.exists():
+            path = data / "captures" / (session_id + ".stream.partial")
+        if not path.exists():
+            raise HTTPException(409, "Native capture has not reached durable storage yet")
+        try:
+            cache = path.with_suffix(".analysis.json")
+            result = None
+            with contextlib.suppress(OSError, ValueError, KeyError):
+                if (
+                    cache.exists()
+                    and cache.stat().st_size <= 4 * 1024 * 1024
+                    and not any(v is not None and v != "native" for v in filters.values())
+                ):
+                    saved = json.loads(cache.read_text())
+                    if saved.get("source_sha256") == integrity(path)["sha256"]:
+                        result = saved["analysis"]
+            if result is None:
+                result = analyze_native(path, **filters)
+        except NativeAnalysisError as error:
+            raise HTTPException(409, str(error)) from error
+        if session.quality.get("incomplete") or session.quality.get("lost_native", 0):
+            result["quality"].update(session.quality)
+            result["quality"]["exact_survivors"] = False
+            result["exact_survivors"] = False
+            result["known_live_by_domain"] = None
+            for site in result["top_sites"]:
+                site["known_live_bytes"] = None
+        return result
+
+    @app.get(
+        "/api/v1/sessions/{session_id}/allocations",
+        response_model=NativeAnalysisView,
+        dependencies=[Depends(read)],
+    )
+    @app.get(
+        "/api/v1/sessions/{session_id}/flamegraph",
+        response_model=NativeAnalysisView,
+        dependencies=[Depends(read)],
+    )
+    @app.get(
+        "/api/v1/sessions/{session_id}/calltree",
+        response_model=NativeAnalysisView,
+        dependencies=[Depends(read)],
+    )
+    @app.get(
+        "/api/v1/sessions/{session_id}/cohorts",
+        response_model=NativeAnalysisView,
+        dependencies=[Depends(read)],
+    )
+    def native_allocations(
+        session_id: str,
+        start: float | None = Query(None, ge=0, allow_inf_nan=False),
+        end: float | None = Query(None, ge=0, allow_inf_nan=False),
+        thread: int | None = Query(None, ge=1),
+        symbol: str | None = Query(None, max_length=256),
+        library: str | None = Query(None, max_length=256),
+        domain: str = Query("native", pattern="^native$"),
+        min_size: int | None = Query(None, ge=0),
+        max_size: int | None = Query(None, ge=0),
+    ):
+        if start is not None and end is not None and end < start:
+            raise HTTPException(422, "End must follow start")
+        return native_result(
+            session_id,
+            start=start,
+            end=end,
+            thread=thread,
+            symbol=symbol,
+            library=library,
+            domain=domain,
+            min_size=min_size,
+            max_size=max_size,
+        )
+
+    for feature in ("gc/referrers",):
 
         def endpoint(name):
             def get(session_id: str, role=Depends(read)):
@@ -687,6 +798,7 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
             events = []
             markers = []
             snapshots = []
+            native_events = 0
             for chunk in reader.chunks():
                 for event in chunk:
                     if event["sequence"] > 2**63 - 1:
@@ -723,6 +835,17 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
                             )
                         if len(markers) > 1000 or len(snapshots) > 100:
                             raise CaptureError("Diagnostic event budget reached")
+                        continue
+                    if event.get("kind") in {"allocation", "stack", "modules", "quality"}:
+                        if event["kind"] == "allocation":
+                            if (
+                                event.get("event", {}).get("process") != key
+                                or event["event"].get("domain") != "native"
+                            ):
+                                raise CaptureError(
+                                    "Allocation process or domain does not match capture"
+                                )
+                            native_events += 1
                         continue
                     sample = event.get("sample", {})
                     if event.get("kind") != "metric" or not isinstance(sample, dict):
@@ -771,6 +894,18 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
                 "imported": True,
                 "event_count": len(events),
             }
+            if native_events:
+                try:
+                    derived = analyze_native(path)
+                except NativeAnalysisError as error:
+                    raise CaptureError(str(error)) from error
+                quality.update(derived["quality"])
+                quality["coverage"] = "native_observed"
+                quality["imported"] = True
+                # Retain chunks exactly, using the existing format and sequences.
+                spool = data / "captures" / (session_id + ".stream.partial")
+                shutil.copyfile(path, spool)
+                spool.chmod(0o600)
             with db_factory.begin() as db:
                 host_id = "import-" + hashlib.sha256(ident["host"].encode()).hexdigest()
                 if not db.get(m.Host, host_id):
@@ -893,6 +1028,19 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
             sa.quality,
             sb.quality,
         )
+        if sa.quality.get("coverage") == sb.quality.get("coverage") == "native_observed":
+            na = native_result(sa.id, start=body.a.start, end=body.a.end)
+            nb = native_result(sb.id, start=body.b.start, end=body.b.end)
+            result["native"] = {
+                "a": na,
+                "b": nb,
+                "allocated_delta_bytes": nb["selected_allocated_bytes"]
+                - na["selected_allocated_bytes"],
+                "survivor_delta_bytes": nb["retained_tree"]["value"] - na["retained_tree"]["value"]
+                if na["exact_survivors"] and nb["exact_survivors"]
+                else None,
+                "definition": "Observed allocations created inside each interval, surviving at that interval end; not total process memory",
+            }
         value = {
             "id": uuid.uuid4().hex,
             "created_at": time.time(),
@@ -933,6 +1081,20 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
             "reproduction_steps": body.reproduction_steps,
             "redacted": body.redact,
         }
+        if s.quality.get("coverage") == "native_observed":
+            document["native"] = native_result(s.id)
+            if body.redact:
+
+                def redact_native(value):
+                    if isinstance(value, dict):
+                        return {redact_native(k): redact_native(v) for k, v in value.items()}
+                    if isinstance(value, list):
+                        return [redact_native(v) for v in value]
+                    if isinstance(value, str) and value.startswith("/"):
+                        return value.rsplit("/", 1)[-1]
+                    return value
+
+                document["native"] = redact_native(document["native"])
         if body.redact:
             document["session"] = {
                 k: v for k, v in document["session"].items() if k != "process_key"

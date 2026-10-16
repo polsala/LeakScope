@@ -9,3 +9,14 @@ fn python_written_golden_is_readable() {
     assert!(reader.next_chunk().unwrap().is_none());
     assert!(!reader.recovered);
 }
+#[test]
+fn native_tables_and_events_share_v1_chunks() {
+    let bytes = include_bytes!("../../../tests/fixtures/golden/native-v1.lscap");
+    let mut reader = leakscope_capture::Reader::new(bytes.as_slice()).unwrap();
+    let events: serde_json::Value =
+        serde_json::from_slice(&reader.next_chunk().unwrap().unwrap()).unwrap();
+    assert_eq!(events[0]["kind"], "stack");
+    assert_eq!(events[1]["event"]["pointer"], 42);
+    assert!(reader.next_chunk().unwrap().is_none());
+    assert!(!reader.recovered);
+}

@@ -15,4 +15,7 @@ static u64 (*pid_tgid)(void)=(void*)14;
 static long (*get_stackid)(void*,void*,u64)=(void*)27;
 static void *(*ring_reserve)(void*,u64,u64)=(void*)131;
 static void (*ring_submit)(void*,u64)=(void*)132;
+static long (*read_user)(void*,u32,const void*)=(void*)112;
+struct pidns_info {u32 pid,tgid;};
+static long (*ns_pid_tgid)(u64,u64,struct pidns_info*,u32)=(void*)120;
 #endif

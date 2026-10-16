@@ -54,3 +54,91 @@ mod tests {
         assert!(read_frame(&mut b).await.is_err());
     }
 }
+
+/// Allocation model shared by sensor, captures and analyzer. Sequence belongs to
+/// the allocation stream (table/metric records use the capture envelope sequence).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct AllocationEvent {
+    #[serde(default = "event_version")]
+    pub version: u32,
+    #[serde(default = "unknown_source")]
+    pub source: String,
+    #[serde(default)]
+    pub pid: u32,
+    #[serde(default)]
+    pub monotonic_ns: Option<u64>,
+    pub sequence: u64,
+    pub process: String,
+    pub domain: String,
+    pub pointer: u64,
+    pub kind: String,
+    pub size: u64,
+    pub old_pointer: Option<u64>,
+    pub timestamp: f64,
+    pub stack: Option<String>,
+    pub operation: Option<String>,
+    pub thread: u64,
+}
+
+fn event_version() -> u32 {
+    1
+}
+fn unknown_source() -> String {
+    "unknown".into()
+}
+
+/// Decode aligned little-endian kernel wire v1 without unsafe memory casts.
+#[derive(Debug)]
+pub struct NativeRecord {
+    pub thread: u64,
+    pub time: u64,
+    pub pointer: u64,
+    pub old_pointer: u64,
+    pub size: u64,
+    pub stack: i64,
+    pub kind: u64,
+    pub caller: u64,
+}
+impl NativeRecord {
+    pub fn decode(data: &[u8]) -> std::io::Result<Self> {
+        if data.len() != 72 {
+            return Err(std::io::Error::other("native record size mismatch"));
+        }
+        let mut words = [0u64; 9];
+        for (i, bytes) in data.chunks_exact(8).enumerate() {
+            words[i] = u64::from_le_bytes(bytes.try_into().unwrap());
+        }
+        if words[0] != 1 || !(1..=4).contains(&words[7]) {
+            return Err(std::io::Error::other(
+                "unsupported native event version or kind",
+            ));
+        }
+        Ok(Self {
+            thread: words[1],
+            time: words[2],
+            pointer: words[3],
+            old_pointer: words[4],
+            size: words[5],
+            stack: words[6] as i64,
+            kind: words[7],
+            caller: words[8],
+        })
+    }
+}
+#[cfg(test)]
+mod native_tests {
+    use super::*;
+    #[test]
+    fn wire_size_version_and_kind() {
+        assert!(NativeRecord::decode(&[0; 71]).is_err());
+        let mut data = [0u8; 72];
+        data[0] = 1;
+        data[56] = 1;
+        assert!(NativeRecord::decode(&data).is_ok());
+        data[0] = 2;
+        assert!(NativeRecord::decode(&data).is_err());
+        data[0] = 1;
+        data[56] = 5;
+        assert!(NativeRecord::decode(&data).is_err());
+    }
+}

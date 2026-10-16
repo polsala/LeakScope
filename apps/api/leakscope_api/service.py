@@ -6,9 +6,10 @@ import time
 import logging
 from sqlalchemy import select, delete
 from . import models as m
-from .capture import Writer, integrity
+from .capture import Writer, Reader, integrity
 from .contracts import transition
 from .sensor import SensorError
+from .native import analyze as analyze_native, NativeAnalysisError
 
 ACTIVE = {"created", "preflight", "starting", "recording", "stopping", "processing"}
 
@@ -131,11 +132,22 @@ class Collector:
                 interval=cfg["sample_interval_ms"] / 1000,
                 max_bytes=cfg["max_capture_mb"] * 1024 * 1024,
                 max_sensor_rss_mb=cfg["max_sensor_rss_mb"],
+                native="native" in cfg["allocation_domains"],
+                allow_downgrade=cfg["allow_downgrade"],
+                event_rate_limit=cfg.get("event_rate_limit", 100000),
             )
             if not confirmation.get("confirmed"):
                 raise SensorError("Sensor did not confirm recording")
             with self.db.begin() as db:
                 s = db.get(m.Session, session_id)
+                s.quality = {**s.quality, **confirmation.get("quality", {})}
+                if s.quality.get("coverage") != "native_observed":
+                    s.config = {
+                        **s.config,
+                        "allocation_domains": [
+                            d for d in s.config["allocation_domains"] if d != "native"
+                        ],
+                    }
                 transition(s, "recording")
             self.track(session_id)
         except SensorError as error:
@@ -146,6 +158,11 @@ class Collector:
 
     async def record(self, session_id):
         disconnected_since = None
+        spool = self.data / "captures" / (session_id + ".stream.partial")
+        with self.db() as db:
+            session = db.get(m.Session, session_id)
+            metadata = {"session": session_id, "quality": session.quality, "format": 1}
+        writer = Writer.resume(spool, metadata)
         try:
             while True:
                 with self.db() as db:
@@ -171,10 +188,19 @@ class Collector:
                     await asyncio.sleep(0.5)
                     continue
                 events = response.get("events", [])
+                new_events = [event for event in events if event["sequence"] > writer.last]
+                if new_events:
+                    writer.chunk(new_events)
+                    os.fsync(
+                        writer.out.fileno()
+                    )  # ACK only durable chunks, before metadata commit.
                 with self.db.begin() as db:
                     s = db.get(m.Session, session_id)
                     for event in events:
                         if event["sequence"] <= s.last_sequence:
+                            continue
+                        if event.get("kind") != "metric":
+                            s.last_sequence = event["sequence"]
                             continue
                         sample = event["sample"]
                         db.add(
@@ -189,9 +215,13 @@ class Collector:
                         s.last_sequence = event["sequence"]
                     s.quality = {
                         **s.quality,
+                        **response.get("quality", {}),
+                        "lost_native": response.get("lost_native", 0),
                         "lost_samples": response["lost_samples"],
                         "incomplete": s.quality.get("incomplete", False)
-                        or response["lost_samples"] > 0,
+                        or response["lost_samples"] > 0
+                        or response.get("lost_native", 0) > 0
+                        or response.get("quality", {}).get("incomplete", False),
                         "event_count": response["samples"],
                     }
                     if response.get("reason"):
@@ -214,6 +244,8 @@ class Collector:
                 s = db.get(m.Session, session_id)
                 s.quality = {**s.quality, "incomplete": True}
                 s.reason = "collector_error: " + type(error).__name__
+        finally:
+            writer.close()
         await asyncio.to_thread(self.finalize, session_id)
         with contextlib.suppress(SensorError):
             await self.call("release", session=session_id)
@@ -247,21 +279,29 @@ class Collector:
                         .where(m.ProcessSample.session_id == session_id)
                         .order_by(m.ProcessSample.sequence)
                     )
-                    rows = db.scalars(stmt.execution_options(yield_per=128))
-                    batch = []
-                    for r in rows:
-                        batch.append(
-                            {
-                                "sequence": r.sequence,
-                                "kind": "metric",
-                                "process_key": r.process_key,
-                                "sample": r.data,
-                            }
-                        )
-                        if len(batch) == 128:
+                    spool = self.data / "captures" / (session_id + ".stream.partial")
+                    if spool.exists():
+                        reader = Reader(spool)
+                        for batch in reader.chunks():
                             w.chunk(batch)
-                            batch = []
-                    w.chunk(batch)
+                        if reader.recovered:
+                            metadata["quality"]["incomplete"] = True
+                    else:
+                        rows = db.scalars(stmt.execution_options(yield_per=128))
+                        batch = []
+                        for r in rows:
+                            batch.append(
+                                {
+                                    "sequence": r.sequence,
+                                    "kind": "metric",
+                                    "process_key": r.process_key,
+                                    "sample": r.data,
+                                }
+                            )
+                            if len(batch) == 128:
+                                w.chunk(batch)
+                                batch = []
+                        w.chunk(batch)
                     extras = [
                         {
                             "kind": "marker",
@@ -294,16 +334,51 @@ class Collector:
                                 {**event, "sequence": sequence, "process_key": s.process_key}
                             )
                         w.chunk(batch)
+                w.chunk(
+                    [{"sequence": w.last + 1, "kind": "quality", "quality": metadata["quality"]}]
+                )
                 w.close()
             finally:
                 if not w.out.closed:
                     w.out.close()
             os.replace(temporary, final)
+            spool = self.data / "captures" / (session_id + ".stream.partial")
+            spool.unlink(missing_ok=True)
+            derived = None
+            analysis_error = None
+            if metadata["quality"].get("coverage") == "native_observed":
+                try:
+                    derived = analyze_native(final)
+                except NativeAnalysisError as error:
+                    analysis_error = str(error)
             manifest = integrity(final)
+            if derived is not None:
+                summary = json.dumps({"source_sha256": manifest["sha256"], "analysis": derived})
+                if (
+                    len(summary.encode()) <= 4 * 1024 * 1024
+                    and self.disk_usage() + len(summary.encode())
+                    < self.config.max_storage_mb * 1024 * 1024
+                ):
+                    cache_path = final.with_suffix(".analysis.json")
+                    pending_cache = cache_path.with_suffix(".analysis.partial")
+                    with pending_cache.open("w") as out:
+                        pending_cache.chmod(0o600)
+                        out.write(summary)
+                        out.flush()
+                        os.fsync(out.fileno())
+                    os.replace(pending_cache, cache_path)
             final.with_suffix(".manifest.json").write_text(json.dumps(manifest))
             with self.db.begin() as db:
                 s = db.get(m.Session, session_id)
                 s.quality = {**s.quality, "integrity": manifest}
+                if derived is not None:
+                    s.quality = {
+                        **s.quality,
+                        "exact_allocations": derived["exact_survivors"],
+                        "incomplete": s.quality.get("incomplete", False) or derived["incomplete"],
+                    }
+                if analysis_error:
+                    s.quality = {**s.quality, "incomplete": True, "analysis_error": analysis_error}
                 transition(s, "degraded" if s.quality.get("incomplete") else "ready")
         except OSError as error:
             with self.db.begin() as db:
@@ -321,6 +396,13 @@ class Collector:
         now = time.time()
         retention = self.config.retention
         with self.db.begin() as db:
+            for completed in db.scalars(
+                select(m.Session).where(
+                    m.Session.ended_at < now - retention.summaries_days * 86400,
+                    m.Session.state.in_(["ready", "degraded", "failed", "expired"]),
+                )
+            ):
+                (self.data / "captures" / (completed.id + ".analysis.json")).unlink(missing_ok=True)
             db.execute(
                 delete(m.ProcessSample).where(
                     m.ProcessSample.timestamp < now - retention.process_metrics_days * 86400,

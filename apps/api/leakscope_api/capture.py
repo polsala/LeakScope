@@ -5,6 +5,7 @@ import json
 import os
 import struct
 from pathlib import Path
+from typing import BinaryIO
 import zstandard as zstd
 
 MAGIC = b"LSCAP\0\x01\0"
@@ -26,10 +27,25 @@ class Writer:
         data = encode(metadata)
         if len(data) > MAX_METADATA:
             raise CaptureError("Metadata exceeds 64 KiB")
-        self.out = path.open("xb")
+        self.out: BinaryIO = path.open("xb")
         path.chmod(0o600)
         self.out.write(MAGIC + struct.pack(">I", len(data)) + data + hashlib.sha256(data).digest())
         self.last = 0
+
+    @classmethod
+    def resume(cls, path: Path, metadata: dict):
+        if not path.exists():
+            return cls(path, metadata)
+        reader = Reader(path)
+        last = 0
+        for events in reader.chunks():
+            last = events[-1]["sequence"]
+        writer = cls.__new__(cls)
+        writer.out = path.open("r+b")
+        writer.out.truncate(reader.good_offset)
+        writer.out.seek(reader.good_offset)
+        writer.last = last
+        return writer
 
     def chunk(self, events):
         if not events:
@@ -59,6 +75,7 @@ class Reader:
         self.out = path.open("rb")
         self.recovered = False
         self.missing_sequences = 0
+        self.good_offset = 0
         try:
             if self.out.read(8) != MAGIC:
                 raise CaptureError("Unsupported capture version")
@@ -71,6 +88,7 @@ class Reader:
             data, checksum = self.out.read(size), self.out.read(32)
             if hashlib.sha256(data).digest() != checksum:
                 raise CaptureError("Metadata checksum mismatch")
+            self.good_offset = self.out.tell()
             self.metadata = json.loads(data)
             if not isinstance(self.metadata, dict):
                 raise CaptureError("Metadata must be a JSON object")
@@ -124,6 +142,7 @@ class Reader:
                 if events[0]["sequence"] != first or seq != last:
                     raise CaptureError("Event range differs from chunk header")
                 previous = last
+                self.good_offset = self.out.tell()
                 yield events
         finally:
             self.out.close()
