@@ -120,14 +120,15 @@ function Flame({
   );
 }
 function CallTree({ root }: { root: Node }) {
+  const t = useT();
   function branch(n: Node, depth: number): React.ReactNode {
     if (depth > 12) return null;
     return (
       <li key={n.name}>
         <details open={depth < 1}>
           <summary>
-            <span>{n.name}</span> <strong>{bytes(n.value)}</strong>{" "}
-            <small>{n.count}</small>
+            <span>{depth === 0 ? t("allocations") : n.name}</span>{" "}
+            <strong>{bytes(n.value)}</strong> <small>{n.count}</small>
           </summary>
           <ul>
             {Object.values(n.children)
@@ -338,7 +339,26 @@ export function NativeViews({
                           t("unknownStack")}
                       </button>
                     </td>
-                    <td>{bytes(site.allocated_bytes)}</td>
+                    <td>
+                      <details>
+                        <summary>{bytes(site.allocated_bytes)}</summary>
+                        <ol>
+                          {site.frames?.map((frame, i) => (
+                            <li key={i}>
+                              <code>
+                                {frame.module} · {frame.function}
+                              </code>
+                              {frame.file && (
+                                <small>
+                                  {frame.file}
+                                  {frame.line ? `:${frame.line}` : ""}
+                                </small>
+                              )}
+                            </li>
+                          ))}
+                        </ol>
+                      </details>
+                    </td>
                     <td>{bytes(site.known_live_bytes)}</td>
                   </tr>
                 ))}

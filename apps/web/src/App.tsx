@@ -1544,7 +1544,11 @@ function SessionDetail({ id, role }: { id: string; role: string }) {
             (s.data.quality.lost_events || 0) +
             (s.data.quality.lost_native || 0)
           }
-          hint={t("metricsOnly")}
+          hint={t(
+            s.data.quality.coverage === "native_observed"
+              ? "nativeOnly"
+              : "metricsOnly",
+          )}
         />
       </div>
       {s.data.quality.coverage === "native_observed" && (
@@ -1570,7 +1574,9 @@ function SessionDetail({ id, role }: { id: string; role: string }) {
           >
             <MemoryStick size={16} />
             {t("nativeLive")}
-            <span>—</span>
+            <span>
+              {s.data.quality.coverage === "native_observed" ? "✓" : "—"}
+            </span>
           </div>
           <div className="domain disabled">
             <Box size={16} />
