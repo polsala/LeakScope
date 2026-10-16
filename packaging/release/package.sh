@@ -6,7 +6,10 @@ export UV_CACHE_DIR="${UV_CACHE_DIR:-$root/.cache/uv}"
 make build
 stage="$root/artifacts/leakscope-0.1.0-linux-x86_64"
 mkdir -p "$stage/bin" "$stage/wheels"
-cp target/release/leakscope-sensor target/release/leakscope-analyzer "$stage/bin/"
+# Never package host-linked binaries: enforce the Ubuntu 20.04/glibc 2.31 baseline.
+bash scripts/test-ubuntu-native.sh
+cp artifacts/native-baseline/leakscope-sensor artifacts/native-baseline/leakscope-analyzer "$stage/bin/"
+cp -R artifacts/compatibility "$stage/"
 cp -R apps/web/dist "$stage/web-dist"
 cp packaging/release/install.sh packaging/release/launcher LICENSE README.md "$stage/"
 cp -R packaging/systemd "$stage/"

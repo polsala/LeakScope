@@ -5,7 +5,31 @@ on:
 permissions:
   contents: read
 jobs:
+  kernel-release-gate:
+    env:
+      LEAKSCOPE_SENSOR_CAPABILITIES: ${{ vars.LEAKSCOPE_SENSOR_CAPABILITIES }}
+    runs-on: [self-hosted, linux, x64, leakscope-kernel]
+    environment: kernel-validation
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: ./.github/actions/setup
+      - run: bash scripts/build-python27.sh ucs4 release
+      - run: bash scripts/test-kernel.sh
+        env:
+          PYTHON27: ${{ github.workspace }}/.cache/python27/install-ucs4-release/bin/python2.7
+      - run: corepack pnpm --dir apps/web exec playwright install --with-deps chromium
+      - run: bash scripts/test-kernel-browser.sh
+        env:
+          LEAKSCOPE_SENSOR_BIN: ${{ github.workspace }}/target/release/leakscope-sensor
+          LEAKSCOPE_ANALYZER_BIN: ${{ github.workspace }}/target/release/leakscope-analyzer
+          PYTHON27: ${{ github.workspace }}/.cache/python27/install-ucs4-release/bin/python2.7
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-kernel-evidence
+          path: artifacts/kernel
   distribution:
+    needs: kernel-release-gate
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:

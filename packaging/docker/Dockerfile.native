@@ -1,0 +1,15 @@
+# Native release baseline: executable dependencies must resolve on glibc 2.31.
+FROM rust:1.94.1-bookworm@sha256:6ae102bdbf528294bc79ad6e1fae682f6f7c2a6e6621506ba959f9685b308a55 AS toolchain
+FROM ubuntu:20.04@sha256:8feb4d8ca5354def3d8fce243717141ce31e2c428701f6682bd2fafe15388214 AS native
+ENV DEBIAN_FRONTEND=noninteractive CARGO_HOME=/usr/local/cargo RUSTUP_HOME=/usr/local/rustup PATH=/usr/local/cargo/bin:$PATH
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates clang gcc libc6-dev make pkg-config && rm -rf /var/lib/apt/lists/*
+COPY --from=toolchain /usr/local/cargo /usr/local/cargo
+COPY --from=toolchain /usr/local/rustup /usr/local/rustup
+WORKDIR /build
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY crates ./crates
+COPY bpf ./bpf
+RUN cargo build --workspace --release --locked && target/release/leakscope-sensor --version && printf '' | target/release/leakscope-analyzer
+FROM scratch AS binaries
+COPY --from=native /build/target/release/leakscope-sensor /leakscope-sensor
+COPY --from=native /build/target/release/leakscope-analyzer /leakscope-analyzer

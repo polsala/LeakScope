@@ -12,9 +12,21 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - run: rustup toolchain install 1.94.1 --profile minimal --component clippy,rustfmt
+      - run: sudo apt-get update && sudo apt-get install -y clang
       - run: cargo build --workspace --locked
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: bash scripts/test-native.sh
         env:
           SANITIZE: '1'
+
+  ubuntu-abi:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: bash scripts/test-ubuntu-native.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: native-ubuntu-abi
+          path: artifacts/compatibility

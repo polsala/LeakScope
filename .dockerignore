@@ -13,3 +13,5 @@ artifacts/*
 !artifacts/leakscope-0.1.0-linux-x86_64/**
 **/__pycache__
 **/*.pyc
+!artifacts/native-baseline
+!artifacts/native-baseline/**

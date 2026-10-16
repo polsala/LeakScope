@@ -10,7 +10,9 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: [self-hosted, linux, x64, leakscope-performance]
     environment: performance
-    timeout-minutes: 30
+    timeout-minutes: 40
+    env:
+      LEAKSCOPE_SENSOR_CAPABILITIES: ${{ vars.LEAKSCOPE_SENSOR_CAPABILITIES }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: ./.github/actions/setup
@@ -18,7 +20,21 @@ jobs:
       - run: make benchmark
       - name: Check sensor baseline memory target
         run: .venv/bin/python -c 'import json;d=json.load(open("artifacts/benchmark.json"));assert all(r["sensor_rss_bytes"] < 64*1024*1024 for r in d["results"]),"sensor baseline RSS exceeded 64 MiB"'
+      - run: bash scripts/build-python27.sh ucs4 release
+      - name: Measure actual native capture latency with complete coverage
+        shell: bash
+        run: |
+          if [ -n "$LEAKSCOPE_SENSOR_CAPABILITIES" ]; then
+            sudo -n setcap "$LEAKSCOPE_SENSOR_CAPABILITIES" target/release/leakscope-sensor
+          fi
+          .venv/bin/python scripts/native-benchmark.py
+        env:
+          PYTHON27: ${{ github.workspace }}/.cache/python27/install-ucs4-release/bin/python2.7
+          LEAKSCOPE_SENSOR_BIN: ${{ github.workspace }}/target/release/leakscope-sensor
+          LEAKSCOPE_ANALYZER_BIN: ${{ github.workspace }}/target/release/leakscope-analyzer
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: benchmark-evidence
-          path: artifacts/benchmark.json
+          path: |
+            artifacts/benchmark.json
+            artifacts/kernel/benchmark.json

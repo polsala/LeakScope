@@ -2,6 +2,8 @@ FROM rust:1.94.1-bookworm AS native
 WORKDIR /build
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY crates ./crates
+COPY bpf ./bpf
+RUN apt-get update && apt-get install -y --no-install-recommends clang && rm -rf /var/lib/apt/lists/*
 RUN cargo build --workspace --release --locked
 
 FROM python:3.12.11-slim-bookworm AS runtime
