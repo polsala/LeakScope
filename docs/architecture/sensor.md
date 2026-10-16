@@ -35,8 +35,9 @@ is a target, not a hard guarantee. The allocation-heavy benchmark exceeds the
 SIGTERM and closes every owned probe. SIGKILL also closes kernel FDs; the collector
 marks the interrupted capture incomplete.
 
-ELF/DWARF symbolization is cached during collection. This preview snapshots
-executable mappings at attach; libraries loaded/replaced later can be unresolved.
+ELF/DWARF symbolization is cached during collection. Mappings are snapshotted at attach and executable fingerprints checked each
+second. Persistent changes stop detail and invalidate native symbols; transient
+remaps and full historical symbolization remain unverified.
 Frame-pointer unwinding is partial on optimized code. These are native stacks,
 not Python source stacks. See the native tutorial and kernel gaps for privileges.
 
@@ -45,3 +46,8 @@ allowance and 50 ms checks. Exceeding it disables detailed tracing. Collector
 queue loss also disables detail; it is not sufficient to check kernel loss alone.
 The exported utilization gauge describes the bounded sensor ACK queue, identified
 by `ringbuffer_source`; instantaneous kernel ring occupancy is not measured.
+
+Phase 3 policies and guard transitions are documented in overhead-control.md.
+Nonzero monotonic time namespaces are rejected. Detach counts in-flight calls
+and late records; uncertainty invalidates survivor precision. Native Light
+uses a bounded non-LRU selected-pointer table and preserves selected lifetimes.

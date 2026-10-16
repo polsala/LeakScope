@@ -47,3 +47,19 @@ and downgrades survivor precision. It never frees that later allocation. Legacy
 moving-realloc records lacking entry time are conservatively inexact. This race is
 covered by a lifecycle test with a pre-attach old allocation. Requested payload
 sizes exclude allocator bookkeeping and size-class slack.
+
+## Python context and object blocks
+
+The existing Event/Lifecycle model also handles `python_block` records. Stream
+ordering is keyed by process/domain/source (Lab activation epoch); pointers stay
+keyed by process/domain. A capture with activation gaps is inexact. Aggregate
+outputs select one domain and never sum overlapping native and Python blocks.
+A bounded first pass indexes code metadata and completed operation intervals; a
+second streaming pass reconstructs lifetimes and temporal context. Function
+association requires process, TID and monotonic interval agreement. Gaps, missing
+metadata, ambiguous peers and stale activations suppress context. Standard Deep
+allocation `line` stays null; Lab frames carry their actual allocation-time
+source line and evidence flag. Trees, top sites, operation summaries and reports
+reuse the same filters and lifecycle results. Live analysis supplies durable
+cooperative rows as a bounded private overlay, not simulated allocations.
+Formal repeated-action Python leak scoring remains unfinished.

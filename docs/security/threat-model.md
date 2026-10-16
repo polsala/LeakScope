@@ -22,3 +22,12 @@ execution or inspection. Neither interface is exposed over TCP.
 Remaining risks include local administrator access, same-UID compromise, vendor
 ABI changes, incomplete long-duration quota validation, and denial of service
 through a malicious authenticated client. This preview is not multi-tenant ready.
+
+Phase 3 adds bounded profiler-hook and Lab metadata tables, explicit activation
+and loss counters, nonblocking safe-point datagrams and a capped durable staging
+table. Existing profilers are never overwritten. Native/Lab domains cannot be
+added as physical memory; temporal context cannot establish ownership. Exact
+lines require verified Lab frame state. Interpreter ABI/GIL assumptions are a
+separate experimental trust boundary. Full signal/subinterpreter/long-duration
+qualification is still required. Test fixture launchers bind loopback only and
+are excluded from the production API factory.

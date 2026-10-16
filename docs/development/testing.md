@@ -43,3 +43,18 @@ real executable/dependency checks in all three Ubuntu container runtimes. It doe
 not boot three kernels. `scripts/native-benchmark.py` records controlled real
 kernel p50/p95/p99 fixture latency, sensor metrics and loss; it does not assert
 an ERP overhead SLO. See the dated native validation record.
+
+## Phase 3
+
+Build the native binaries and genuine agent before `pytest`.
+`bash scripts/test-python27-installed.sh` rebuilds the agent against already
+verified UCS2 release, UCS4 debug and UCS4 Lab cached interpreters.
+`tests/integration/test_python_attribution.py` checks real operation/profile
+packets, live Lab overlays, exact retention/cleanup, continuous/restarted
+activations, reports and import/replay. The genuine native test profile now
+includes Light thresholds/shrinks and Python/native function correlation; an
+additional dlopen case invalidates symbols and stops tracing.
+The browser suite includes verified Lab frames and report download. See
+python-attribution-validation.md for actual counts and production-performance.md
+for real matched measurements. Kernel profiling still requires the trusted
+profile; ordinary portable tests neither fake attachment nor require BPF.

@@ -6,7 +6,8 @@ scheduler lifecycle tracepoints. Linux x86_64 >=5.8 is required for this path.
 
 Actual attachment, verifier acceptance, allocation return correlation, native
 stack attribution, persistence, reports and the browser journey have passed on
-6.19.14+kali-amd64. Eight real-kernel cases include pre-existing Python threads,
+6.19.14+kali-amd64. Phase 3 has 15 accounting/correlation cases plus a persistent mapping-change
+invalidation case; real-kernel controls include pre-existing Python threads,
 calloc/realloc behavior, event loss, worker recycling and exec. This does not
 certify an Ubuntu kernel matrix. Native binary ABI loading is separately tested
 on Ubuntu 20.04/22.04/24.04 containers, all sharing the host kernel. Ubuntu 20.04's

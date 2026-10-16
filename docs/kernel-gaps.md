@@ -29,9 +29,13 @@ Remaining restrictions:
   Child target PID namespaces use the observer coordinates; the full nested
   namespace deployment matrix is not certified.
 - One selected libc/provider domain; no Python-block/arena probe loader.
-- Native frame-pointer stacks plus actual caller PC; no Python stack attribution.
-- Attach-time module snapshot; later dlopen/dlclose and symbol replacement can
-  leave missing or stale attribution. Capture a new session after module changes.
+- Native frame-pointer stacks plus actual caller PC; cooperative temporal Python
+  function correlation is separate from kernel stack collection. Verified Lab
+  allocation-time Python frames do not come from libc uprobes.
+- Attach-time module snapshot with one-second executable mapping fingerprint
+  checks. Persistent changes invalidate native symbols and stop detailed tracing;
+  a real dlopen test passes. Transient remaps, in-place library replacement and
+  full time-specific mapping history remain unqualified.
 - No compressed/split DWARF expansion; separate debug files require matching
   build IDs in standard debug directories. No automatic debuginfod/network lookup.
 - realloc(p,0) NULL results deliberately invalidate exact survivor claims.
@@ -39,3 +43,9 @@ Remaining restrictions:
   latency regression is measured separately; ERP CPU overhead remains unmeasured.
 - Sustained 100k events/s, long soak, fork storms, and the full Ubuntu kernel
   matrix remain release qualification work. Loss triggers a safe metrics fallback.
+
+Phase 3: Native Light selected lifetimes and threshold-crossing/shrink controls,
+Python operation/function correlation, forced loss and native browser regression
+pass on the same real kernel. Nonzero monotonic time namespaces are rejected
+rather than joined to incompatible Python clocks. In-flight/late stop events
+downgrade survivors. Full kernel/namespace matrices remain unverified.

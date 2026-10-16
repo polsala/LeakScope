@@ -19,8 +19,8 @@ Trailing bytes and unsupported magic are rejected. Decompression is output- and
 window-bounded. Whole-file SHA256/size manifests accompany finalized captures.
 
 The connected collector writes metrics, markers and bounded cooperative GC events. Its database is the recovery
-authority and finalization atomically replaces a temporary file. Module/string/
-stack tables, analytical Parquet and allocation imports are not yet implemented.
+authority and finalization atomically replaces a temporary file. Native module/stack tables and allocation imports are implemented; analytical
+Parquet remains unavailable.
 See the feature matrix instead of assuming a general heap archive.
 
 ## Native record extension (v1-compatible)
@@ -47,3 +47,15 @@ identities never authorize access to a running process.
 written in Python and consumed in Rust. It is not kernel evidence. Actual kernel
 captures and independent ground truth are produced in `artifacts/kernel/` by the
 trusted test profile. Older metrics-only golden captures still pass.
+
+## Cooperative Python extension (v1-compatible)
+
+New `operation`, `python_codes`, `python_profile`, `lab_stacks`, `lab_events` and
+`lab_end` records preserve bounded original evidence. Lab records additionally
+expand into the existing portable `allocation`/`stack` format with domain
+`python_block`, epoch-qualified source/stack IDs, native TID, allocator entry
+time and verification flags. The native Lab ABI is version 2, 88 bytes; it is
+checked before use and never mistaken for the portable JSON encoding. A final
+high-water confirmation and loss/epoch quality govern survivor precision.
+Older metrics/native captures remain readable without Python attribution.
+Cross-language golden tests and genuine Lab capture import/replay both pass.

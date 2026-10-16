@@ -17,3 +17,13 @@ include every Python allocation. LeakScope does not use it for default snapshots
 Reference graphs are not implemented. Native datagram sends are nonblocking,
 bounded at 32 KiB, counted when dropped, and reset on a PID change after fork.
 No agent operation universally intercepts Python allocation.
+
+## Phase 3 attribution
+
+The agent now adds nested operation boundaries and opt-in C `PyEval_SetProfile`
+function records, with native TID, monotonic timestamps, activation epochs,
+bounded metadata and explicit hook conflicts. The Lab v2 patch adds selected
+object-block lifetimes with verified executing Python frames under proven GIL
+conditions. See [Python attribution](python-attribution.md) for invariants,
+limits, exact versus temporal evidence and transport-loss semantics.
+All-generation GC and reference graphs remain unsupported.

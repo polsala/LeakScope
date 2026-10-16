@@ -22,3 +22,16 @@ External native probes are ABI-independent libc observations and have been
 exercised with genuine CPython 2.7.18 via ctypes. UCS width and debug ABI checks
 still apply to the cooperative extension. Native stacks do not establish Python
 source locations, and libc arena backing does not enumerate PyObject blocks.
+
+## Phase 3 executed coverage
+
+The new 15-test agent suite has been rerun on cached official-source UCS2 release,
+UCS4 debug and UCS4 Lab interpreters. Stock/debug skip four Lab-only cases; Lab
+passes all 15. Standard hook boundaries are function-level temporal evidence.
+Only the exact patched Lab paths copy verified executing allocation lines.
+Native TLS/GIL-state assumptions, metadata limits, custom interpreter and
+subinterpreter restrictions are documented in architecture/python-attribution.md.
+Agent binaries built on a newer glibc are not certified for Ubuntu 20.04; the
+standalone package includes source for compilation against the target interpreter.
+CI defines further UCS2/UCS4 configurations but their presence is not executed
+certification. Lab debug combinations remain unverified.

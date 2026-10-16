@@ -13,8 +13,8 @@ This checklist records delivered work, not a promise of instrument coverage.
 - [ ] H: Authorization, quotas, retention, test suites, workflows, installation packages, operational documentation.
 - [x] Self-review and record exact test evidence and remaining gaps.
 
-Phase D has tested lifecycle/ELF libraries and compiled experimental BPF, but no
-production attachment loader. Phase H has working offline/deb/OCI packaging,
+The original foundation stopped at compiled probes; Phase 2 subsequently
+implemented the real loader and connected pipeline (see dated evidence below). Phase H has working offline/deb/OCI packaging,
 security tests, audits, workflows and documentation; production validation gates
 in quality-gates.md remain open. The repository is a usable engineering preview.
 
@@ -25,3 +25,10 @@ Completed execution checklist: [phase2-checklist.md](phase2-checklist.md).
 Actual kernel and browser validation: [native validation](development/native-validation-2026-10-16.md).
 Production qualification remains governed by quality-gates.md, especially the
 measured native operation-latency regression and unverified Ubuntu kernels.
+
+## Phase 3 — Python attribution and bounded policies
+
+Executed checklist: [phase3-checklist.md](phase3-checklist.md). Real Python/Lab
+validation and matched performance evidence are documented under development/.
+The end-to-end bounded attribution slice works; production performance, full
+adaptive control and broader compatibility/reliability acceptance remain open.

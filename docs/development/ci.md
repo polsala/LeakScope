@@ -11,7 +11,7 @@ a specific need. Fork PRs use hosted runners without kernel capabilities.
 
 Kernel and controlled-performance jobs require named isolated self-hosted runners
 and protected environments. Their presence in YAML does not mean such runners
-exist. Kernel attribution certification is blocked until a real loader exists.
+exist. The real native loader is implemented and locally validated; complete kernel certification remains open.
 The performance job currently gates sensor baseline RSS, not a stable application
 latency regression baseline. SAST uses Bandit; CodeQL/provenance attestations and
 published ABI packages still need release integration.
@@ -37,3 +37,15 @@ then provisions the freshly built sensor executable with sudo -n setcap. Without
 that explicit configuration it grants nothing. Never grant these capabilities to
 the web interpreter. Broad CAP_SYS_ADMIN is not the recommended default; the local
 hardened kernel test needed it and that restriction is recorded honestly.
+
+## Phase 3 extension
+
+Integration and browser jobs build genuine UCS4 Lab in addition to stock Python
+2.7. The existing six-way legacy ABI matrix runs the actual profile/operation/Lab
+unit suite. Kernel jobs run the enlarged real fixture suite. The exact-tag release
+gate additionally checks genuine Python attribution/cleanup. Performance jobs
+record Metrics/Light/Detailed matched runs, component controls and Deep/Lab hook
+costs on protected hardware. No stable target CPU regression baseline or full
+production workload qualification is claimed. Agent compatibility sources and
+all required C headers ship in the standalone bundle. These workflows pass local
+actionlint validation; no remote GitHub run was started or claimed here.

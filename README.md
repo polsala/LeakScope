@@ -7,8 +7,9 @@ CPython 2.7.18 agent. The interface defaults to Catalan and includes Spanish and
 Observe metrics work without tracing privileges. Optional native profiling now records
 actual malloc/calloc/realloc/free events through Aya, streams LSCAP captures,
 reconstructs allocations, and displays native flamegraphs, call trees and reports.
-The real Python 2.7/kernel/browser path has been exercised. Native stacks do not
-provide Python source attribution. The optional Lab interpreter remains experimental. See the [evidence matrix](docs/implementation-status.md).
+The real Python 2.7/kernel/browser path has been exercised. Cooperative operation/function boundaries now correlate native allocations with Python
+context, while a separately instrumented Lab interpreter can record verified executing
+Python allocation lines. Standard Deep evidence remains temporal. Lab remains experimental. See the [evidence matrix](docs/implementation-status.md).
 
 ## Start locally
 
@@ -45,7 +46,8 @@ Rust sensor ── procfs + optional Aya uprobes ── same-UID target processe
           └── bounded leases, acknowledged sample queues, explicit loss
 
 Application-initialized Python 2 agent ── credential-checked Unix datagrams
-         markers / bounded generation-zero GC type counts
+         nested operations / C function boundaries / bounded generation-zero GC counts
+         optional Lab object blocks + verified allocation-time frames
 
 Metrics + actual native events ── streaming Zstandard .lscap + SHA256
           └── Rust lifecycle + native stacks ── flamegraphs / offline reports
@@ -65,8 +67,18 @@ A controlled 48-block leak was attributed to its actual C caller with exactly
 3,145,728 retained bytes and zero loss; the cleanup control retained zero.
 Native binaries are built against glibc 2.31 and load on Ubuntu 20.04/22.04/24.04.
 Kernel attachment is verified on 6.19.14+kali-amd64; the Ubuntu kernel matrix
-and production overhead target remain unqualified. The allocation-heavy test
-measured about 84.5% median operation-latency overhead. Keep metrics-only as default.
+and production overhead target remain unqualified. Final allocation-heavy target CPU costs range +289–633% for Native Light and
++605–687% for Detailed on shared hardware. Keep metrics-only as default; no
+production CPU target is qualified. See [measured performance](docs/development/production-performance.md).
+
+## Python investigations
+
+[Python Memory Leak Investigation](docs/usage/python-memory-investigation.md)
+covers initialization, nested operations, opt-in function profiling, exact Lab
+lines, positive/cleanup fixtures, CLI and reports. Eight controlled retained tuples
+match 9,152 object-block bytes on the verified UCS4 build; cleanup gives zero.
+Python blocks, native allocations, GC counts and RSS are separate overlapping
+domains. See [attribution evidence](docs/architecture/python-attribution.md).
 
 ## CLI
 

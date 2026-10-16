@@ -5,8 +5,10 @@ engineering preview. See implementation-status.md for executed evidence.
 
 - One selected native allocator provider; optional Python allocator probes are
   unavailable. libc visibility cannot account for every Python object or RSS page.
-- Native frame-pointer stacks plus entry caller PC; no reliable Python stacks.
-  Attach-time mappings can miss late module changes. Compressed/split DWARF is not
+- Standard Python Deep adds temporal function/operation context, never exact
+  allocation lines. Verified Lab frames/lines cover selected object-block paths.
+  Native mappings are invalidated on persistent changes; transient remaps and
+  full mapping history remain unverified. Compressed/split DWARF is not
   expanded; standard matching build-ID debug files are supported.
 - Lost events, pointer collisions and ambiguous realloc(p,0) invalidate exact
   survivor claims. Unknown pre-attach objects remain unknown. Allocator domains
@@ -29,3 +31,12 @@ engineering preview. See implementation-status.md for executed evidence.
   failure artifacts remain work. Active captures are protected from retention.
 - Native Canvas graphs have keyboard call-tree alternatives; complete WCAG 2.2
   AA certification and arbitrary draggable A/B interval selection remain open.
+
+Native Light excludes unselected small allocations, retains selected pointers
+through frees/shrinks and reports map loss. It reduces output, not all uprobe
+traps. Lab safe-point allocation exclusion has a bounded lifetime map; multiple
+activation epochs leave gaps and invalidate exact survivor totals. Agent
+transport/staging is bounded and can lose data in bursts. No full adaptive
+CPU/lag controller, all-generation GC, async context identity or formal Python
+leak classifier is implemented. Rebuild the agent for the actual interpreter;
+prebuilt agent glibc compatibility across Ubuntu versions is not certified.
