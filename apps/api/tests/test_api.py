@@ -218,7 +218,7 @@ def test_settings_migration_and_retention(client):
     from sqlalchemy import text
 
     with client.app_instance.state.db() as db:
-        assert db.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0001"
+        assert db.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0002"
         assert db.execute(text("PRAGMA journal_mode")).scalar() == "wal"
     sid = start_session(client)
     client.app_instance.state.collector.cleanup()

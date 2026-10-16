@@ -141,6 +141,9 @@ pub struct Resolver {
     cache: std::collections::HashMap<String, Module>,
 }
 impl Resolver {
+    pub fn pid(&self) -> u32 {
+        self.pid
+    }
     pub fn new(pid: u32) -> io::Result<Self> {
         Ok(Self {
             pid,

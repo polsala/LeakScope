@@ -30,8 +30,11 @@ def command(child, line):
     return json.loads(child.stdout.readline())
 
 
-@pytest.mark.parametrize("mode", [0, 1, 2, 3, 4, 5])
-def test_real_kernel_native_path(tmp_path, mode):
+@pytest.mark.parametrize(
+    "policy,mode",
+    [("native_detailed", m) for m in range(6)] + [("native_light", m) for m in range(3)],
+)
+def test_real_kernel_native_path(tmp_path, policy, mode):
     library = tmp_path / "libgroundtruth.so"
     subprocess.run(
         [
@@ -86,6 +89,7 @@ def test_real_kernel_native_path(tmp_path, mode):
                     "duration_seconds": 30,
                     "sample_interval_ms": 100,
                     "allocation_domains": ["os_process", "native"],
+                    "profiling_policy": policy,
                     "allow_downgrade": False,
                 },
             )
@@ -370,3 +374,277 @@ def test_multiworker_recycling_never_inherits_native_state(tmp_path):
                 child.wait(timeout=3)
         sensor_process.terminate()
         sensor_process.wait(timeout=3)
+
+
+@pytest.mark.parametrize("clean", [False, True])
+def test_real_python_native_correlation(tmp_path, clean):
+    """GIL-releasing ctypes call: real native lifetimes plus Python boundaries."""
+    interpreter = os.getenv("PYTHON27", "python2.7")
+    agent = tmp_path / "agent"
+    subprocess.run(
+        [
+            interpreter,
+            "setup.py",
+            "build_ext",
+            "--build-lib",
+            str(agent),
+            "--build-temp",
+            str(tmp_path / "build"),
+            "--force",
+        ],
+        cwd=ROOT / "legacy/py27-agent",
+        check=True,
+        capture_output=True,
+    )
+    shutil.copy(ROOT / "legacy/py27-agent/src/leakscope_agent.py", agent)
+    library = tmp_path / "libgroundtruth.so"
+    subprocess.run(
+        [
+            "cc",
+            "-shared",
+            "-fPIC",
+            "-O0",
+            "-g",
+            "-fno-omit-frame-pointer",
+            "-pthread",
+            str(ROOT / "tests/fixtures/native_leak_library.c"),
+            "-o",
+            str(library),
+        ],
+        check=True,
+    )
+    data = tmp_path / "collector"
+    app = create_app(Config(data_path=str(data)))
+    with TestClient(
+        app, headers={"Authorization": "Bearer " + (data / "admin.token").read_text()}
+    ) as client:
+        child = subprocess.Popen(
+            [interpreter, str(ROOT / "tests/fixtures/python_attribution.py"), str(library)],
+            env={
+                **os.environ,
+                "PYTHONPATH": str(agent),
+                "LEAKSCOPE_AGENT_SOCKET": str(data / "agent.sock"),
+            },
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+        )
+        try:
+            assert json.loads(child.stdout.readline())["version"] == [2, 7, 18]
+            host = client.get("/api/v1/hosts").json()["items"][0]["id"]
+            process = next(
+                p
+                for p in client.get("/api/v1/hosts/%s/processes?limit=2000" % host).json()["items"]
+                if p["pid"] == child.pid
+            )
+            session = client.post(
+                "/api/v1/sessions",
+                json={
+                    "process_key": process["key"],
+                    "profiling_policy": "native_detailed",
+                    "duration_seconds": 30,
+                    "allow_downgrade": False,
+                },
+            ).json()
+            assert session["state"] == "recording", session
+            truth = command(child, "run clean" if clean else "run")
+            for _ in range(100):
+                context = client.get("/api/v1/sessions/%s/python/context" % session["id"]).json()
+                if context["python_functions"] and len(context["operations"]) == 2:
+                    break
+                time.sleep(0.03)
+            client.post("/api/v1/sessions/%s/stop" % session["id"])
+            for _ in range(150):
+                final = client.get("/api/v1/sessions/" + session["id"]).json()
+                if final["state"] in {"ready", "degraded", "failed"}:
+                    break
+                time.sleep(0.05)
+            endpoint = "/api/v1/sessions/%s/allocations" % session["id"]
+            native = client.get(endpoint + "?library=libgroundtruth.so").json()
+            python = client.get(
+                endpoint
+                + "?attribution=python_functions&symbol=native_retention_site&min_size=65536"
+            )
+            assert python.status_code == 200, python.text
+            python = python.json()
+            expected = 0 if clean else 48 * 65536
+            assert truth["native_bytes"] == expected
+            assert native["exact_survivors"], native
+            assert native["retained_tree"]["value"] == expected, native
+            assert python["selected_allocation_count"] >= 48, python
+            assert python["retained_tree"]["value"] == expected, python
+            frames = [f for site in python["top_sites"] for f in site["frames"] or []]
+            assert any(f["function"] == "native_retention_site" for f in frames)
+            assert all(f["line"] is None for f in frames), (
+                "Temporal Python context must never claim exact allocation lines"
+            )
+            assert not python["quality"]["python_exact_allocation_lines"]
+            assert len(python["operations"]) == 2
+            report = client.post(
+                "/api/v1/reports",
+                json={"session_id": session["id"], "title": "Real Python native context"},
+            ).json()
+            document = client.get("/api/v1/reports/" + report["id"]).json()
+            assert "python_functions" in document["document"], document
+            evidence = ROOT / "artifacts/kernel"
+            evidence.mkdir(parents=True, exist_ok=True)
+            (evidence / ("python-clean.json" if clean else "python-leak.json")).write_text(
+                json.dumps(
+                    {"truth": truth, "native": native, "python": python, "session": final}, indent=2
+                )
+            )
+        finally:
+            child.terminate()
+            child.wait(timeout=3)
+
+
+@pytest.mark.parametrize("cleanup", [False, True])
+def test_light_threshold_crossing_and_shrink(tmp_path, cleanup):
+    library = tmp_path / "libthreshold.so"
+    subprocess.run(
+        [
+            "cc",
+            "-shared",
+            "-fPIC",
+            "-O0",
+            "-g",
+            "-fno-omit-frame-pointer",
+            "-pthread",
+            str(ROOT / "tests/fixtures/native_leak_library.c"),
+            "-o",
+            str(library),
+        ],
+        check=True,
+    )
+    child = subprocess.Popen(
+        [
+            os.getenv("PYTHON27", "python2.7"),
+            str(ROOT / "tests/fixtures/native_ctypes.py"),
+            str(library),
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+    )
+    try:
+        assert json.loads(child.stdout.readline())["ready"]
+        data = tmp_path / "collector"
+        app = create_app(Config(data_path=str(data)))
+        with TestClient(
+            app, headers={"Authorization": "Bearer " + (data / "admin.token").read_text()}
+        ) as client:
+            host = client.get("/api/v1/hosts").json()["items"][0]["id"]
+            process = next(
+                p
+                for p in client.get("/api/v1/hosts/%s/processes?limit=2000" % host).json()["items"]
+                if p["pid"] == child.pid
+            )
+            session = client.post(
+                "/api/v1/sessions",
+                json={
+                    "process_key": process["key"],
+                    "profiling_policy": "native_light",
+                    "min_allocation_size": 65536,
+                    "duration_seconds": 15,
+                    "allow_downgrade": False,
+                },
+            ).json()
+            assert session["state"] == "recording", session
+            truth = command(child, "threshold")
+            assert truth["bytes"] == 32
+            if cleanup:
+                truth = command(child, "release")
+            client.post("/api/v1/sessions/%s/stop" % session["id"])
+            for _ in range(100):
+                final = client.get("/api/v1/sessions/" + session["id"]).json()
+                if final["state"] in {"ready", "degraded", "failed"}:
+                    break
+                time.sleep(0.05)
+            result = client.get(
+                "/api/v1/sessions/%s/allocations?library=libthreshold.so" % session["id"]
+            ).json()
+            assert result["exact_survivors"], result
+            assert result["retained_tree"]["value"] == truth["bytes"] == (0 if cleanup else 32), (
+                result
+            )
+            assert result["selected_allocation_count"] == 2, result
+    finally:
+        child.terminate()
+        child.wait(timeout=3)
+
+
+def test_late_executable_mapping_invalidates_symbols(tmp_path):
+    library = tmp_path / "libgroundtruth.so"
+    late = tmp_path / "liblate.so"
+    for output in [library, late]:
+        subprocess.run(
+            [
+                "cc",
+                "-shared",
+                "-fPIC",
+                "-O0",
+                "-g",
+                "-fno-omit-frame-pointer",
+                "-pthread",
+                str(ROOT / "tests/fixtures/native_leak_library.c"),
+                "-o",
+                str(output),
+            ],
+            check=True,
+        )
+    child = subprocess.Popen(
+        [
+            os.getenv("PYTHON27", "python2.7"),
+            str(ROOT / "tests/fixtures/native_ctypes.py"),
+            str(library),
+            str(late),
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+    )
+    try:
+        assert json.loads(child.stdout.readline())["ready"]
+        data = tmp_path / "collector"
+        with TestClient(
+            create_app(Config(data_path=str(data))),
+            headers={"Authorization": "Bearer " + (data / "admin.token").read_text()},
+        ) as client:
+            host = client.get("/api/v1/hosts").json()["items"][0]["id"]
+            process = next(
+                p
+                for p in client.get("/api/v1/hosts/%s/processes?limit=2000" % host).json()["items"]
+                if p["pid"] == child.pid
+            )
+            session = client.post(
+                "/api/v1/sessions",
+                json={
+                    "process_key": process["key"],
+                    "profiling_policy": "native_detailed",
+                    "duration_seconds": 15,
+                    "allow_downgrade": False,
+                },
+            ).json()
+            assert session["state"] == "recording", session
+            command(child, "dlopen")
+            for unused in range(100):
+                session = client.get("/api/v1/sessions/" + session["id"]).json()
+                if session["quality"].get("symbolization_invalidated"):
+                    break
+                time.sleep(0.05)
+            assert session["quality"]["symbolization_invalidated"], session
+            assert session["quality"]["policy_transitions"][-1]["to"] == "metrics"
+            client.post("/api/v1/sessions/%s/stop" % session["id"])
+            for unused in range(100):
+                session = client.get("/api/v1/sessions/" + session["id"]).json()
+                if session["state"] in {"ready", "degraded", "failed"}:
+                    break
+                time.sleep(0.05)
+            assert client.get("/api/v1/sessions/%s/allocations" % session["id"]).status_code == 409
+            assert session["quality"]["incomplete"]
+    finally:
+        child.terminate()
+        child.wait(timeout=3)

@@ -1,28 +1,24 @@
-"""Wrap explicit operation boundaries; never inspect parameters or record values."""
+"""Explicit ERP RPC/model/wizard boundaries. No argument or record inspection."""
 import contextlib
+import sys
 
 
 @contextlib.contextmanager
-def erp_operation(model, method):
+def erp_operation(model, method, module=None, profile=False):
+    manager = None
     try:
         import leakscope_agent
-    except ImportError:
-        yield
-        return
-    metadata = {'operation': model + '.' + method, 'model': model, 'method': method}
-    def diagnostic(name):
-        try:
-            leakscope_agent.mark(name, metadata)
-        except Exception:
-            # Profiling/validation failures must never change a business operation.
-            return False
-        return True
-    diagnostic('operation_started')
-    failed = False
+        manager = leakscope_agent.safe_operation(model+'.'+method, model=model,
+                      method=method, module=module, profile=profile)
+        manager.__enter__()
+    except Exception:
+        manager = None
     try:
         yield
     except BaseException:
-        failed = True
+        if manager is not None:
+            manager.__exit__(*sys.exc_info())
         raise
-    finally:
-        diagnostic('operation_failed' if failed else 'operation_finished')
+    else:
+        if manager is not None:
+            manager.__exit__(None,None,None)

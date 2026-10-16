@@ -3,11 +3,12 @@ FROM python:2.7 AS legacy
 FROM leakscope:0.1.0
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev binutils libcap2-bin && rm -rf /var/lib/apt/lists/*
+COPY --from=legacy /usr/local/include/python2.7 /usr/local/include/python2.7
 COPY --from=legacy /usr/local/bin/python2.7 /usr/local/bin/python2.7
 COPY --from=legacy /usr/local/lib/libpython2.7.so.1.0 /usr/local/lib/
 COPY --from=legacy /usr/local/lib/python2.7 /usr/local/lib/python2.7
 COPY --from=legacy /usr/lib/x86_64-linux-gnu/libffi.so.6* /usr/lib/x86_64-linux-gnu/
-RUN ldconfig && python2.7 -c 'import ctypes,sys; assert sys.version_info[:3] == (2,7,18)' && /opt/leakscope/venv/bin/pip install pytest==9.0.3
+RUN ln -s libpython2.7.so.1.0 /usr/local/lib/libpython2.7.so && ldconfig && python2.7 -c 'import ctypes,sys; assert sys.version_info[:3] == (2,7,18)' && /opt/leakscope/venv/bin/pip install pytest==9.0.3
 COPY artifacts/native-baseline/leakscope-sensor /usr/local/bin/leakscope-sensor
 COPY artifacts/native-baseline/leakscope-analyzer /usr/local/bin/leakscope-analyzer
 RUN setcap cap_bpf,cap_perfmon,cap_sys_ptrace,cap_sys_admin=ep /usr/local/bin/leakscope-sensor

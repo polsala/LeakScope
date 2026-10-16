@@ -22,6 +22,13 @@ if [[ ! -d "$source_dir" ]]; then
     cp "$root/legacy/cpython-2.7-patch/leakscope_lab.h" "$source_dir/Objects/leakscope_lab.h"
   fi
 fi
+if [[ "$mode" == lab ]]; then
+  cp "$root/legacy/cpython-2.7-patch/leakscope_lab.h" "$source_dir/Objects/leakscope_lab.h"
+  cp "$root/legacy/py27-agent/include/lab_protocol.h" "$source_dir/Objects/lab_protocol.h"
+  # Refresh the exact wrapper suffix when the laboratory patch evolves.
+  python3 "$root/scripts/refresh-lab-wrappers.py" "$source_dir/Objects/obmalloc.c"
+  touch "$source_dir/Objects/obmalloc.c"
+fi
 flags=()
 if [[ "$mode" == debug ]]; then flags+=(--with-pydebug); fi
 cd "$source_dir"

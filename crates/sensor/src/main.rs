@@ -355,11 +355,16 @@ async fn main() -> io::Result<()> {
                                         "event_rate_guard"
                                     });
                                 l.native_quality["incomplete"] = json!(true);
+                                l.native_quality["effective_policy"] = json!("metrics");
+                                l.native_quality["policy_transitions"] = json!([{"from":l.native_quality["profiling_policy"],"to":"metrics","timestamp":now(),"reason":l.native_quality["detailed_tracing_stopped"]}]);
                             }
                         }
                         Err(e) => {
                             finish_trace(l);
                             l.native_quality["native_failure"] = json!(format!("{e:?}"));
+                            l.native_quality["unknown_loss"] = json!(true);
+                            l.native_quality["effective_policy"] = json!("metrics");
+                            l.native_quality["policy_transitions"] = json!([{"from":l.native_quality["profiling_policy"],"to":"metrics","timestamp":now(),"reason":l.native_quality["native_failure"]}]);
                             l.native_quality["incomplete"] = json!(true);
                         }
                     }

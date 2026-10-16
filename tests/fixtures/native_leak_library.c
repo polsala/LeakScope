@@ -55,3 +55,14 @@ void fixture_release(void) {
     used = 0; retained = 0;
     pthread_mutex_unlock(&lock);
 }
+/* Independent Light selection control: cross the threshold, shrink below it,
+ * then retain a failed realloc's old block until an explicit release. */
+__attribute__((noinline)) int fixture_threshold_realloc(void) {
+    void *p=malloc(16),*next;
+    if(!p)return -1;
+    next=realloc(p,131072);if(!next){free(p);return -2;}p=next;
+    next=realloc(p,32);if(!next){free(p);return -3;}p=next;
+    volatile size_t impossible=SIZE_MAX-4095;
+    next=realloc(p,impossible);if(next){free(next);return -4;}
+    blocks[0]=p;sizes[0]=32;used=1;retained=32;return 0;
+}

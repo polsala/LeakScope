@@ -35,8 +35,9 @@ from .contracts import (
 )
 from .db import database
 from .reports import render
+from .context_capture import expand
 from .native import analyze as analyze_native, NativeAnalysisError
-from .agent import receive_agents, Snapshot
+from .agent import receive_agents, Snapshot, validate_evidence
 from .sensor import Sensor, SensorError
 from .service import Collector, ACTIVE, session_view
 from .contracts import ProcessView, ProcessPage
@@ -428,6 +429,12 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
         agent = collector.agents.get(process_key)
         result["cooperative_agent"] = agent
         result["capabilities"]["deep"] = bool(agent and time.time() - agent["last_seen"] < 300)
+        result["capabilities"]["lab"] = bool(
+            result["capabilities"]["deep"] and agent and agent.get("lab")
+        )
+        result["capabilities"]["python_function_boundaries"] = bool(
+            agent and agent.get("python_function_boundaries")
+        )
         return result
 
     @app.post("/api/v1/sessions", response_model=SessionView, status_code=201)
@@ -473,9 +480,15 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
             capability = await collector.call("native_capabilities", pid=p.pid)
             native_available = capability["capabilities"].get("external_allocations", False)
             native_reason = capability["capabilities"].get("reason", "")
-        supported_mode = body.mode == "observe" or (body.mode == "deep" and deep_available)
+        lab_available = bool(deep_available and agent and agent.get("lab"))
+        supported_mode = (
+            body.mode == "observe"
+            or (body.mode == "deep" and deep_available)
+            or (body.mode == "lab" and lab_available)
+        )
         unsupported = not supported_mode or any(
-            d not in {"os_process", "gc_objects", "native"}
+            d not in {"os_process", "gc_objects", "native", "python_block"}
+            or (d == "python_block" and not lab_available)
             or (d == "native" and not native_available)
             or (d == "gc_objects" and (not deep_available or body.mode != "deep"))
             for d in body.allocation_domains
@@ -494,6 +507,9 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
             config_dict["allocation_domains"] = list(
                 dict.fromkeys([*config_dict["allocation_domains"], "native"])
             )
+        if body.mode == "lab" and lab_available:
+            config_dict["mode"] = "lab"
+            config_dict["allocation_domains"] = ["os_process", "python_block"]
         session_id = uuid.uuid4().hex
         with db_factory.begin() as db:
             db.add(
@@ -505,10 +521,13 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
                     created_at=time.time(),
                     config=config_dict,
                     quality={
-                        "coverage": "metrics_only",
+                        "coverage": "lab_observed"
+                        if body.mode == "lab" and lab_available
+                        else "metrics_only",
                         "exact_allocations": False,
                         "pre_attach_allocations": "unknown",
                         "lost_samples": 0,
+                        "agent_dropped_baseline": collector.agent_dropped,
                         "incomplete": False,
                         "missing_symbols": [],
                         "sampling": "periodic_procfs",
@@ -626,12 +645,19 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
 
     def native_result(session_id, **filters):
         session = entity(m.Session, session_id)
-        if session.quality.get("coverage") != "native_observed":
+        if session.quality.get("coverage") not in {"native_observed", "lab_observed"}:
             unavailable(
                 "Native allocation data: "
                 + session.quality.get(
                     "native_failure", session.quality.get("warning", "metrics-only capture")
                 )
+            )
+        if (
+            session.quality.get("symbolization_invalidated")
+            and filters.get("attribution", "native") == "native"
+        ):
+            unavailable(
+                "Native executable mappings changed; symbols have been invalidated. Restart a bounded session after libraries stabilize"
             )
         path = data / "captures" / (session_id + ".lscap")
         if not path.exists():
@@ -648,16 +674,42 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
                     and not any(v is not None and v != "native" for v in filters.values())
                 ):
                     saved = json.loads(cache.read_text())
-                    if saved.get("source_sha256") == integrity(path)["sha256"]:
+                    if saved.get("source_sha256") == integrity(path)["sha256"] and saved[
+                        "analysis"
+                    ].get("domain", "native") == filters.get("domain", "native"):
                         result = saved["analysis"]
             if result is None:
-                result = analyze_native(path, **filters)
+                context_events = None
+                if path.name.endswith(".stream.partial") and (
+                    filters.get("attribution", "native") != "native"
+                    or filters.get("domain") == "python_block"
+                ):
+
+                    def context_events():
+                        with db_factory() as db:
+                            rows = db.scalars(
+                                select(m.AgentRecord)
+                                .where(m.AgentRecord.session_id == session_id)
+                                .order_by(m.AgentRecord.agent_sequence)
+                                .limit(2048)
+                                .execution_options(yield_per=64)
+                            )
+                            yield from expand(
+                                (r.data for r in rows), session.process_key, session.created_at
+                            )
+                            yield {"kind": "quality", "quality": session.quality}
+
+                result = analyze_native(path, context_events=context_events, **filters)
         except NativeAnalysisError as error:
             raise HTTPException(409, str(error)) from error
         if session.quality.get("incomplete") or session.quality.get("lost_native", 0):
             result["quality"].update(session.quality)
             result["quality"]["exact_survivors"] = False
             result["exact_survivors"] = False
+            result["incomplete"] = True
+            for cohort in result["cohorts"]:
+                cohort["survivor_fraction"] = None
+                cohort["exact"] = False
             result["known_live_by_domain"] = None
             for site in result["top_sites"]:
                 site["known_live_bytes"] = None
@@ -690,7 +742,10 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
         thread: int | None = Query(None, ge=1),
         symbol: str | None = Query(None, max_length=256),
         library: str | None = Query(None, max_length=256),
-        domain: str = Query("native", pattern="^native$"),
+        domain: str = Query("native", pattern="^(native|python_block)$"),
+        attribution: str = Query(
+            "native", pattern="^(native|python_functions|python_exact_lines|operations)$"
+        ),
         min_size: int | None = Query(None, ge=0),
         max_size: int | None = Query(None, ge=0),
     ):
@@ -704,9 +759,36 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
             symbol=symbol,
             library=library,
             domain=domain,
+            attribution=attribution,
             min_size=min_size,
             max_size=max_size,
         )
+
+    @app.get("/api/v1/sessions/{session_id}/python/context", dependencies=[Depends(read)])
+    def python_context(session_id: str):
+        session = entity(m.Session, session_id)
+        with db_factory() as db:
+            records = list(
+                db.scalars(
+                    select(m.AgentRecord)
+                    .where(m.AgentRecord.session_id == session_id)
+                    .order_by(m.AgentRecord.agent_sequence)
+                    .limit(2048)
+                )
+            )
+        operations = {}
+        functions = False
+        for record in records:
+            if record.data["kind"] == "operation":
+                operations[record.data["payload"]["id"]] = record.data["payload"]
+            functions |= record.data["kind"] == "python_profile"
+        return {
+            "operations": list(operations.values()),
+            "python_functions": functions or bool(session.quality.get("lab_events", 0)),
+            "python_exact_lines": bool(session.quality.get("lab_events", 0)),
+            "quality": session.quality,
+            "evidence": "function_boundaries_and_operation_intervals; temporal_allocation_association_only",
+        }
 
     for feature in ("gc/referrers",):
 
@@ -799,10 +881,29 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
             markers = []
             snapshots = []
             native_events = 0
+            observed_domains = set()
+            agent_records: list[dict] = []
+            agent_bytes = 0
             for chunk in reader.chunks():
                 for event in chunk:
                     if event["sequence"] > 2**63 - 1:
                         raise CaptureError("Event sequence exceeds database range")
+                    if event.get("kind") in {
+                        "operation",
+                        "python_codes",
+                        "python_profile",
+                        "lab_end",
+                    }:
+                        if event.get("process_key") != key:
+                            raise CaptureError(
+                                "Cooperative process identity does not match capture"
+                            )
+                        event["payload"] = validate_evidence(event["kind"], event["payload"])
+                        agent_bytes += len(json.dumps(event))
+                        if agent_bytes > 16 * 1024 * 1024 or len(agent_records) >= 2048:
+                            raise CaptureError("Cooperative evidence import budget exceeded")
+                        agent_records.append(event)
+                        continue
                     if event.get("kind") in {"marker", "gc_snapshot"}:
                         import math
 
@@ -838,13 +939,13 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
                         continue
                     if event.get("kind") in {"allocation", "stack", "modules", "quality"}:
                         if event["kind"] == "allocation":
-                            if (
-                                event.get("event", {}).get("process") != key
-                                or event["event"].get("domain") != "native"
-                            ):
+                            if event.get("event", {}).get("process") != key or event["event"].get(
+                                "domain"
+                            ) not in {"native", "python_block"}:
                                 raise CaptureError(
                                     "Allocation process or domain does not match capture"
                                 )
+                            observed_domains.add(event["event"]["domain"])
                             native_events += 1
                         continue
                     sample = event.get("sample", {})
@@ -900,8 +1001,11 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
                 except NativeAnalysisError as error:
                     raise CaptureError(str(error)) from error
                 quality.update(derived["quality"])
-                quality["coverage"] = "native_observed"
+                quality["coverage"] = (
+                    "lab_observed" if observed_domains == {"python_block"} else "native_observed"
+                )
                 quality["imported"] = True
+            if native_events or agent_records:
                 # Retain chunks exactly, using the existing format and sequences.
                 spool = data / "captures" / (session_id + ".stream.partial")
                 shutil.copyfile(path, spool)
@@ -946,6 +1050,16 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
                         )
                     )
             with db_factory.begin() as db:
+                for record in agent_records:
+                    db.add(
+                        m.AgentRecord(
+                            session_id=session_id,
+                            agent_sequence=record["sequence"],
+                            timestamp=float(record.get("timestamp", 0)),
+                            size=len(json.dumps(record)),
+                            data=record,
+                        )
+                    )
                 for marker_value in markers:
                     db.add(
                         m.Marker(
@@ -1028,9 +1142,25 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
             sa.quality,
             sb.quality,
         )
-        if sa.quality.get("coverage") == sb.quality.get("coverage") == "native_observed":
-            na = native_result(sa.id, start=body.a.start, end=body.a.end)
-            nb = native_result(sb.id, start=body.b.start, end=body.b.end)
+        allocation_compatible = (
+            sa.quality.get("coverage") == sb.quality.get("coverage")
+            and sa.quality.get("coverage") in {"native_observed", "lab_observed"}
+            and all(
+                sa.config.get(k) == sb.config.get(k)
+                for k in ("profiling_policy", "min_allocation_size", "allocation_domains")
+            )
+        )
+        if (
+            sa.quality.get("coverage") in {"native_observed", "lab_observed"}
+            and not allocation_compatible
+        ):
+            result["allocation_warning"] = (
+                "Allocation selection policies or domains differ; allocation deltas are unavailable."
+            )
+        if allocation_compatible:
+            domain = "python_block" if sa.config["mode"] == "lab" else "native"
+            na = native_result(sa.id, domain=domain, start=body.a.start, end=body.a.end)
+            nb = native_result(sb.id, domain=domain, start=body.b.start, end=body.b.end)
             result["native"] = {
                 "a": na,
                 "b": nb,
@@ -1081,8 +1211,22 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
             "reproduction_steps": body.reproduction_steps,
             "redacted": body.redact,
         }
-        if s.quality.get("coverage") == "native_observed":
-            document["native"] = native_result(s.id)
+        if s.quality.get("coverage") in {"native_observed", "lab_observed"} and not s.quality.get(
+            "symbolization_invalidated"
+        ):
+            domain = "python_block" if s.config["mode"] == "lab" else "native"
+            document["native"] = native_result(s.id, domain=domain)
+            if s.quality.get("python_context"):
+                document["python_functions"] = native_result(
+                    s.id, domain=domain, attribution="python_functions"
+                )
+                document["operations"] = native_result(
+                    s.id, domain=domain, attribution="operations"
+                )
+                document["attribution_limitations"] = [
+                    "Python function and operation allocation associations are temporal, not proof of ownership.",
+                    "Function boundary lines are not exact allocation source lines.",
+                ]
             if body.redact:
 
                 def redact_native(value):
@@ -1094,7 +1238,9 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
                         return value.rsplit("/", 1)[-1]
                     return value
 
-                document["native"] = redact_native(document["native"])
+                for evidence in ("native", "python_functions", "operations"):
+                    if evidence in document:
+                        document[evidence] = redact_native(document[evidence])
         if body.redact:
             document["session"] = {
                 k: v for k, v in document["session"].items() if k != "process_key"

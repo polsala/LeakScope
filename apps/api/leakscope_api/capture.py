@@ -30,6 +30,7 @@ class Writer:
         self.out: BinaryIO = path.open("xb")
         path.chmod(0o600)
         self.out.write(MAGIC + struct.pack(">I", len(data)) + data + hashlib.sha256(data).digest())
+        self.out.flush()  # Live analysis may read before the first sensor sample.
         self.last = 0
 
     @classmethod

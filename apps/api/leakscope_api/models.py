@@ -148,3 +148,16 @@ class AllocationEventIndex(Base):
     chunk_offset: Mapped[int] = mapped_column(Integer)
     first_sequence: Mapped[int] = mapped_column(Integer)
     last_sequence: Mapped[int] = mapped_column(Integer)
+
+
+class AgentRecord(Base):
+    """Bounded cooperative evidence; raw allocation events remain in LSCAP."""
+
+    __tablename__ = "agent_records"
+    __table_args__ = (UniqueConstraint("session_id", "agent_sequence"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id"), index=True)
+    agent_sequence: Mapped[int] = mapped_column(Integer)
+    timestamp: Mapped[float] = mapped_column(Float)
+    size: Mapped[int] = mapped_column(Integer)
+    data: Mapped[dict] = mapped_column(JSON)

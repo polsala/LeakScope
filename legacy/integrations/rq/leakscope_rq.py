@@ -25,3 +25,9 @@ def _mark(event, function_name):
         return leakscope_agent.mark(event, {'operation': function_name, 'worker_type': 'rq'})
     except (ImportError, RuntimeError, ValueError, OSError):
         return False
+
+
+def job_operation(function_name, profile=False):
+    """Use around the existing job executor; never pass a Job or its arguments."""
+    import leakscope_agent
+    return leakscope_agent.safe_operation(function_name, module='rq', profile=profile)

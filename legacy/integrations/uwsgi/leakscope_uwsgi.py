@@ -8,3 +8,9 @@ def configure_after_fork():
         return True
     except (ImportError, RuntimeError, OSError):
         return False
+
+
+def request_operation(handler_name, profile=False):
+    """Explicit request handler label, never a URL, request body or user ID."""
+    import leakscope_agent
+    return leakscope_agent.safe_operation(handler_name, module='uwsgi', profile=profile)

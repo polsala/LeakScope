@@ -80,6 +80,14 @@ def main():
             command.add_argument("--mode", choices=["observe", "deep", "lab"], default="observe")
             command.add_argument("--duration", type=duration, default=60)
             command.add_argument(
+                "--policy",
+                choices=["metrics", "native_light", "native_detailed", "python_deep", "lab_full"],
+            )
+            command.add_argument("--min-allocation-size", type=int, default=65536)
+            command.add_argument(
+                "--native-stacks", choices=["none", "caller", "full"], default="full"
+            )
+            command.add_argument(
                 "--native",
                 action="store_true",
                 help="Request real native allocator probes; fail if unsupported",
@@ -94,6 +102,13 @@ def main():
         if name == "export":
             command.add_argument("--format", choices=["json", "lscap"], default="json")
             command.add_argument("--output", type=Path)
+        if name in {"analyze", "report"}:
+            command.add_argument(
+                "--attribution",
+                choices=["native", "python_functions", "python_exact_lines", "operations"],
+                default="native",
+            )
+            command.add_argument("--domain", choices=["native", "python_block"])
         if name in {"analyze", "report", "import"}:
             command.add_argument("path", type=Path)
         if name == "compare":
@@ -160,10 +175,17 @@ def main():
                     "quality": quality,
                     "integrity": integrity(args.path),
                 }
-                if quality.get("coverage") == "native_observed":
+                if quality.get("coverage") in {"native_observed", "lab_observed"}:
                     from .native import analyze
 
-                    result["native"] = analyze(args.path)
+                    domain = args.domain or (
+                        "python_block"
+                        if metadata.get("config", {}).get("mode") == "lab"
+                        else "native"
+                    )
+                    result["native"] = analyze(
+                        args.path, domain=domain, attribution=args.attribution
+                    )
                 if args.command == "report":
                     document = {
                         "title": "Memory investigation",
@@ -270,7 +292,19 @@ def main():
                                 "allocation_domains": ["os_process", "native"]
                                 if args.native
                                 else ["os_process"],
-                                "allow_downgrade": not args.native,
+                                "allow_downgrade": not (
+                                    args.native
+                                    or args.policy
+                                    in {
+                                        "native_light",
+                                        "native_detailed",
+                                        "python_deep",
+                                        "lab_full",
+                                    }
+                                ),
+                                "profiling_policy": args.policy,
+                                "min_allocation_size": args.min_allocation_size,
+                                "native_stacks": args.native_stacks,
                             },
                         )
                         session_id = result["id"]

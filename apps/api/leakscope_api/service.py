@@ -10,6 +10,7 @@ from .capture import Writer, Reader, integrity
 from .contracts import transition
 from .sensor import SensorError
 from .native import analyze as analyze_native, NativeAnalysisError
+from .context_capture import expand
 
 ACTIVE = {"created", "preflight", "starting", "recording", "stopping", "processing"}
 
@@ -135,12 +136,46 @@ class Collector:
                 native="native" in cfg["allocation_domains"],
                 allow_downgrade=cfg["allow_downgrade"],
                 event_rate_limit=cfg.get("event_rate_limit", 100000),
+                profiling_policy=cfg.get("profiling_policy") or "native_detailed",
+                min_allocation_size=cfg.get("min_allocation_size", 65536),
+                native_stacks=cfg.get("native_stacks", "full"),
             )
+            expected_policy = cfg.get("profiling_policy") or "native_detailed"
+            observed_policy = confirmation.get("quality", {}).get("profiling_policy")
+            if (
+                "native" in cfg["allocation_domains"]
+                and confirmation.get("quality", {}).get("coverage") == "native_observed"
+                and observed_policy != expected_policy
+                and not (observed_policy is None and expected_policy == "native_detailed")
+            ):
+                with contextlib.suppress(SensorError):
+                    await self.call("stop", session=session_id)
+                    await self.call("release", session=session_id)
+                raise SensorError(
+                    "Sensor did not acknowledge the requested profiling policy; install matching native components"
+                )
             if not confirmation.get("confirmed"):
                 raise SensorError("Sensor did not confirm recording")
             with self.db.begin() as db:
                 s = db.get(m.Session, session_id)
-                s.quality = {**s.quality, **confirmation.get("quality", {})}
+                s.quality = {
+                    **s.quality,
+                    **confirmation.get("quality", {}),
+                    "requested_policy": cfg.get("profiling_policy")
+                    or ("native_detailed" if "native" in cfg["allocation_domains"] else "metrics"),
+                    "effective_policy": confirmation.get("quality", {}).get(
+                        "profiling_policy", "lab_full" if cfg["mode"] == "lab" else "metrics"
+                    ),
+                }
+                if cfg["mode"] == "lab":
+                    s.quality = {
+                        **s.quality,
+                        "sampling": "object_block_hooks; selected lifetime map; profiler safe-point allocations and their frees excluded",
+                        "tracked_pointer_capacity": 32768,
+                        "tracked_pointer_evictions": 0,
+                        "stack_quality": "allocation_time_python_frames_when_GIL_verified",
+                        "warning": "Experimental Lab object-block domain only; not the entire Python heap. Never add these bytes to native allocations or RSS.",
+                    }
                 if s.quality.get("coverage") != "native_observed":
                     s.config = {
                         **s.config,
@@ -246,6 +281,23 @@ class Collector:
                 s.reason = "collector_error: " + type(error).__name__
         finally:
             writer.close()
+        # Cooperative sends never wait for us. Give already emitted datagrams a
+        # bounded drain before sealing the capture. Missing Lab end confirmation
+        # still invalidates survivors; timeout is never treated as an ACK.
+        deadline = time.monotonic() + 2
+        while time.monotonic() < deadline:
+            with self.db() as db:
+                current = db.get(m.Session, session_id)
+                pending_lab = current.config["mode"] == "lab" and not current.quality.get(
+                    "lab_complete"
+                )
+            if not pending_lab:
+                break
+            await asyncio.sleep(0.02)
+        await asyncio.sleep(0.1)
+        if hasattr(self, "agent_inbox"):
+            with contextlib.suppress(asyncio.TimeoutError):
+                await asyncio.wait_for(self.agent_inbox.join(), 1)
         await asyncio.to_thread(self.finalize, session_id)
         with contextlib.suppress(SensorError):
             await self.call("release", session=session_id)
@@ -259,6 +311,20 @@ class Collector:
                 transition(s, "processing")
             s.ended_at = time.time()
             p = db.get(m.Process, s.process_key)
+            if self.agent_dropped > s.quality.get("agent_dropped_baseline", self.agent_dropped):
+                s.quality = {
+                    **s.quality,
+                    "context_incomplete": True,
+                    "agent_receiver_dropped": self.agent_dropped
+                    - s.quality["agent_dropped_baseline"],
+                    "incomplete": s.quality.get("incomplete", False) or s.config["mode"] == "lab",
+                }
+            if s.config["mode"] == "lab" and not s.quality.get("lab_complete"):
+                s.quality = {
+                    **s.quality,
+                    "incomplete": True,
+                    "lab_boundary": "Missing final cooperative drain confirmation",
+                }
             metadata = {
                 "format": 1,
                 "session": session_id,
@@ -325,6 +391,18 @@ class Collector:
                             .limit(100)
                         )
                     )
+                    extras.extend(
+                        r.data
+                        for r in db.scalars(
+                            select(m.AgentRecord)
+                            .where(m.AgentRecord.session_id == session_id)
+                            .order_by(m.AgentRecord.agent_sequence)
+                            .limit(2048)
+                        )
+                    )
+                    if metadata["quality"].get("imported"):
+                        extras = []  # Already in the preserved source chunks.
+                    extras = list(expand(extras, s.process_key, s.created_at))
                     sequence = w.last
                     for offset in range(0, len(extras), 128):
                         batch = []
@@ -346,9 +424,12 @@ class Collector:
             spool.unlink(missing_ok=True)
             derived = None
             analysis_error = None
-            if metadata["quality"].get("coverage") == "native_observed":
+            if metadata["quality"].get("coverage") in {"native_observed", "lab_observed"}:
                 try:
-                    derived = analyze_native(final)
+                    derived = analyze_native(
+                        final,
+                        domain="python_block" if metadata["config"]["mode"] == "lab" else "native",
+                    )
                 except NativeAnalysisError as error:
                     analysis_error = str(error)
             manifest = integrity(final)
@@ -380,7 +461,7 @@ class Collector:
                 if analysis_error:
                     s.quality = {**s.quality, "incomplete": True, "analysis_error": analysis_error}
                 transition(s, "degraded" if s.quality.get("incomplete") else "ready")
-        except OSError as error:
+        except (OSError, ValueError, TypeError, KeyError) as error:
             with self.db.begin() as db:
                 s = db.get(m.Session, session_id)
                 transition(s, "failed")
@@ -402,6 +483,7 @@ class Collector:
                     m.Session.state.in_(["ready", "degraded", "failed", "expired"]),
                 )
             ):
+                db.execute(delete(m.AgentRecord).where(m.AgentRecord.session_id == completed.id))
                 (self.data / "captures" / (completed.id + ".analysis.json")).unlink(missing_ok=True)
             db.execute(
                 delete(m.ProcessSample).where(

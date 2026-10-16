@@ -12,7 +12,12 @@ use leakscope_protocol::{AllocationEvent, NativeRecord};
 use leakscope_symbolizer::{Resolver, allocator, target_path};
 use serde_json::{Value, json};
 use std::os::unix::fs::MetadataExt;
-use std::{collections::HashSet, num::NonZeroU32, sync::OnceLock};
+use std::{
+    collections::HashSet,
+    num::NonZeroU32,
+    sync::OnceLock,
+    time::{Duration, Instant},
+};
 const OBJECT: &[u8] = aya::include_bytes_aligned!(concat!(env!("OUT_DIR"), "/allocations.bpf.o"));
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 pub fn capabilities() -> Value {
@@ -69,9 +74,46 @@ impl Policy {
         })
     }
 }
+fn clock_offset_zero(text: &str) -> Result<bool> {
+    if text.len() > 4096 {
+        return Err("time namespace metadata exceeds budget".into());
+    }
+    for line in text.lines() {
+        let mut parts = line.split_whitespace();
+        if parts.next() == Some("monotonic") {
+            let sec = parts
+                .next()
+                .ok_or("missing clock offset seconds")?
+                .parse::<i64>()?;
+            let ns = parts
+                .next()
+                .ok_or("missing clock offset nanoseconds")?
+                .parse::<i64>()?;
+            return Ok(sec == 0 && ns == 0);
+        }
+    }
+    Err("monotonic time namespace offset unavailable".into())
+}
+fn monotonic_ns() -> Result<u64> {
+    let mut clock = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
+    // SAFETY: clock is initialized writable storage, owned for this call.
+    // CLOCK_MONOTONIC reads no Python state and changes no resource ownership.
+    if unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut clock) } != 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    Ok(clock.tv_sec as u64 * 1_000_000_000 + clock.tv_nsec as u64)
+}
 pub struct Trace {
     _bpf: Ebpf,
     ring: RingBuf<MapData>,
+    pending: aya::maps::HashMap<MapData, u64, [u64; 8]>,
+    stop_ns: Option<u64>,
+    in_flight: u64,
+    after_disarm: u64,
+    uncertain_stop: bool,
     stacks: StackTraceMap<MapData>,
     losses: PerCpuArray<MapData, u64>,
     control: Array<MapData, u64>,
@@ -82,10 +124,18 @@ pub struct Trace {
     pub stack_errors: u64,
     pub warnings: Vec<String>,
     clock_offset: f64,
+    mapping_check: Instant,
+    pub symbolization_invalidated: bool,
+    process_executed: bool,
     policy: Policy,
 }
 impl Trace {
     pub fn start(pid: u32, policy: Policy) -> Result<Self> {
+        match std::fs::read_to_string("/proc/self/timens_offsets") {
+            Ok(text) if !clock_offset_zero(&text)? => return Err("Native tracing in an offset time namespace is unsupported; keep metrics or run the sensor in the host monotonic clock domain".into()),
+            Err(e) if e.kind()!=std::io::ErrorKind::NotFound => return Err(e.into()),
+            _ => {}
+        }
         let (path, elf) = allocator(pid)?;
         let resolver = Resolver::new(pid)?;
         let ring_bytes = std::env::var("LEAKSCOPE_BPF_RING_BYTES")
@@ -181,24 +231,21 @@ impl Trace {
             p.load()?;
             p.attach(name)?;
         }
+        let pending =
+            aya::maps::HashMap::try_from(bpf.take_map("calls").ok_or("missing pending map")?)?;
         let ring = RingBuf::try_from(bpf.take_map("events").ok_or("missing ring")?)?;
         let stacks = StackTraceMap::try_from(bpf.take_map("stacks").ok_or("missing stacks")?)?;
         let losses = PerCpuArray::try_from(bpf.take_map("losses").ok_or("missing losses")?)?;
         control.set(1, 1, 0)?; // Attach barrier: never emit half-attached allocator pairs.
-        // Synchronize wall time to the same CLOCK_MONOTONIC used by bpf_ktime_get_ns.
-        let mut clock = libc::timespec {
-            tv_sec: 0,
-            tv_nsec: 0,
-        };
-        // SAFETY: clock points to an initialized, writable timespec for the
-        // duration of this call. CLOCK_MONOTONIC has no ownership side effects.
-        if unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut clock) } != 0 {
-            return Err(std::io::Error::last_os_error().into());
-        }
-        let monotonic = clock.tv_sec as f64 + clock.tv_nsec as f64 / 1e9;
+        let monotonic = monotonic_ns()? as f64 / 1e9;
         Ok(Self {
             _bpf: bpf,
             ring,
+            pending,
+            stop_ns: None,
+            in_flight: 0,
+            after_disarm: 0,
+            uncertain_stop: false,
             stacks,
             losses,
             control,
@@ -209,6 +256,9 @@ impl Trace {
             stack_errors: 0,
             warnings,
             clock_offset: leakscope_common::now() - monotonic,
+            mapping_check: Instant::now(),
+            symbolization_invalidated: false,
+            process_executed: false,
             policy,
         })
     }
@@ -220,9 +270,18 @@ impl Trace {
             .collect()
     }
     pub fn stop(&mut self) {
+        self.stop_ns = monotonic_ns().ok();
+        self.uncertain_stop |= self.stop_ns.is_none();
         if self.control.set(1, 0, 0).is_err() {
             self.warnings
                 .push("Probe disarm failed; detach will close all links".into());
+            self.uncertain_stop = true;
+        }
+        for key in self.pending.keys() {
+            match key {
+                Ok(_) => self.in_flight += 1,
+                Err(_) => self.uncertain_stop = true,
+            }
         }
     }
     pub fn drain(&mut self, process: &str) -> Result<Vec<Value>> {
@@ -230,8 +289,15 @@ impl Trace {
         for _ in 0..2048 {
             let Some(item) = self.ring.next() else { break };
             let record = NativeRecord::decode(&item)?;
+            self.process_executed |= record.kind == 4;
+            if self.stop_ns.is_some_and(|stop| record.time >= stop) {
+                self.after_disarm += 1;
+            }
             drop(item);
             let stack = if record.stack < 0 && record.caller > 0 {
+                if self.policy.stacks == 2 {
+                    self.stack_errors += 1;
+                }
                 let id = format!("caller-{:x}", record.caller);
                 if self.seen.len() < 8192 && self.seen.insert((u32::MAX, record.caller)) {
                     result.push(json!({"kind":"stack","id":id,"frames":[self.resolver.frame(record.caller-1)],"quality":"native_caller_only"}));
@@ -295,23 +361,42 @@ impl Trace {
             };
             result.push(json!({"kind":"allocation","event":event}));
         }
+        if !self.process_executed && self.mapping_check.elapsed() >= Duration::from_secs(1) {
+            self.mapping_check = Instant::now();
+            if let Ok(current) = leakscope_symbolizer::mappings(self.resolver.pid()) {
+                self.symbolization_invalidated |= current.len() != self.resolver.mappings.len()
+                    || current.iter().zip(&self.resolver.mappings).any(|(a, b)| {
+                        (a.start, a.end, a.offset, &a.path, a.inode)
+                            != (b.start, b.end, b.offset, &b.path, b.inode)
+                    });
+            }
+        }
+        if self.symbolization_invalidated {
+            return Err("Executable mappings changed; native tracing stopped and native symbols invalidated. Start a new session after libraries stabilize".into());
+        }
         for i in 0..3 {
             self.lost[i] = self.losses.get(&(i as u32), 0)?.iter().copied().sum();
         }
         Ok(result)
     }
     pub fn quality(&self) -> Value {
-        json!({"coverage":"native_observed","lost_allocations":self.lost[0],"lost_frees":self.lost[1],"lost_correlations":self.lost[2],"lost_events":self.lost.iter().sum::<u64>(),"allocation_events":self.sequence,"stack_errors":self.stack_errors,"stack_quality":"native_only_frame_pointer","warnings":self.warnings,"profiling_policy":self.policy.name,"minimum_allocation_size":self.policy.minimum,
+        json!({"coverage":"native_observed","symbolization_invalidated":self.symbolization_invalidated,"mapping_history":"attach_snapshot_with_one_second_invalidation; transient_remaps_unverified","lost_allocations":self.lost[0],"lost_frees":self.lost[1],"lost_correlations":self.lost[2],"lost_events":self.lost.iter().sum::<u64>(),"allocation_events":self.sequence,"stack_errors":self.stack_errors,"stack_quality":"native_only_frame_pointer","warnings":self.warnings,"profiling_policy":self.policy.name,"minimum_allocation_size":self.policy.minimum,
         "tracked_pointer_capacity":32768,"pointer_evictions":0,
         "sampling":if self.policy.minimum>0 {"threshold_selected_lifetimes"} else {"all_outermost_calls"},
         "selection_semantics":"Selected at allocation or threshold-crossing realloc; selected blocks remain tracked through shrink, realloc and free. Pre-attach and smaller unselected blocks are outside coverage.",
-        "stack_collection":self.policy.stacks,"diagnostic_component":self.policy.diagnostic,"pre_attach_allocations":"unknown","exact_allocations":self.lost==[0;3]&&self.policy.diagnostic.is_empty(),"incomplete":self.lost!=[0;3]||!self.policy.diagnostic.is_empty()})
+        "in_flight_calls_at_stop":self.in_flight,"events_after_disarm":self.after_disarm,"stop_boundary_uncertain":self.uncertain_stop,"stack_collection":self.policy.stacks,"diagnostic_component":self.policy.diagnostic,"pre_attach_allocations":"unknown","exact_allocations":self.lost==[0;3]&&self.policy.diagnostic.is_empty()&&!self.symbolization_invalidated&&self.in_flight==0&&self.after_disarm==0&&!self.uncertain_stop,"incomplete":self.lost!=[0;3]||!self.policy.diagnostic.is_empty()||self.symbolization_invalidated||self.in_flight>0||self.after_disarm>0||self.uncertain_stop})
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn clock_namespace_offsets_are_not_assumed_compatible() {
+        assert!(clock_offset_zero("monotonic 0 0\nboottime 0 0").unwrap());
+        assert!(!clock_offset_zero("monotonic -5 0").unwrap());
+        assert!(clock_offset_zero("monotonic invalid").is_err());
+    }
     #[test]
     fn light_threshold_and_stack_policy_are_explicit() {
         let p=Policy::parse(&json!({"profiling_policy":"native_light","min_allocation_size":4096,"native_stacks":"caller"})).unwrap();

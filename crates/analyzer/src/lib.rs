@@ -7,6 +7,7 @@ pub struct Allocation {
     pub size: u64,
     pub generation: u64,
     pub timestamp: f64,
+    pub monotonic_ns: Option<u64>,
     pub stack: Option<String>,
     pub operation: Option<String>,
     pub thread: u64,
@@ -16,7 +17,7 @@ type Key = (String, String, u64);
 pub struct Lifecycle {
     pub live: HashMap<Key, Allocation>,
     generation: u64,
-    last: u64,
+    last: HashMap<(String, String, String), u64>,
     pub allocated: u64,
     pub freed: u64,
     pub allocations: u64,
@@ -46,15 +47,26 @@ impl Lifecycle {
             self.incomplete = true;
             return Err("allocation accounting or live pointer budget exceeded".into());
         }
-        if e.sequence <= self.last {
+        if self.last.len() >= 1024
+            && !self
+                .last
+                .contains_key(&(e.process.clone(), e.domain.clone(), e.source.clone()))
+        {
+            return Err("allocation stream budget exceeded".into());
+        }
+        let last = self
+            .last
+            .entry((e.process.clone(), e.domain.clone(), e.source.clone()))
+            .or_default();
+        if e.sequence <= *last {
             return Err("reordered or duplicate event".into());
         }
-        let gap = e.sequence - self.last - 1;
+        let gap = e.sequence - *last - 1;
         if gap > 0 {
             self.incomplete = true;
             self.lost_events = self.lost_events.saturating_add(gap);
         }
-        self.last = e.sequence;
+        *last = e.sequence;
         if e.kind == "lost" {
             self.incomplete = true;
             self.lost_events = self.lost_events.saturating_add(e.size.saturating_sub(gap));
@@ -130,6 +142,7 @@ impl Lifecycle {
                 size: e.size,
                 generation,
                 timestamp: e.timestamp,
+                monotonic_ns: e.monotonic_ns,
                 stack: e.stack.clone(),
                 operation: e.operation.clone(),
                 thread: e.thread,

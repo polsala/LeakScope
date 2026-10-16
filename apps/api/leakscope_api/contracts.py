@@ -50,7 +50,26 @@ class SessionCreate(Strict):
     allocation_domains: list[
         Literal["os_process", "native", "python_block", "python_arena", "gc_objects"]
     ] = ["os_process"]
+    profiling_policy: (
+        Literal["metrics", "native_light", "native_detailed", "python_deep", "lab_full"] | None
+    ) = None
+    min_allocation_size: int = Field(65536, ge=1, le=1073741824)
+    native_stacks: Literal["none", "caller", "full"] = "full"
     allow_downgrade: bool = True
+
+    @model_validator(mode="after")
+    def policy_domains(self):
+        if self.profiling_policy == "metrics" and "native" in self.allocation_domains:
+            raise ValueError("Metrics policy cannot request native allocation probes")
+        if self.profiling_policy in {"native_light", "native_detailed", "python_deep"}:
+            self.allocation_domains = list(dict.fromkeys(self.allocation_domains + ["native"]))
+        if self.profiling_policy == "python_deep":
+            self.mode = "deep"
+        if self.profiling_policy == "lab_full":
+            self.mode = "lab"
+            self.allocation_domains = ["os_process", "python_block"]
+        return self
+
     purpose: str = Field("growth", pattern=r"^[a-z_]{1,40}$")
 
 
@@ -153,6 +172,10 @@ class NativeFrameView(Strict):
     file: str | None = None
     line: int | None = None
     build_id: str | None = None
+    first_line: int | None = None
+    boundary_line: int | None = None
+    evidence: str | None = None
+    operation_id: str | None = None
 
 
 class NativeTreeView(Strict):
@@ -191,3 +214,6 @@ class NativeAnalysisView(Strict):
     top_sites: list[NativeSiteView]
     cohorts: list[dict]
     limitations: list[str]
+    operations: list[dict] = []
+    attribution: str = "native"
+    domain: str = "native"
