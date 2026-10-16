@@ -4,14 +4,16 @@ Local memory investigations for long-running Linux processes, with a cooperative
 CPython 2.7.18 agent. The interface defaults to Catalan and includes Spanish and English.
 
 **0.1.0 is an engineering preview, not a complete Memray replacement or a production-certified release.**
-Observe mode works end to end without tracing privileges. Allocation attribution
-is unavailable in the standard sensor. The optional Lab patch records real object
-block events but is isolated and experimental. See the [evidence matrix](docs/implementation-status.md).
+Observe metrics work without tracing privileges. Optional native profiling now records
+actual malloc/calloc/realloc/free events through Aya, streams LSCAP captures,
+reconstructs allocations, and displays native flamegraphs, call trees and reports.
+The real Python 2.7/kernel/browser path has been exercised. Native stacks do not
+provide Python source attribution. The optional Lab interpreter remains experimental. See the [evidence matrix](docs/implementation-status.md).
 
 ## Start locally
 
 Requires Linux x86_64, Python 3.11+ (commands default to 3.12), Rust 1.94.1,
-Node 24.13.0 with Corepack, a C compiler and network access for the initial setup.
+Node 24.13.0 with Corepack, Clang with its BPF target, a C compiler and network access for the initial setup.
 Python 2 is needed only for the compatibility agent and target fixtures.
 
 ```bash
@@ -38,22 +40,33 @@ React 19 / TypeScript / TanStack Query
           │ authenticated HTTP + fetch/SSE
 FastAPI / Pydantic / SQLAlchemy / SQLite WAL
           │ private Unix socket / framed Protobuf envelope
-Rust sensor ── read-only procfs ── same-UID target processes
+Rust sensor ── procfs + optional Aya uprobes ── same-UID target processes
           │
           └── bounded leases, acknowledged sample queues, explicit loss
 
 Application-initialized Python 2 agent ── credential-checked Unix datagrams
          markers / bounded generation-zero GC type counts
 
-SQLite metrics ── chunked Zstandard .lscap + SHA256 ── offline reports
+Metrics + actual native events ── streaming Zstandard .lscap + SHA256
+          └── Rust lifecycle + native stacks ── flamegraphs / offline reports
 ```
 
 `crates/` contains identity, procfs, protocol, capture, analysis, symbol inspection
 and sensor packages. `apps/api` contains the collector and CLI; `apps/web` contains
 the browser UI. `legacy/` contains the genuine Python 2 extension and audited Lab
-patch. `bpf/` contains compiled experimental probes without a production loader.
+patch. `bpf/` contains the C allocation probes embedded in the Aya sensor loader.
 `schemas/`, `tests/`, `packaging/`, `.github/` and `docs/` carry the shared
 contracts, executable validation, installers, CI and operator guidance.
+
+## Native investigations
+
+See the [complete native leak tutorial](docs/usage/native-allocation-leak.md).
+A controlled 48-block leak was attributed to its actual C caller with exactly
+3,145,728 retained bytes and zero loss; the cleanup control retained zero.
+Native binaries are built against glibc 2.31 and load on Ubuntu 20.04/22.04/24.04.
+Kernel attachment is verified on 6.19.14+kali-amd64; the Ubuntu kernel matrix
+and production overhead target remain unqualified. The allocation-heavy test
+measured about 748% median operation-latency overhead. Keep metrics-only as default.
 
 ## CLI
 
@@ -62,6 +75,7 @@ contracts, executable validation, installers, CI and operator guidance.
 .venv/bin/leakscope ps --tree
 .venv/bin/leakscope inspect --pid 1234
 .venv/bin/leakscope capture --pid 1234 --duration 30s --output investigation.lscap
+.venv/bin/leakscope capture --pid 1234 --native --duration 30s --output native.lscap
 .venv/bin/leakscope analyze investigation.lscap
 .venv/bin/leakscope report investigation.lscap --output report.html
 ```

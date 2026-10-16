@@ -1,0 +1,71 @@
+{
+  "date": "2026-10-16",
+  "kernel": "6.19.14+kali-amd64",
+  "python": "2.7.18",
+  "api_uid": 1000,
+  "tests": {
+    "real_kernel": 7,
+    "kernel_browser": 1,
+    "metrics_browser": 2,
+    "rust": 20,
+    "portable_python": 26,
+    "portable_python_skipped": 1,
+    "vitest": 6,
+    "stock_agent": 5,
+    "stock_agent_lab_skipped": 1,
+    "installed_package": 1
+  },
+  "fixtures": [
+    {
+      "mode": 0,
+      "truth_bytes": 3145728,
+      "retained_bytes": 3145728,
+      "kernel_loss": 0
+    },
+    {
+      "mode": 1,
+      "truth_bytes": 0,
+      "retained_bytes": 0,
+      "kernel_loss": 0
+    },
+    {
+      "mode": 2,
+      "truth_bytes": 6291456,
+      "retained_bytes": 6291456,
+      "kernel_loss": 0
+    },
+    {
+      "mode": 3,
+      "truth_bytes": 1048576,
+      "retained_bytes": 1048576,
+      "kernel_loss": 0
+    },
+    {
+      "mode": 4,
+      "truth_bytes": 3145728,
+      "retained_bytes": 3145728,
+      "kernel_loss": 0
+    }
+  ],
+  "benchmark": {
+    "workload": "40 batches of 256 malloc/memset(64KiB)/free operations; 200ms idle between batches; O0 frame-pointer fixture",
+    "baseline_p50_ms": 0.29158592224121094,
+    "profiled_p50_ms": 2.472996711730957,
+    "profiled_p95_ms": 3.350973129272461,
+    "profiled_p99_ms": 4.180192947387695,
+    "p50_latency_increase_percent": 748.1193785772691,
+    "kernel_events": 20840,
+    "kernel_loss": 0,
+    "collector_loss": 0,
+    "incomplete": false
+  },
+  "native_sha256": {
+    "leakscope-sensor": "a6651475de468ebb37a754dd0b89bda515b6b92fb343c8a1933dee8d095fcdbd",
+    "leakscope-analyzer": "b870bf2bc38a8b3ad2537ab9bf8ae8dc4f4b16730c6f37e67e43ffc4d2929f47"
+  },
+  "ubuntu_runtime_abi": [
+    "20.04",
+    "22.04",
+    "24.04"
+  ]
+}

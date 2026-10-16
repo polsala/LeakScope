@@ -22,3 +22,28 @@ The connected collector writes metrics, markers and bounded cooperative GC event
 authority and finalization atomically replaces a temporary file. Module/string/
 stack tables, analytical Parquet and allocation imports are not yet implemented.
 See the feature matrix instead of assuming a general heap archive.
+
+## Native record extension (v1-compatible)
+
+Existing framing, Zstandard compression, SHA256 checksums and limits are unchanged.
+A chunk's JSON array can contain `allocation` (the shared Event in `event`),
+`stack` (`id`, actual native `frames`), `modules` (bounded mapping batches), and
+`quality`, alongside existing metric/marker/GC records. A trailing quality record
+is authoritative collection quality. Capture sequence spans every record;
+allocation Event sequence spans the allocation stream only. Kernel records have
+an independent internal little-endian wire version: nine 64-bit words (version,
+namespace PID/TID, monotonic ns, pointer, prior pointer, size, signed stack ID,
+kind, actual entry caller return PC). It is not the portable capture encoding.
+
+The collector writes `.stream.partial` chunks continuously. It fsyncs before
+advancing the database ACK. Resume scans valid chunks, truncates an interrupted
+tail and deduplicates acknowledged sequence numbers. Finalization streams into
+the final file with current metadata, diagnostic extras and final quality. It
+fsyncs, atomically renames and writes the integrity manifest. Native imports keep
+streaming chunks rather than accumulating raw allocation arrays in RAM. Imported
+identities never authorize access to a running process.
+
+`tests/fixtures/golden/native-v1.lscap` is an explicitly synthetic format fixture
+written in Python and consumed in Rust. It is not kernel evidence. Actual kernel
+captures and independent ground truth are produced in `artifacts/kernel/` by the
+trusted test profile. Older metrics-only golden captures still pass.

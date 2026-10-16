@@ -17,3 +17,8 @@ Use a native extension compiled for that exact interpreter. A generic version
 string or path is not proof of ABI compatibility. Vendor/custom patches require
 review of GC header layout, debug flags, Unicode width and exported symbols.
 The agent snapshots only generation zero. It is not a universal heap profiler.
+
+External native probes are ABI-independent libc observations and have been
+exercised with genuine CPython 2.7.18 via ctypes. UCS width and debug ABI checks
+still apply to the cooperative extension. Native stacks do not establish Python
+source locations, and libc arena backing does not enumerate PyObject blocks.

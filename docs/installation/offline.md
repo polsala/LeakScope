@@ -14,3 +14,9 @@ the web distribution path. Check credentials and access policy before monitoring
 Release checksums establish integrity against a trusted manifest, not publisher
 authenticity by themselves. Detached signatures exist only when release signing
 credentials are configured and signing actually succeeds.
+
+The standalone wheelhouse targets CPython 3.12 on Linux x86_64. Supply that
+modern runtime before running install.sh; Python 2 is only the monitored target.
+Native sensor/analyzer binaries use the separately verified glibc 2.31 baseline.
+Offline operator documentation is included under docs/ in the distribution and
+installation prefix. Repeated package builds refresh the actual frontend index.

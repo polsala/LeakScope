@@ -1,20 +1,41 @@
-# Analysis and evidence
+# Native analysis
 
-The native lifecycle library keys blocks by stable process, domain and pointer.
-Generations distinguish pointer reuse. Failed realloc keeps the original live
-block; moving realloc retires the old observation; realloc(p,0) without a returned
-pointer downgrades reliability because semantics vary. Unknown frees are counted
-as pre-capture evidence gaps. Sequence gaps and explicit loss make survivor totals
-inexact. Parent allocation state is never copied into a child without a verified
-fork snapshot. The standalone Rust analyzer accepts bounded JSON-line events.
+The analyzer reuses Lifecycle and the allocation Event exported from the protocol
+crate. It reads LSCAP chunks incrementally. SQLite contains coordination and
+metrics; raw allocations remain in capture files.
 
-The connected application currently analyzes real process metrics. Its Theil–Sen
-estimate uses at most 256 evenly selected observations. A recent plateau and a
-returned spike receive different hypotheses than sustained growth. Metrics-only
-suspicion is capped at 40/100; sample loss and incomplete coverage reduce it.
-Scores rank hypotheses and never establish leak causation. Native lifecycle and
-cohort primitives are tested but are not connected to an external trace loader.
+Pointers are keyed by stable process and allocation domain. A global monotonic
+allocation generation prevents pointer reuse from inheriting prior lifetimes.
+There is no freed-pointer history: memory grows with live pointers, not the
+number of events. Live pointers are capped at 250,000, stack tables at 8192/16 MiB,
+sites at 8192 and tree nodes at 32,768. Limits fail or flag truncation explicitly.
 
-OS resident memory, native heap blocks, arenas, Python blocks, GC objects and
-virtual mappings are non-additive domains. Flamegraph endpoints return an
-actionable unavailable response when actual stacks are absent.
+Successful allocation and realloc results create observed allocations. Failed
+allocations create none. Failed nonzero realloc preserves the old block. In-place
+realloc records a release and a new allocation generation. realloc(NULL,n) creates
+a block. realloc(p,0) returning NULL is ambiguous across allocators and marks
+survivors unreliable rather than assuming a universal free. Unknown frees are
+counted separately as possible pre-attach allocations. Null frees are ignored.
+Pointer collisions, out-of-order events and sequence gaps never become leak proof.
+Exit retires a process address space; fork does not copy observed state.
+
+Outputs include observed allocated/freed bytes, counts, unknown frees, known live
+bytes per domain, allocation and surviving allocation trees, top sites and time
+cohorts. A selected interval means allocations CREATED in that interval, surviving
+at its end; reconstruction still processes earlier allocations to match frees.
+Filters cover TID, domain, symbol, library, size and time. Process/worker isolation
+is the session boundary. Pointer lifetimes are reconstructed before filtering.
+
+Kernel and transport losses are separate cumulative counters. Derived quality
+also accounts for lifecycle anomalies, truncation and capture recovery. Exact
+survivor totals and per-site known_live_bytes become null when invalidated.
+Observed values remain labeled as incomplete evidence. Domains are never added
+together or treated as RSS. Missing frees are not evidence of a leak.
+
+The backend invokes the Rust binary with fixed executable selection, argument
+arrays and a 30-second timeout. At most two analysis subprocesses run per backend
+process; excess requests receive an actionable retry error. Final summaries up to 4 MiB can be cached with the
+capture SHA256; cache reuse verifies integrity. Filtered queries reconstruct from
+raw chunks. Reports include native trees and limitations. RSS heuristic scores
+remain process-growth hypotheses; a surviving site alone does not prove a leak
+or distinguish a legitimate cache without workload/cooldown evidence.

@@ -17,3 +17,11 @@ Phase D has tested lifecycle/ELF libraries and compiled experimental BPF, but no
 production attachment loader. Phase H has working offline/deb/OCI packaging,
 security tests, audits, workflows and documentation; production validation gates
 in quality-gates.md remain open. The repository is a usable engineering preview.
+
+
+## Phase 2 — connected native profiling (2026-10-16)
+
+Completed execution checklist: [phase2-checklist.md](phase2-checklist.md).
+Actual kernel and browser validation: [native validation](development/native-validation-2026-10-16.md).
+Production qualification remains governed by quality-gates.md, especially the
+measured native operation-latency regression and unverified Ubuntu kernels.

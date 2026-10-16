@@ -15,3 +15,25 @@ exist. Kernel attribution certification is blocked until a real loader exists.
 The performance job currently gates sensor baseline RSS, not a stable application
 latency regression baseline. SAST uses Bandit; CodeQL/provenance attestations and
 published ABI packages still need release integration.
+
+## Phase 2 extension
+
+The native workflow now compiles the embedded C object and runs Ubuntu ABI checks.
+The existing kernel workflow builds real Python 2.7, runs actual native tests,
+then the native Playwright journey on a trusted protected runner. No privileged
+job is triggered by an untrusted PR. Release publication depends on an exact-tag
+trusted kernel test, not the previous capability-boolean placeholder. Baseline
+packaging runs binary checks and copies Ubuntu 20.04-built executables.
+
+The runner operator must install the required capability policy for the sensor;
+setup does not weaken kernel protections. A runner unable to attach must fail,
+not skip the native release gate. GitHub execution is still unverified locally.
+The source was validated with actionlint; the dated validation document records
+actual local kernel/browser results separately from CI definitions.
+
+Protected runner environments may explicitly set LEAKSCOPE_SENSOR_CAPABILITIES
+(e.g. the operator-reviewed set needed on that host). The trusted kernel script
+then provisions the freshly built sensor executable with sudo -n setcap. Without
+that explicit configuration it grants nothing. Never grant these capabilities to
+the web interpreter. Broad CAP_SYS_ADMIN is not the recommended default; the local
+hardened kernel test needed it and that restriction is recorded honestly.

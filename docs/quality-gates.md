@@ -1,16 +1,27 @@
 # Release gates
 
-Portable preview gate: build/lint/typecheck, Rust tests, all public endpoint and
-security tests, real Python 2 integration, UI tests, Playwright journeys, capture
-roundtrip/corruption and offline installer verification must pass.
+Portable gate: Rust build/tests/rustfmt/Clippy, backend and security tests, actual
+Python 2 cooperative integration, strict TypeScript/ESLint/Vitest, metrics E2E,
+API contract generation and cross-language capture fixtures must pass.
 
-Production gate additionally requires measured application CPU/RSS/latency
-overhead on defined workloads; long soak and crash/ENOSPC/fork-storm evidence;
-UCS2/UCS4 debug/release target matrix; all advertised Ubuntu/glibc variants;
-security audit resolution; user revocation; retention/quota hardening; accessibility
-review; and reproducible release signing/provenance. These gates are not all met.
+Native gate: real CPython 2.7.18 ctypes workload, all allocator probe attachments,
+independent retained-byte counters, cleanup with zero survivors, realloc failure,
+cache bound, forced kernel loss, process separation, collector persistence,
+capture import/replay, actual native stacks and offline reports. The browser
+must exercise native capabilities, capture, flamegraph/call tree and HTML report.
+These paths have passed on the recorded local kernel, not every Ubuntu kernel.
 
-External tracing gate requires a verified loader, real kernel fixture traces,
-independent ground truth and lost-event confidence downgrade. Lab full-coverage
-claims require audited additional allocator paths and reliable stacks. Neither
-gate is met and the standard product does not advertise those capabilities.
+Release workflow requires a trusted exact-tag kernel job before publication.
+Trusted runners must be isolated, protected and never run arbitrary PR code.
+No compile-only or synthetic-event substitute satisfies the native gate.
+
+Binary portability gate builds native binaries against Ubuntu 20.04/glibc 2.31
+and loads them with ldd/version/analyzer/doctor checks in Ubuntu 20.04/22.04/24.04.
+Packaging must copy these binaries, never the development host's glibc 2.43 build.
+These are runtime ABI checks, not certification of each distribution's kernel.
+
+Production gate additionally requires controlled ERP CPU/RSS/p50/p95/p99 overhead,
+stable high-rate captures, soak, kernel matrix, hard disk-full and recovery tests,
+all advertised interpreter ABIs, revocation/credential and privacy review, and
+accessibility certification. The 3–5% CPU target remains unverified. A separate allocator-heavy batch latency
+increase of 748% is a release concern. No production SLO is claimed.
