@@ -28,6 +28,47 @@ pub fn capabilities() -> Value {
         base
     }).clone()
 }
+#[derive(Clone)]
+pub struct Policy {
+    pub name: String,
+    pub minimum: u64,
+    pub stacks: u64,
+    pub diagnostic: String,
+}
+impl Policy {
+    pub fn parse(request: &Value) -> Result<Self> {
+        let name = request["profiling_policy"]
+            .as_str()
+            .unwrap_or("native_detailed");
+        if !["native_light", "native_detailed", "python_deep"].contains(&name) {
+            return Err("unsupported native profiling policy".into());
+        }
+        let minimum = if name == "native_light" {
+            request["min_allocation_size"].as_u64().unwrap_or(65536)
+        } else {
+            0
+        };
+        if name == "native_light" && !(1..=1073741824).contains(&minimum) {
+            return Err("Native Light threshold must be 1..1073741824 bytes".into());
+        }
+        let stacks = match request["native_stacks"].as_str().unwrap_or("full") {
+            "none" => 0,
+            "caller" => 1,
+            "full" => 2,
+            _ => return Err("unsupported stack collection policy".into()),
+        };
+        let diagnostic = std::env::var("LEAKSCOPE_BENCH_COMPONENT").unwrap_or_default();
+        if !["", "entry", "paired", "maps", "stack", "ring"].contains(&diagnostic.as_str()) {
+            return Err("unknown benchmark component".into());
+        }
+        Ok(Self {
+            name: name.into(),
+            minimum,
+            stacks,
+            diagnostic,
+        })
+    }
+}
 pub struct Trace {
     _bpf: Ebpf,
     ring: RingBuf<MapData>,
@@ -41,9 +82,10 @@ pub struct Trace {
     pub stack_errors: u64,
     pub warnings: Vec<String>,
     clock_offset: f64,
+    policy: Policy,
 }
 impl Trace {
-    pub fn start(pid: u32) -> Result<Self> {
+    pub fn start(pid: u32, policy: Policy) -> Result<Self> {
         let (path, elf) = allocator(pid)?;
         let resolver = Resolver::new(pid)?;
         let ring_bytes = std::env::var("LEAKSCOPE_BPF_RING_BYTES")
@@ -71,7 +113,23 @@ impl Trace {
         let namespace = std::fs::metadata("/proc/self/ns/pid")?;
         control.set(2, namespace.dev(), 0)?;
         control.set(3, namespace.ino(), 0)?;
+        control.set(4, policy.minimum, 0)?;
+        control.set(
+            5,
+            if ["maps", "ring"].contains(&policy.diagnostic.as_str()) {
+                0
+            } else {
+                policy.stacks
+            },
+            0,
+        )?;
+        control.set(
+            6,
+            u64::from(["maps", "stack"].contains(&policy.diagnostic.as_str())),
+            0,
+        )?;
         let warnings=vec!["Native-only frame-pointer stacks; Python frames and lines are not inferred. Only the selected provider's outermost allocator calls are covered; custom/interposed allocators can be missed.".into()];
+        let mut loaded = HashSet::new();
         for (symbol, program) in [
             ("malloc", "malloc_enter"),
             ("malloc", "malloc_leave"),
@@ -87,11 +145,25 @@ impl Trace {
                 .find(|s| s.name == symbol)
                 .and_then(|s| s.file_offset)
                 .ok_or("missing symbol file offset")?;
+            if policy.diagnostic == "entry" && program.ends_with("leave") {
+                continue;
+            }
+            let program = if policy.diagnostic == "entry" || policy.diagnostic == "paired" {
+                if program.ends_with("leave") {
+                    "benchmark_return"
+                } else {
+                    "benchmark_entry"
+                }
+            } else {
+                program
+            };
             let p: &mut UProbe = bpf
                 .program_mut(program)
                 .ok_or("missing allocator program")?
                 .try_into()?;
-            p.load()?;
+            if loaded.insert(program) {
+                p.load()?;
+            }
             p.attach(
                 UProbeAttachLocation::AbsoluteOffset(offset),
                 target_path(pid, &path),
@@ -137,6 +209,7 @@ impl Trace {
             stack_errors: 0,
             warnings,
             clock_offset: leakscope_common::now() - monotonic,
+            policy,
         })
     }
     pub fn modules(&self) -> Vec<Value> {
@@ -158,7 +231,13 @@ impl Trace {
             let Some(item) = self.ring.next() else { break };
             let record = NativeRecord::decode(&item)?;
             drop(item);
-            let stack = if record.stack >= 0 && self.seen.len() < 8192 {
+            let stack = if record.stack < 0 && record.caller > 0 {
+                let id = format!("caller-{:x}", record.caller);
+                if self.seen.len() < 8192 && self.seen.insert((u32::MAX, record.caller)) {
+                    result.push(json!({"kind":"stack","id":id,"frames":[self.resolver.frame(record.caller-1)],"quality":"native_caller_only"}));
+                }
+                Some(id)
+            } else if record.stack >= 0 && self.seen.len() < 8192 {
                 let id = record.stack as u32;
                 if self.seen.insert((id, record.caller)) {
                     match self.stacks.get(&id, 0) {
@@ -183,7 +262,7 @@ impl Trace {
                 }
                 Some(format!("{id}-{:x}", record.caller))
             } else {
-                if record.kind != 2 {
+                if record.kind != 2 && self.policy.stacks == 2 {
                     self.stack_errors += 1;
                 }
                 None
@@ -222,6 +301,34 @@ impl Trace {
         Ok(result)
     }
     pub fn quality(&self) -> Value {
-        json!({"coverage":"native_observed","lost_allocations":self.lost[0],"lost_frees":self.lost[1],"lost_correlations":self.lost[2],"lost_events":self.lost.iter().sum::<u64>(),"allocation_events":self.sequence,"stack_errors":self.stack_errors,"stack_quality":"native_only_frame_pointer","warnings":self.warnings,"sampling":"all_outermost_calls","pre_attach_allocations":"unknown","exact_allocations":self.lost==[0;3],"incomplete":self.lost!=[0;3]})
+        json!({"coverage":"native_observed","lost_allocations":self.lost[0],"lost_frees":self.lost[1],"lost_correlations":self.lost[2],"lost_events":self.lost.iter().sum::<u64>(),"allocation_events":self.sequence,"stack_errors":self.stack_errors,"stack_quality":"native_only_frame_pointer","warnings":self.warnings,"profiling_policy":self.policy.name,"minimum_allocation_size":self.policy.minimum,
+        "tracked_pointer_capacity":32768,"pointer_evictions":0,
+        "sampling":if self.policy.minimum>0 {"threshold_selected_lifetimes"} else {"all_outermost_calls"},
+        "selection_semantics":"Selected at allocation or threshold-crossing realloc; selected blocks remain tracked through shrink, realloc and free. Pre-attach and smaller unselected blocks are outside coverage.",
+        "stack_collection":self.policy.stacks,"diagnostic_component":self.policy.diagnostic,"pre_attach_allocations":"unknown","exact_allocations":self.lost==[0;3]&&self.policy.diagnostic.is_empty(),"incomplete":self.lost!=[0;3]||!self.policy.diagnostic.is_empty()})
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn light_threshold_and_stack_policy_are_explicit() {
+        let p=Policy::parse(&json!({"profiling_policy":"native_light","min_allocation_size":4096,"native_stacks":"caller"})).unwrap();
+        assert_eq!(p.minimum, 4096);
+        assert_eq!(p.stacks, 1);
+        assert!(
+            Policy::parse(&json!({"profiling_policy":"native_light","min_allocation_size":0}))
+                .is_err()
+        );
+        assert!(Policy::parse(&json!({"native_stacks":"invented"})).is_err());
+        assert_eq!(
+            Policy::parse(
+                &json!({"profiling_policy":"native_detailed","min_allocation_size":4096})
+            )
+            .unwrap()
+            .minimum,
+            0
+        );
     }
 }

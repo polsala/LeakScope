@@ -149,7 +149,11 @@ async fn handle(req: Value, state: &Arc<Mutex<State>>) -> Value {
             let mut trace = None;
             let mut native_quality = json!({});
             if req["native"].as_bool().unwrap_or(false) {
-                match native::Trace::start(pid) {
+                let policy = match native::Policy::parse(&req) {
+                    Ok(p) => p,
+                    Err(e) => return err(&e.to_string()),
+                };
+                match native::Trace::start(pid, policy) {
                     Ok(t) => {
                         native_quality = t.quality();
                         trace = Some(t);
