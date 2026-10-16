@@ -1113,9 +1113,20 @@
             "required": false,
             "schema": {
               "type": "string",
-              "pattern": "^native$",
+              "pattern": "^(native|python_block)$",
               "default": "native",
               "title": "Domain"
+            }
+          },
+          {
+            "name": "attribution",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(native|python_functions|python_exact_lines|operations)$",
+              "default": "native",
+              "title": "Attribution"
             }
           },
           {
@@ -1298,9 +1309,20 @@
             "required": false,
             "schema": {
               "type": "string",
-              "pattern": "^native$",
+              "pattern": "^(native|python_block)$",
               "default": "native",
               "title": "Domain"
+            }
+          },
+          {
+            "name": "attribution",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(native|python_functions|python_exact_lines|operations)$",
+              "default": "native",
+              "title": "Attribution"
             }
           },
           {
@@ -1483,9 +1505,20 @@
             "required": false,
             "schema": {
               "type": "string",
-              "pattern": "^native$",
+              "pattern": "^(native|python_block)$",
               "default": "native",
               "title": "Domain"
+            }
+          },
+          {
+            "name": "attribution",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(native|python_functions|python_exact_lines|operations)$",
+              "default": "native",
+              "title": "Attribution"
             }
           },
           {
@@ -1668,9 +1701,20 @@
             "required": false,
             "schema": {
               "type": "string",
-              "pattern": "^native$",
+              "pattern": "^(native|python_block)$",
               "default": "native",
               "title": "Domain"
+            }
+          },
+          {
+            "name": "attribution",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(native|python_functions|python_exact_lines|operations)$",
+              "default": "native",
+              "title": "Attribution"
             }
           },
           {
@@ -1732,6 +1776,59 @@
                 "schema": {
                   "$ref": "#/components/schemas/NativeAnalysisView"
                 }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/python/context": {
+      "get": {
+        "summary": "Python Context",
+        "operationId": "python_context_api_v1_sessions__session_id__python_context_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },
@@ -3221,6 +3318,25 @@
             },
             "type": "array",
             "title": "Limitations"
+          },
+          "operations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Operations",
+            "default": []
+          },
+          "attribution": {
+            "type": "string",
+            "title": "Attribution",
+            "default": "native"
+          },
+          "domain": {
+            "type": "string",
+            "title": "Domain",
+            "default": "native"
           }
         },
         "additionalProperties": false,
@@ -3300,6 +3416,50 @@
               }
             ],
             "title": "Build Id"
+          },
+          "first_line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Line"
+          },
+          "boundary_line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Boundary Line"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence"
+          },
+          "operation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operation Id"
           }
         },
         "additionalProperties": false,
@@ -3750,6 +3910,41 @@
             "default": [
               "os_process"
             ]
+          },
+          "profiling_policy": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "metrics",
+                  "native_light",
+                  "native_detailed",
+                  "python_deep",
+                  "lab_full"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profiling Policy"
+          },
+          "min_allocation_size": {
+            "type": "integer",
+            "maximum": 1073741824.0,
+            "minimum": 1.0,
+            "title": "Min Allocation Size",
+            "default": 65536
+          },
+          "native_stacks": {
+            "type": "string",
+            "enum": [
+              "none",
+              "caller",
+              "full"
+            ],
+            "title": "Native Stacks",
+            "default": "full"
           },
           "allow_downgrade": {
             "type": "boolean",

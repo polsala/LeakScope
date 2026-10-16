@@ -362,6 +362,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{session_id}/python/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Python Context */
+        get: operations["python_context_api_v1_sessions__session_id__python_context_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions/{session_id}/gc/referrers": {
         parameters: {
             query?: never;
@@ -765,6 +782,23 @@ export interface components {
             }[];
             /** Limitations */
             limitations: string[];
+            /**
+             * Operations
+             * @default []
+             */
+            operations: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Attribution
+             * @default native
+             */
+            attribution: string;
+            /**
+             * Domain
+             * @default native
+             */
+            domain: string;
         };
         /** NativeFrameView */
         NativeFrameView: {
@@ -780,6 +814,14 @@ export interface components {
             line?: number | null;
             /** Build Id */
             build_id?: string | null;
+            /** First Line */
+            first_line?: number | null;
+            /** Boundary Line */
+            boundary_line?: number | null;
+            /** Evidence */
+            evidence?: string | null;
+            /** Operation Id */
+            operation_id?: string | null;
         };
         /** NativeSiteView */
         NativeSiteView: {
@@ -977,6 +1019,19 @@ export interface components {
              *     ]
              */
             allocation_domains: ("os_process" | "native" | "python_block" | "python_arena" | "gc_objects")[];
+            /** Profiling Policy */
+            profiling_policy?: ("metrics" | "native_light" | "native_detailed" | "python_deep" | "lab_full") | null;
+            /**
+             * Min Allocation Size
+             * @default 65536
+             */
+            min_allocation_size: number;
+            /**
+             * Native Stacks
+             * @default full
+             * @enum {string}
+             */
+            native_stacks: "none" | "caller" | "full";
             /**
              * Allow Downgrade
              * @default true
@@ -1632,6 +1687,7 @@ export interface operations {
                 symbol?: string | null;
                 library?: string | null;
                 domain?: string;
+                attribution?: string;
                 min_size?: number | null;
                 max_size?: number | null;
             };
@@ -1674,6 +1730,7 @@ export interface operations {
                 symbol?: string | null;
                 library?: string | null;
                 domain?: string;
+                attribution?: string;
                 min_size?: number | null;
                 max_size?: number | null;
             };
@@ -1716,6 +1773,7 @@ export interface operations {
                 symbol?: string | null;
                 library?: string | null;
                 domain?: string;
+                attribution?: string;
                 min_size?: number | null;
                 max_size?: number | null;
             };
@@ -1758,6 +1816,7 @@ export interface operations {
                 symbol?: string | null;
                 library?: string | null;
                 domain?: string;
+                attribution?: string;
                 min_size?: number | null;
                 max_size?: number | null;
             };
@@ -1778,6 +1837,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NativeAnalysisView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    python_context_api_v1_sessions__session_id__python_context_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

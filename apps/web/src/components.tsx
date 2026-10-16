@@ -110,16 +110,34 @@ export function Failure({
     </div>
   );
 }
-export function Capability({ native = false }: { native?: boolean }) {
+export function Capability({
+  native = false,
+  lab = false,
+}: {
+  native?: boolean;
+  lab?: boolean;
+}) {
   const t = useT();
   return (
     <div className="capability">
       <Info size={20} />
       <div>
-        <strong>{t(native ? "nativeSites" : "capabilityTitle")}</strong>
-        <p>{t(native ? "nativeOnly" : "capabilityBody")}</p>
+        <strong>
+          {t(
+            lab
+              ? "pythonAllocationSites"
+              : native
+                ? "nativeSites"
+                : "capabilityTitle",
+          )}
+        </strong>
+        <p>
+          {t(
+            lab ? "exactLabEvidence" : native ? "nativeOnly" : "capabilityBody",
+          )}
+        </p>
       </div>
-      <span className="mono">OBSERVE</span>
+      <span className="mono">{lab ? "LAB" : "OBSERVE"}</span>
     </div>
   );
 }

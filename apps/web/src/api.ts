@@ -15,6 +15,12 @@ export type Session = Omit<
     lost_events?: number;
     lost_native?: number;
     native_failure?: string;
+    policy_transitions?: {
+      from: string;
+      to: string;
+      reason: string;
+      timestamp: number;
+    }[];
   };
 };
 export type Summary = {

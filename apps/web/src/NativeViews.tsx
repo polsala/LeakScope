@@ -148,7 +148,9 @@ export function NativeViews({
   end,
   active,
   state,
+  domain = "native",
 }: {
+  domain?: string;
   id: string;
   tab: string;
   start?: number;
@@ -161,10 +163,32 @@ export function NativeViews({
   const [symbol, setSymbol] = useState(saved.get("symbol") || "");
   const [library, setLibrary] = useState(saved.get("library") || "");
   const [thread, setThread] = useState(saved.get("thread") || "");
+  const [attribution, setAttribution] = useState(
+    domain === "python_block" ? "python_exact_lines" : "native",
+  );
+  const context = useQuery({
+    queryKey: ["python-context", id, state],
+    queryFn: () =>
+      api<{
+        python_functions: boolean;
+        python_exact_lines: boolean;
+        operations: Array<{
+          id: string;
+          operation: string;
+          depth: number;
+          start_ns: number;
+          end_ns: number | null;
+          status: string;
+        }>;
+      }>(`/sessions/${id}/python/context`),
+    refetchInterval: active ? 2000 : false,
+  });
   const [minimum, setMinimum] = useState("");
   const [retained, setRetained] = useState(tab === "survivors");
   const [icicle, setIcicle] = useState(false);
   const params = new URLSearchParams();
+  params.set("attribution", attribution);
+  params.set("domain", domain);
   if (symbol) params.set("symbol", symbol);
   if (library) params.set("library", library);
   if (thread && Number(thread) > 0) params.set("thread", thread);
@@ -197,7 +221,77 @@ export function NativeViews({
     : null;
   return (
     <div className="native-view">
-      <p className="small muted">{t("nativeOnly")}</p>
+      <p className="small muted">
+        {attribution === "native"
+          ? t("nativeOnly")
+          : attribution === "python_exact_lines"
+            ? t("exactLabEvidence")
+            : t("temporalEvidence")}
+      </p>
+      <label>
+        {t("attribution")}
+        <select
+          aria-label={t("attribution")}
+          value={attribution}
+          onChange={(e) => {
+            setAttribution(e.target.value);
+            setLibrary("");
+            setSymbol("");
+          }}
+        >
+          <option value="native" disabled={domain === "python_block"}>
+            {t("nativeAttribution")}
+          </option>
+          <option
+            value="python_functions"
+            disabled={!context.data?.python_functions}
+          >
+            {t("pythonFunctions")}
+          </option>
+          <option
+            value="operations"
+            disabled={!context.data?.operations.length}
+          >
+            {t("operationContext")}
+          </option>
+          <option
+            value="python_exact_lines"
+            disabled={
+              !context.data?.python_exact_lines || domain !== "python_block"
+            }
+          >
+            {t("pythonExactLines")}
+          </option>
+        </select>
+      </label>
+      {!!context.data?.operations.length && (
+        <details>
+          <summary>{t("operationTimeline")}</summary>
+          <ol>
+            {context.data.operations.slice(0, 200).map((op) => (
+              <li
+                key={op.id}
+                style={{ marginInlineStart: Math.min(op.depth, 8) * 16 }}
+              >
+                <strong>{op.operation}</strong> ·{" "}
+                {op.end_ns
+                  ? ((op.end_ns - op.start_ns) / 1e6).toFixed(2) + " ms"
+                  : t("recording")}{" "}
+                ·{" "}
+                {t(
+                  op.status === "running"
+                    ? "recording"
+                    : op.status === "completed"
+                      ? "ready"
+                      : op.status === "cancelled"
+                        ? "cancelled"
+                        : "failed",
+                )}
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
       <div className="native-filters">
         <label>
           {t("symbolFilter")}
@@ -244,7 +338,7 @@ export function NativeViews({
               <strong>{bytes(data.selected_allocated_bytes)}</strong>
             </span>
             <span>
-              {t("nativeLive")}:{" "}
+              {t(domain === "python_block" ? "pythonBlocks" : "nativeLive")}:{" "}
               <strong>
                 {data.exact_survivors ? bytes(data.retained_tree.value) : "—"}
               </strong>
@@ -287,12 +381,22 @@ export function NativeViews({
           )}
           <div className="table-scroll">
             <table>
-              <caption>{t("nativeSites")}</caption>
+              <caption>
+                {t(
+                  domain === "python_block"
+                    ? "pythonAllocationSites"
+                    : "nativeSites",
+                )}
+              </caption>
               <thead>
                 <tr>
                   <th>{t("symbolFilter")}</th>
                   <th>{t("observedAllocated")}</th>
-                  <th>{t("nativeLive")}</th>
+                  <th>
+                    {t(
+                      domain === "python_block" ? "pythonBlocks" : "nativeLive",
+                    )}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -352,6 +456,18 @@ export function NativeViews({
                                 <small>
                                   {frame.file}
                                   {frame.line ? `:${frame.line}` : ""}
+                                  {frame.evidence && (
+                                    <span>
+                                      {" "}
+                                      ·{" "}
+                                      {t(
+                                        frame.evidence ===
+                                          "verified_lab_allocation_frame"
+                                          ? "exactLabEvidence"
+                                          : "temporalEvidence",
+                                      )}
+                                    </span>
+                                  )}
                                 </small>
                               )}
                             </li>
@@ -375,21 +491,24 @@ export function NativeStats({
   id,
   active,
   state,
+  domain = "native",
 }: {
   id: string;
   active: boolean;
   state: string;
+  domain?: string;
 }) {
   const t = useT();
   const q = useQuery({
     queryKey: ["native-stats", id, state],
-    queryFn: () => api<NativeAnalysis>(`/sessions/${id}/allocations`),
+    queryFn: () =>
+      api<NativeAnalysis>(`/sessions/${id}/allocations?domain=${domain}`),
     refetchInterval: active ? 2000 : false,
   });
   return (
     <div className="native-totals" aria-live="polite">
       <span>
-        {t("nativeLive")}:{" "}
+        {t(domain === "python_block" ? "pythonBlocks" : "nativeLive")}:{" "}
         <strong>
           {q.data?.exact_survivors ? bytes(q.data.retained_tree.value) : "—"}
         </strong>

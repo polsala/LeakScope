@@ -1079,6 +1079,7 @@ function Wizard({ process, close }: { process: Process; close: () => void }) {
       api<{
         capabilities: {
           deep: boolean;
+          lab: boolean;
           external_allocations: boolean;
           reason: string;
         };
@@ -1089,6 +1090,8 @@ function Wizard({ process, close }: { process: Process; close: () => void }) {
   const nativeAvailable =
     capabilities.data?.capabilities.external_allocations === true;
   const [nativeRequested, setNativeRequested] = useState(false);
+  const [nativePolicy, setNativePolicy] = useState("native_light");
+  const [nativeMinimum, setNativeMinimum] = useState(65536);
   const requestKey = useRef(crypto.randomUUID());
   const client = useQueryClient();
   const notify = useUI((s) => s.notify);
@@ -1118,6 +1121,13 @@ function Wizard({ process, close }: { process: Process; close: () => void }) {
             ...(mode === "deep" ? ["gc_objects"] : []),
             ...(nativeRequested ? ["native"] : []),
           ],
+          profiling_policy:
+            mode === "lab"
+              ? "lab_full"
+              : nativeRequested
+                ? nativePolicy
+                : "metrics",
+          min_allocation_size: nativeMinimum,
           purpose,
         }),
       }),
@@ -1131,6 +1141,7 @@ function Wizard({ process, close }: { process: Process; close: () => void }) {
   const purposes = [
     ["growth", "growthPurpose"],
     ["operation", "operationPurpose"],
+    ["python_memory", "pythonInvestigation"],
     ["worker", "workerPurpose"],
     ["large", "largePurpose"],
     ["comparison", "comparePurpose"],
@@ -1198,14 +1209,23 @@ function Wizard({ process, close }: { process: Process; close: () => void }) {
               </div>
               <span>{t(deepAvailable ? "ready" : "unavailable")}</span>
             </button>
-            <div className="depth disabled">
+            <button
+              type="button"
+              disabled={!capabilities.data?.capabilities.lab}
+              className={"depth " + (mode === "lab" ? "chosen" : "")}
+              onClick={() => setMode("lab")}
+            >
               <FlaskConical size={23} />
               <div>
                 <strong>Lab</strong>
                 <p>{t("labDesc")}</p>
               </div>
-              <span>{t("unavailable")}</span>
-            </div>
+              <span>
+                {t(
+                  capabilities.data?.capabilities.lab ? "ready" : "unavailable",
+                )}
+              </span>
+            </button>
           </div>
         )}
         {step === 3 && (
@@ -1238,6 +1258,33 @@ function Wizard({ process, close }: { process: Process; close: () => void }) {
               />
               {t("enableNative")}
             </label>
+            {nativeRequested && (
+              <div className="form-grid">
+                <label>
+                  {t("profilingPolicy")}
+                  <select
+                    value={nativePolicy}
+                    onChange={(e) => setNativePolicy(e.target.value)}
+                  >
+                    <option value="native_light">Native Light</option>
+                    <option value="native_detailed">Native Detailed</option>
+                  </select>
+                </label>
+                {nativePolicy === "native_light" && (
+                  <label>
+                    {t("minimumSize")}
+                    <input
+                      type="number"
+                      min={1}
+                      max={1073741824}
+                      value={nativeMinimum}
+                      onChange={(e) => setNativeMinimum(Number(e.target.value))}
+                    />
+                  </label>
+                )}
+                <p className="small muted">{t("thresholdCoverage")}</p>
+              </div>
+            )}
             <p className="small muted">{t("nativeRisk")}</p>
             {!nativeAvailable && (
               <p className="small muted">
@@ -1520,6 +1567,15 @@ function SessionDetail({ id, role }: { id: string; role: string }) {
           {s.data.quality.native_failure}
         </p>
       )}
+      {Array.isArray(s.data.quality.policy_transitions) &&
+        s.data.quality.policy_transitions.length > 0 && (
+          <div role="status" className="native-warning">
+            <p>{t("policyChanged")}</p>
+            <pre>
+              {JSON.stringify(s.data.quality.policy_transitions, null, 2)}
+            </pre>
+          </div>
+        )}
       <div className="session-metrics">
         <Metric
           label={t("rss")}
@@ -1551,8 +1607,15 @@ function SessionDetail({ id, role }: { id: string; role: string }) {
           )}
         />
       </div>
-      {s.data.quality.coverage === "native_observed" && (
-        <NativeStats id={id} active={active && !paused} state={s.data.state} />
+      {["native_observed", "lab_observed"].includes(
+        String(s.data.quality.coverage),
+      ) && (
+        <NativeStats
+          id={id}
+          active={active && !paused}
+          state={s.data.state}
+          domain={s.data.config.mode === "lab" ? "python_block" : "native"}
+        />
       )}
       <div className="investigation-layout">
         <aside className="panel investigation-left">
@@ -1567,15 +1630,21 @@ function SessionDetail({ id, role }: { id: string; role: string }) {
           <div
             className={
               "domain " +
-              (s.data.quality.coverage === "native_observed"
+              (["native_observed", "lab_observed"].includes(
+                String(s.data.quality.coverage),
+              )
                 ? "domain-selected"
                 : "disabled")
             }
           >
             <MemoryStick size={16} />
-            {t("nativeLive")}
+            {t(s.data.config.mode === "lab" ? "pythonBlocks" : "nativeLive")}
             <span>
-              {s.data.quality.coverage === "native_observed" ? "✓" : "—"}
+              {["native_observed", "lab_observed"].includes(
+                String(s.data.quality.coverage),
+              )
+                ? "✓"
+                : "—"}
             </span>
           </div>
           <div className="domain disabled">
@@ -1594,9 +1663,11 @@ function SessionDetail({ id, role }: { id: string; role: string }) {
           </label>
           <p className="small muted">
             {t(
-              s.data.quality.coverage === "native_observed"
-                ? "nativeOnly"
-                : "qualityHelp",
+              s.data.config.mode === "lab"
+                ? "exactLabEvidence"
+                : s.data.quality.coverage === "native_observed"
+                  ? "nativeOnly"
+                  : "qualityHelp",
             )}
           </p>
           <hr />
@@ -1697,6 +1768,9 @@ function SessionDetail({ id, role }: { id: string; role: string }) {
                 tab,
               ) ? (
               <NativeViews
+                domain={
+                  s.data.config.mode === "lab" ? "python_block" : "native"
+                }
                 id={id}
                 tab={tab}
                 start={range === "b" ? midpoint : undefined}
@@ -1727,6 +1801,7 @@ function SessionDetail({ id, role }: { id: string; role: string }) {
             <Evidence
               summary={timeline.summary}
               native={s.data.quality.coverage === "native_observed"}
+              lab={s.data.config.mode === "lab"}
             />
           )}
           <div className="right-actions">
@@ -1739,7 +1814,10 @@ function SessionDetail({ id, role }: { id: string; role: string }) {
           </div>
         </aside>
       </div>
-      <Capability native={s.data.quality.coverage === "native_observed"} />
+      <Capability
+        native={s.data.quality.coverage === "native_observed"}
+        lab={s.data.config.mode === "lab"}
+      />
       {marker && (
         <Modal title={t("mark")} close={() => setMarker(false)}>
           <form
@@ -1859,9 +1937,11 @@ function GCTypes({
 function Evidence({
   summary,
   native = false,
+  lab = false,
 }: {
   summary: Summary;
   native?: boolean;
+  lab?: boolean;
 }) {
   const t = useT();
   return (
@@ -1891,7 +1971,9 @@ function Evidence({
         </div>
       </dl>
       <h4>{t("limitations")}</h4>
-      <p>{t(native ? "nativeOnly" : "capabilityBody")}</p>
+      <p>
+        {t(lab ? "exactLabEvidence" : native ? "nativeOnly" : "capabilityBody")}
+      </p>
       <h4>{t("followup")}</h4>
       <p>{t("repeatedSub")}</p>
     </div>

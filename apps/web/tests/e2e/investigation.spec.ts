@@ -83,7 +83,12 @@ test("real Python 2 process → capture → compare → offline report", async (
   ).toBeVisible();
   const [report] = await Promise.all([
     page.waitForEvent("download"),
-    page.getByRole("button", { name: "Baixa HTML" }).first().click(),
+    page
+      .locator(".report-card")
+      .filter({ hasText: "Fixture investigation" })
+      .first()
+      .getByRole("button", { name: "Baixa HTML" })
+      .click(),
   ]);
   const html = readFileSync((await report.path())!, "utf8");
   expect(html).toContain("Fixture investigation");

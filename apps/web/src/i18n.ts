@@ -1,4 +1,24 @@
 export const ca = {
+  pythonBlocks: "Blocs Python observats",
+  pythonAllocationSites: "Llocs d’assignació de blocs Python",
+  pythonInvestigation: "Investigació de fuites de memòria Python",
+
+  exactLabEvidence:
+    "Pila Python llegida al moment de l’assignació al Lab verificat. No és una prova de propietat de l’objecte.",
+  attribution: "Atribució",
+  nativeAttribution: "Nativa",
+  pythonFunctions: "Funcions Python",
+  pythonExactLines: "Línies Python exactes (requereix Lab verificat)",
+  operationContext: "Context d’operació",
+  policyChanged:
+    "La política de captura ha canviat per protegir el procés. Consulta els motius i la cobertura efectiva.",
+  operationTimeline: "Cronologia d’operacions",
+  temporalEvidence:
+    "Correlació temporal; no demostra propietat ni una línia exacta d’assignació.",
+  profilingPolicy: "Política de perfilat",
+  thresholdCoverage:
+    "Light només segueix blocs seleccionats pel llindar, incloent-hi els seus realloc i free. Els blocs més petits queden fora de la cobertura.",
+
   nativeOnly:
     "Piles natives observades. No s’infereixen línies de Python. Els dominis de memòria no són additius.",
   nativeFlameHelp:
@@ -99,7 +119,7 @@ export const ca = {
   observeDesc: "Mètriques del sistema, sense injectar codi. Disponible ara.",
   deepDesc: "Requereix l’agent cooperatiu inicialitzat a l’aplicació.",
   labDesc:
-    "Intèrpret experimental aïllat. No disponible en aquesta instal·lació.",
+    "Intèrpret experimental aïllat amb instrumentació verificada. Només per a reproduccions controlades.",
   unavailable: "No disponible",
   duration: "Durada (segons)",
   interval: "Interval (ms)",
@@ -243,6 +263,26 @@ export const ca = {
 export type Key = keyof typeof ca;
 export type Locale = "ca" | "es" | "en";
 const es: Record<Key, string> = {
+  pythonBlocks: "Bloques Python observados",
+  pythonAllocationSites: "Sitios de asignación de bloques Python",
+  pythonInvestigation: "Investigación de fugas de memoria Python",
+
+  exactLabEvidence:
+    "Pila Python leída al asignar en el Lab verificado. No demuestra propiedad del objeto.",
+  attribution: "Atribución",
+  nativeAttribution: "Nativa",
+  pythonFunctions: "Funciones Python",
+  pythonExactLines: "Líneas Python exactas (requiere Lab verificado)",
+  operationContext: "Contexto de operación",
+  policyChanged:
+    "La política de captura ha cambiado para proteger el proceso. Consulta los motivos y la cobertura efectiva.",
+  operationTimeline: "Cronología de operaciones",
+  temporalEvidence:
+    "Correlación temporal; no demuestra propiedad ni una línea exacta de asignación.",
+  profilingPolicy: "Política de perfilado",
+  thresholdCoverage:
+    "Light sigue los bloques seleccionados por el umbral y sus realloc/free; los bloques menores quedan fuera.",
+
   nativeOnly:
     "Pilas nativas observadas. No se infieren líneas de Python. Los dominios de memoria no son aditivos.",
   nativeFlameHelp:
@@ -343,7 +383,7 @@ const es: Record<Key, string> = {
   observeDesc: "Métricas del sistema, sin inyectar código. Disponible ahora.",
   deepDesc: "Requiere el agente cooperativo inicializado en la aplicación.",
   labDesc:
-    "Intérprete experimental aislado. No disponible en esta instalación.",
+    "Intérprete experimental aislado con instrumentación verificada. Solo para reproducciones controladas.",
   unavailable: "No disponible",
   duration: "Duración (segundos)",
   interval: "Intervalo (ms)",
@@ -485,6 +525,26 @@ const es: Record<Key, string> = {
   noNotifications: "No hay notificaciones nuevas",
 };
 const en: Record<Key, string> = {
+  pythonBlocks: "Observed Python blocks",
+  pythonAllocationSites: "Python object-block allocation sites",
+  pythonInvestigation: "Python Memory Leak Investigation",
+
+  exactLabEvidence:
+    "Allocation-time Python frame from verified Lab hooks. Object ownership is not established.",
+  attribution: "Attribution",
+  nativeAttribution: "Native",
+  pythonFunctions: "Python functions",
+  pythonExactLines: "Exact Python lines (requires verified Lab)",
+  operationContext: "Operation context",
+  policyChanged:
+    "Capture policy changed to protect the process. Review the reasons and effective coverage.",
+  operationTimeline: "Operation timeline",
+  temporalEvidence:
+    "Temporal correlation; does not establish ownership or an exact allocation line.",
+  profilingPolicy: "Profiling policy",
+  thresholdCoverage:
+    "Light tracks threshold-selected blocks and their realloc/free lifetimes; smaller blocks are outside coverage.",
+
   nativeOnly:
     "Observed native stacks. Python source lines are not inferred. Memory domains are not additive.",
   nativeFlameHelp:
@@ -584,7 +644,7 @@ const en: Record<Key, string> = {
   observeDesc: "System metrics, without code injection. Available now.",
   deepDesc: "Requires the cooperative agent initialized by the application.",
   labDesc:
-    "Isolated experimental interpreter. Unavailable in this installation.",
+    "Isolated experimental interpreter with verified hooks. Use only for controlled reproduction.",
   unavailable: "Unavailable",
   duration: "Duration (seconds)",
   interval: "Interval (ms)",
