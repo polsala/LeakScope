@@ -11,7 +11,7 @@ mkdir -p "$prefix/web-dist" "$prefix/docs"
 cp -R "$source_root/web-dist/." "$prefix/web-dist/"
 cp -R "$source_root/docs/." "$prefix/docs/"
 "$python" -m venv "$prefix/venv"
-"$prefix/venv/bin/pip" install --no-index --find-links "$source_root/wheels" leakscope==0.1.0
+"$prefix/venv/bin/pip" install --force-reinstall --no-index --find-links "$source_root/wheels" leakscope==0.1.0
 cp "$source_root/launcher" "$prefix/bin/leakscope"
 chmod 755 "$prefix/bin/leakscope" "$prefix/bin/leakscope-sensor" "$prefix/bin/leakscope-analyzer"
 printf 'Installed. Run %s/bin/leakscope doctor, then %s/bin/leakscope serve\n' "$prefix" "$prefix"
