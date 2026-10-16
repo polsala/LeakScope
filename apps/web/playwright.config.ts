@@ -14,6 +14,7 @@ export default defineConfig({
     command: "../../.venv/bin/python ../../scripts/e2e-server.py",
     url: "http://127.0.0.1:7832/api/v1/health/live",
     reuseExistingServer: false,
+    gracefulShutdown: { signal: "SIGTERM", timeout: 10000 },
     timeout: 30000,
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],

@@ -1,3 +1,4 @@
+import { NativeViews, NativeStats } from "./NativeViews";
 import {
   useEffect,
   useMemo,
@@ -459,7 +460,7 @@ function Shell({ role }: { role: string }) {
               <span className={"dot " + (stream ? "online" : "")} />
               {t("localHost")}
               <span className="slash">/</span>
-              {t("metricsOnly")}
+              {t("coverage")}
             </span>
             <select
               className="host-select"
@@ -1075,12 +1076,19 @@ function Wizard({ process, close }: { process: Process; close: () => void }) {
   const capabilities = useQuery({
     queryKey: ["process-capabilities", process.key],
     queryFn: () =>
-      api<{ capabilities: { deep: boolean } }>(
-        `/processes/${process.key}/capabilities`,
-      ),
+      api<{
+        capabilities: {
+          deep: boolean;
+          external_allocations: boolean;
+          reason: string;
+        };
+      }>(`/processes/${process.key}/capabilities`),
     enabled: step >= 2,
   });
   const deepAvailable = capabilities.data?.capabilities.deep === true;
+  const nativeAvailable =
+    capabilities.data?.capabilities.external_allocations === true;
+  const [nativeRequested, setNativeRequested] = useState(false);
   const requestKey = useRef(crypto.randomUUID());
   const client = useQueryClient();
   const notify = useUI((s) => s.notify);
@@ -1105,8 +1113,11 @@ function Wizard({ process, close }: { process: Process; close: () => void }) {
           ...values,
           process_key: process.key,
           mode,
-          allocation_domains:
-            mode === "deep" ? ["os_process", "gc_objects"] : ["os_process"],
+          allocation_domains: [
+            "os_process",
+            ...(mode === "deep" ? ["gc_objects"] : []),
+            ...(nativeRequested ? ["native"] : []),
+          ],
           purpose,
         }),
       }),
@@ -1218,6 +1229,21 @@ function Wizard({ process, close }: { process: Process; close: () => void }) {
                 {errors.max_capture_mb && <span role="alert">1–50</span>}
               </label>
             </div>
+            <label className="native-optin">
+              <input
+                type="checkbox"
+                checked={nativeRequested}
+                disabled={!nativeAvailable}
+                onChange={(e) => setNativeRequested(e.target.checked)}
+              />
+              {t("enableNative")}
+            </label>
+            <p className="small muted">{t("nativeRisk")}</p>
+            {!nativeAvailable && (
+              <p className="small muted">
+                {capabilities.data?.capabilities.reason}
+              </p>
+            )}
             <p className="small muted">{t("budgets")}</p>
             <div className="privacy-block">
               <ShieldCheck size={19} />
@@ -1480,6 +1506,11 @@ function SessionDetail({ id, role }: { id: string; role: string }) {
           </button>
         )}
       </PageHead>
+      {s.data.quality.native_failure && (
+        <p role="alert" className="native-warning">
+          {s.data.quality.native_failure}
+        </p>
+      )}
       <div className="session-metrics">
         <Metric
           label={t("rss")}
@@ -1499,10 +1530,17 @@ function SessionDetail({ id, role }: { id: string; role: string }) {
         />
         <Metric
           label={t("lost")}
-          value={s.data.quality.lost_samples || 0}
+          value={
+            (s.data.quality.lost_samples || 0) +
+            (s.data.quality.lost_events || 0) +
+            (s.data.quality.lost_native || 0)
+          }
           hint={t("metricsOnly")}
         />
       </div>
+      {s.data.quality.coverage === "native_observed" && (
+        <NativeStats id={id} active={active && !paused} state={s.data.state} />
+      )}
       <div className="investigation-layout">
         <aside className="panel investigation-left">
           <div className="panel-head">
@@ -1513,7 +1551,14 @@ function SessionDetail({ id, role }: { id: string; role: string }) {
             {t("rss")}
             <Check size={14} />
           </div>
-          <div className="domain disabled">
+          <div
+            className={
+              "domain " +
+              (s.data.quality.coverage === "native_observed"
+                ? "domain-selected"
+                : "disabled")
+            }
+          >
             <MemoryStick size={16} />
             {t("nativeLive")}
             <span>—</span>
@@ -1532,7 +1577,13 @@ function SessionDetail({ id, role }: { id: string; role: string }) {
               <option value="b">{t("secondHalf")}</option>
             </select>
           </label>
-          <p className="small muted">{t("qualityHelp")}</p>
+          <p className="small muted">
+            {t(
+              s.data.quality.coverage === "native_observed"
+                ? "nativeOnly"
+                : "qualityHelp",
+            )}
+          </p>
           <hr />
           <button className="wide" onClick={() => setRepeat(!repeat)}>
             <FlaskConical size={16} />
@@ -1627,6 +1678,17 @@ function SessionDetail({ id, role }: { id: string; role: string }) {
                   ))}
                 </div>
               </>
+            ) : ["flamegraph", "calltree", "allocations", "survivors"].includes(
+                tab,
+              ) ? (
+              <NativeViews
+                id={id}
+                tab={tab}
+                start={range === "b" ? midpoint : undefined}
+                end={range === "a" ? midpoint : undefined}
+                active={active && !paused}
+                state={s.data.state}
+              />
             ) : tab === "gcTypes" ? (
               <GCTypes
                 id={id}
@@ -1646,7 +1708,12 @@ function SessionDetail({ id, role }: { id: string; role: string }) {
             <h2>{t("evidence")}</h2>
             <BookOpen size={16} />
           </div>
-          {timeline && <Evidence summary={timeline.summary} />}
+          {timeline && (
+            <Evidence
+              summary={timeline.summary}
+              native={s.data.quality.coverage === "native_observed"}
+            />
+          )}
           <div className="right-actions">
             {canAnalyze && (
               <button onClick={() => navigate("reports")}>
@@ -1657,7 +1724,7 @@ function SessionDetail({ id, role }: { id: string; role: string }) {
           </div>
         </aside>
       </div>
-      <Capability />
+      <Capability native={s.data.quality.coverage === "native_observed"} />
       {marker && (
         <Modal title={t("mark")} close={() => setMarker(false)}>
           <form
@@ -1774,7 +1841,13 @@ function GCTypes({
     </div>
   );
 }
-function Evidence({ summary }: { summary: Summary }) {
+function Evidence({
+  summary,
+  native = false,
+}: {
+  summary: Summary;
+  native?: boolean;
+}) {
   const t = useT();
   return (
     <div className="evidence-body">
@@ -1803,7 +1876,7 @@ function Evidence({ summary }: { summary: Summary }) {
         </div>
       </dl>
       <h4>{t("limitations")}</h4>
-      <p>{t("capabilityBody")}</p>
+      <p>{t(native ? "nativeOnly" : "capabilityBody")}</p>
       <h4>{t("followup")}</h4>
       <p>{t("repeatedSub")}</p>
     </div>
@@ -1818,6 +1891,12 @@ type Comparison = {
     b: Summary;
     rss_slope_change: number | null;
     warnings: string[];
+    native?: {
+      a: import("./NativeViews").NativeAnalysis;
+      b: import("./NativeViews").NativeAnalysis;
+      allocated_delta_bytes: number;
+      survivor_delta_bytes: number | null;
+    };
   };
 };
 function Comparisons({
@@ -1894,6 +1973,30 @@ function Comparisons({
                   <Evidence summary={c.result.b} />
                 </div>
               </div>
+              {c.result.native && (
+                <div className="native-view">
+                  <p>{t("nativeOnly")}</p>
+                  <div className="comparison-grid">
+                    <p>
+                      A · {t("observedAllocated")}:{" "}
+                      {bytes(c.result.native.a.selected_allocated_bytes)} ·{" "}
+                      {t("nativeLive")}:{" "}
+                      {c.result.native.a.exact_survivors
+                        ? bytes(c.result.native.a.retained_tree.value)
+                        : "—"}
+                    </p>
+                    <p>
+                      B · {t("observedAllocated")}:{" "}
+                      {bytes(c.result.native.b.selected_allocated_bytes)} ·{" "}
+                      {t("nativeLive")}:{" "}
+                      {c.result.native.b.exact_survivors
+                        ? bytes(c.result.native.b.retained_tree.value)
+                        : "—"}
+                    </p>
+                  </div>
+                  <p>Δ {bytes(c.result.native.survivor_delta_bytes)}</p>
+                </div>
+              )}
               {c.result.warnings.length > 0 && <Capability />}
             </section>
           ))

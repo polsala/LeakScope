@@ -1008,10 +1008,10 @@
         }
       }
     },
-    "/api/v1/sessions/{session_id}/allocations": {
+    "/api/v1/sessions/{session_id}/cohorts": {
       "get": {
-        "summary": "Allocations",
-        "operationId": "allocations_api_v1_sessions__session_id__allocations_get",
+        "summary": "Native Allocations",
+        "operationId": "native_allocations_api_v1_sessions__session_id__cohorts_get",
         "parameters": [
           {
             "name": "session_id",
@@ -1020,6 +1020,136 @@
             "schema": {
               "type": "string",
               "title": "Session Id"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End"
+            }
+          },
+          {
+            "name": "thread",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Thread"
+            }
+          },
+          {
+            "name": "symbol",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Symbol"
+            }
+          },
+          {
+            "name": "library",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Library"
+            }
+          },
+          {
+            "name": "domain",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^native$",
+              "default": "native",
+              "title": "Domain"
+            }
+          },
+          {
+            "name": "min_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Min Size"
+            }
+          },
+          {
+            "name": "max_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Max Size"
             }
           },
           {
@@ -1042,62 +1172,11 @@
         "responses": {
           "200": {
             "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/NativeAnalysisView"
                 }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/sessions/{session_id}/flamegraph": {
-      "get": {
-        "summary": "Flamegraph",
-        "operationId": "flamegraph_api_v1_sessions__session_id__flamegraph_get",
-        "parameters": [
-          {
-            "name": "session_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Session Id"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
               }
             }
           },
@@ -1116,8 +1195,8 @@
     },
     "/api/v1/sessions/{session_id}/calltree": {
       "get": {
-        "summary": "Calltree",
-        "operationId": "calltree_api_v1_sessions__session_id__calltree_get",
+        "summary": "Native Allocations",
+        "operationId": "native_allocations_api_v1_sessions__session_id__calltree_get",
         "parameters": [
           {
             "name": "session_id",
@@ -1126,6 +1205,136 @@
             "schema": {
               "type": "string",
               "title": "Session Id"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End"
+            }
+          },
+          {
+            "name": "thread",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Thread"
+            }
+          },
+          {
+            "name": "symbol",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Symbol"
+            }
+          },
+          {
+            "name": "library",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Library"
+            }
+          },
+          {
+            "name": "domain",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^native$",
+              "default": "native",
+              "title": "Domain"
+            }
+          },
+          {
+            "name": "min_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Min Size"
+            }
+          },
+          {
+            "name": "max_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Max Size"
             }
           },
           {
@@ -1150,7 +1359,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NativeAnalysisView"
+                }
               }
             }
           },
@@ -1167,10 +1378,10 @@
         }
       }
     },
-    "/api/v1/sessions/{session_id}/cohorts": {
+    "/api/v1/sessions/{session_id}/flamegraph": {
       "get": {
-        "summary": "Cohorts",
-        "operationId": "cohorts_api_v1_sessions__session_id__cohorts_get",
+        "summary": "Native Allocations",
+        "operationId": "native_allocations_api_v1_sessions__session_id__flamegraph_get",
         "parameters": [
           {
             "name": "session_id",
@@ -1179,6 +1390,136 @@
             "schema": {
               "type": "string",
               "title": "Session Id"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End"
+            }
+          },
+          {
+            "name": "thread",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Thread"
+            }
+          },
+          {
+            "name": "symbol",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Symbol"
+            }
+          },
+          {
+            "name": "library",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Library"
+            }
+          },
+          {
+            "name": "domain",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^native$",
+              "default": "native",
+              "title": "Domain"
+            }
+          },
+          {
+            "name": "min_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Min Size"
+            }
+          },
+          {
+            "name": "max_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Max Size"
             }
           },
           {
@@ -1203,7 +1544,194 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/NativeAnalysisView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/allocations": {
+      "get": {
+        "summary": "Native Allocations",
+        "operationId": "native_allocations_api_v1_sessions__session_id__allocations_get",
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End"
+            }
+          },
+          {
+            "name": "thread",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Thread"
+            }
+          },
+          {
+            "name": "symbol",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Symbol"
+            }
+          },
+          {
+            "name": "library",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Library"
+            }
+          },
+          {
+            "name": "domain",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^native$",
+              "default": "native",
+              "title": "Domain"
+            }
+          },
+          {
+            "name": "min_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Min Size"
+            }
+          },
+          {
+            "name": "max_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Max Size"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NativeAnalysisView"
+                }
               }
             }
           },
@@ -2598,6 +3126,283 @@
         ],
         "title": "MarkerCreate"
       },
+      "NativeAnalysisView": {
+        "properties": {
+          "allocated_bytes": {
+            "type": "integer",
+            "title": "Allocated Bytes"
+          },
+          "freed_bytes": {
+            "type": "integer",
+            "title": "Freed Bytes"
+          },
+          "allocation_count": {
+            "type": "integer",
+            "title": "Allocation Count"
+          },
+          "free_count": {
+            "type": "integer",
+            "title": "Free Count"
+          },
+          "selected_allocated_bytes": {
+            "type": "integer",
+            "title": "Selected Allocated Bytes"
+          },
+          "selected_allocation_count": {
+            "type": "integer",
+            "title": "Selected Allocation Count"
+          },
+          "known_live_by_domain": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Known Live By Domain"
+          },
+          "observed_live_by_domain": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Observed Live By Domain"
+          },
+          "exact_survivors": {
+            "type": "boolean",
+            "title": "Exact Survivors"
+          },
+          "incomplete": {
+            "type": "boolean",
+            "title": "Incomplete"
+          },
+          "unknown_pre_capture_frees": {
+            "type": "integer",
+            "title": "Unknown Pre Capture Frees"
+          },
+          "lost_events": {
+            "type": "integer",
+            "title": "Lost Events"
+          },
+          "quality": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Quality"
+          },
+          "allocation_tree": {
+            "$ref": "#/components/schemas/NativeTreeView"
+          },
+          "retained_tree": {
+            "$ref": "#/components/schemas/NativeTreeView"
+          },
+          "top_sites": {
+            "items": {
+              "$ref": "#/components/schemas/NativeSiteView"
+            },
+            "type": "array",
+            "title": "Top Sites"
+          },
+          "cohorts": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Cohorts"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Limitations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "allocated_bytes",
+          "freed_bytes",
+          "allocation_count",
+          "free_count",
+          "selected_allocated_bytes",
+          "selected_allocation_count",
+          "known_live_by_domain",
+          "observed_live_by_domain",
+          "exact_survivors",
+          "incomplete",
+          "unknown_pre_capture_frees",
+          "lost_events",
+          "quality",
+          "allocation_tree",
+          "retained_tree",
+          "top_sites",
+          "cohorts",
+          "limitations"
+        ],
+        "title": "NativeAnalysisView"
+      },
+      "NativeFrameView": {
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "module": {
+            "type": "string",
+            "title": "Module"
+          },
+          "function": {
+            "type": "string",
+            "title": "Function"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line"
+          },
+          "build_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Build Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "module",
+          "function"
+        ],
+        "title": "NativeFrameView"
+      },
+      "NativeSiteView": {
+        "properties": {
+          "stack_id": {
+            "type": "string",
+            "title": "Stack Id"
+          },
+          "allocated_bytes": {
+            "type": "integer",
+            "title": "Allocated Bytes"
+          },
+          "allocation_count": {
+            "type": "integer",
+            "title": "Allocation Count"
+          },
+          "observed_live_bytes": {
+            "type": "integer",
+            "title": "Observed Live Bytes"
+          },
+          "known_live_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Known Live Bytes"
+          },
+          "active_count": {
+            "type": "integer",
+            "title": "Active Count"
+          },
+          "frames": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/NativeFrameView"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frames"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "stack_id",
+          "allocated_bytes",
+          "allocation_count",
+          "observed_live_bytes",
+          "known_live_bytes",
+          "active_count",
+          "frames"
+        ],
+        "title": "NativeSiteView"
+      },
+      "NativeTreeView": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "value": {
+            "type": "integer",
+            "title": "Value"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "children": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/NativeTreeView"
+            },
+            "type": "object",
+            "title": "Children"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "value",
+          "count",
+          "children"
+        ],
+        "title": "NativeTreeView"
+      },
       "ProcessPage": {
         "properties": {
           "items": {
@@ -2907,6 +3712,13 @@
             "minimum": 1.0,
             "title": "Max Capture Mb",
             "default": 50
+          },
+          "event_rate_limit": {
+            "type": "integer",
+            "maximum": 1000000.0,
+            "minimum": 100.0,
+            "title": "Event Rate Limit",
+            "default": 100000
           },
           "cpu_overhead_target": {
             "type": "number",

@@ -294,32 +294,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/sessions/{session_id}/allocations": {
+    "/api/v1/sessions/{session_id}/cohorts": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Allocations */
-        get: operations["allocations_api_v1_sessions__session_id__allocations_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/sessions/{session_id}/flamegraph": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Flamegraph */
-        get: operations["flamegraph_api_v1_sessions__session_id__flamegraph_get"];
+        /** Native Allocations */
+        get: operations["native_allocations_api_v1_sessions__session_id__cohorts_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -335,8 +318,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Calltree */
-        get: operations["calltree_api_v1_sessions__session_id__calltree_get"];
+        /** Native Allocations */
+        get: operations["native_allocations_api_v1_sessions__session_id__calltree_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -345,15 +328,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/sessions/{session_id}/cohorts": {
+    "/api/v1/sessions/{session_id}/flamegraph": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Cohorts */
-        get: operations["cohorts_api_v1_sessions__session_id__cohorts_get"];
+        /** Native Allocations */
+        get: operations["native_allocations_api_v1_sessions__session_id__flamegraph_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/allocations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Native Allocations */
+        get: operations["native_allocations_api_v1_sessions__session_id__allocations_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -721,6 +721,96 @@ export interface components {
             /** Operation */
             operation?: string | null;
         };
+        /** NativeAnalysisView */
+        NativeAnalysisView: {
+            /** Allocated Bytes */
+            allocated_bytes: number;
+            /** Freed Bytes */
+            freed_bytes: number;
+            /** Allocation Count */
+            allocation_count: number;
+            /** Free Count */
+            free_count: number;
+            /** Selected Allocated Bytes */
+            selected_allocated_bytes: number;
+            /** Selected Allocation Count */
+            selected_allocation_count: number;
+            /** Known Live By Domain */
+            known_live_by_domain: {
+                [key: string]: number;
+            } | null;
+            /** Observed Live By Domain */
+            observed_live_by_domain: {
+                [key: string]: number;
+            };
+            /** Exact Survivors */
+            exact_survivors: boolean;
+            /** Incomplete */
+            incomplete: boolean;
+            /** Unknown Pre Capture Frees */
+            unknown_pre_capture_frees: number;
+            /** Lost Events */
+            lost_events: number;
+            /** Quality */
+            quality: {
+                [key: string]: unknown;
+            };
+            allocation_tree: components["schemas"]["NativeTreeView"];
+            retained_tree: components["schemas"]["NativeTreeView"];
+            /** Top Sites */
+            top_sites: components["schemas"]["NativeSiteView"][];
+            /** Cohorts */
+            cohorts: {
+                [key: string]: unknown;
+            }[];
+            /** Limitations */
+            limitations: string[];
+        };
+        /** NativeFrameView */
+        NativeFrameView: {
+            /** Address */
+            address?: string | null;
+            /** Module */
+            module: string;
+            /** Function */
+            function: string;
+            /** File */
+            file?: string | null;
+            /** Line */
+            line?: number | null;
+            /** Build Id */
+            build_id?: string | null;
+        };
+        /** NativeSiteView */
+        NativeSiteView: {
+            /** Stack Id */
+            stack_id: string;
+            /** Allocated Bytes */
+            allocated_bytes: number;
+            /** Allocation Count */
+            allocation_count: number;
+            /** Observed Live Bytes */
+            observed_live_bytes: number;
+            /** Known Live Bytes */
+            known_live_bytes: number | null;
+            /** Active Count */
+            active_count: number;
+            /** Frames */
+            frames: components["schemas"]["NativeFrameView"][] | null;
+        };
+        /** NativeTreeView */
+        NativeTreeView: {
+            /** Name */
+            name: string;
+            /** Value */
+            value: number;
+            /** Count */
+            count: number;
+            /** Children */
+            children: {
+                [key: string]: components["schemas"]["NativeTreeView"];
+            };
+        };
         /** ProcessPage */
         ProcessPage: {
             /** Items */
@@ -865,6 +955,11 @@ export interface components {
              * @default 50
              */
             max_capture_mb: number;
+            /**
+             * Event Rate Limit
+             * @default 100000
+             */
+            event_rate_limit: number;
             /**
              * Cpu Overhead Target
              * @default 1
@@ -1528,9 +1623,18 @@ export interface operations {
             };
         };
     };
-    allocations_api_v1_sessions__session_id__allocations_get: {
+    native_allocations_api_v1_sessions__session_id__cohorts_get: {
         parameters: {
-            query?: never;
+            query?: {
+                start?: number | null;
+                end?: number | null;
+                thread?: number | null;
+                symbol?: string | null;
+                library?: string | null;
+                domain?: string;
+                min_size?: number | null;
+                max_size?: number | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -1547,7 +1651,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NativeAnalysisView"];
                 };
             };
             /** @description Validation Error */
@@ -1561,9 +1665,18 @@ export interface operations {
             };
         };
     };
-    flamegraph_api_v1_sessions__session_id__flamegraph_get: {
+    native_allocations_api_v1_sessions__session_id__calltree_get: {
         parameters: {
-            query?: never;
+            query?: {
+                start?: number | null;
+                end?: number | null;
+                thread?: number | null;
+                symbol?: string | null;
+                library?: string | null;
+                domain?: string;
+                min_size?: number | null;
+                max_size?: number | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -1580,7 +1693,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NativeAnalysisView"];
                 };
             };
             /** @description Validation Error */
@@ -1594,9 +1707,18 @@ export interface operations {
             };
         };
     };
-    calltree_api_v1_sessions__session_id__calltree_get: {
+    native_allocations_api_v1_sessions__session_id__flamegraph_get: {
         parameters: {
-            query?: never;
+            query?: {
+                start?: number | null;
+                end?: number | null;
+                thread?: number | null;
+                symbol?: string | null;
+                library?: string | null;
+                domain?: string;
+                min_size?: number | null;
+                max_size?: number | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -1613,7 +1735,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NativeAnalysisView"];
                 };
             };
             /** @description Validation Error */
@@ -1627,9 +1749,18 @@ export interface operations {
             };
         };
     };
-    cohorts_api_v1_sessions__session_id__cohorts_get: {
+    native_allocations_api_v1_sessions__session_id__allocations_get: {
         parameters: {
-            query?: never;
+            query?: {
+                start?: number | null;
+                end?: number | null;
+                thread?: number | null;
+                symbol?: string | null;
+                library?: string | null;
+                domain?: string;
+                min_size?: number | null;
+                max_size?: number | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -1646,7 +1777,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NativeAnalysisView"];
                 };
             };
             /** @description Validation Error */

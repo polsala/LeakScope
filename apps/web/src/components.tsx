@@ -110,14 +110,14 @@ export function Failure({
     </div>
   );
 }
-export function Capability() {
+export function Capability({ native = false }: { native?: boolean }) {
   const t = useT();
   return (
     <div className="capability">
       <Info size={20} />
       <div>
-        <strong>{t("capabilityTitle")}</strong>
-        <p>{t("capabilityBody")}</p>
+        <strong>{t(native ? "nativeSites" : "capabilityTitle")}</strong>
+        <p>{t(native ? "nativeOnly" : "capabilityBody")}</p>
       </div>
       <span className="mono">OBSERVE</span>
     </div>

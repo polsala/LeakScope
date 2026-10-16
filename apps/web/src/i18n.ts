@@ -1,4 +1,25 @@
 export const ca = {
+  nativeOnly:
+    "Piles natives observades. No s’infereixen línies de Python. Els dominis de memòria no són additius.",
+  nativeFlameHelp:
+    "Feu clic per ampliar una pila. Esc torna a la vista completa. L’arbre de crides ofereix navegació amb teclat.",
+  resetZoom: "Restableix ampliació",
+  symbolFilter: "Símbol",
+  libraryFilter: "Biblioteca",
+  threadFilter: "Fil (TID)",
+  minimumSize: "Mida mínima (bytes)",
+  observedAllocated: "Bytes assignats observats",
+  inexactNative:
+    "Captura incompleta: els supervivents observats poden ser incorrectes. No es publica un total exacte de memòria retinguda.",
+  icicle: "Vista de caramells",
+  noNativeSites:
+    "Cap assignació coincideix amb els filtres. Les piles desconegudes s’indiquen explícitament.",
+  nativeSites: "Llocs d’assignació nativa",
+  unknownStack: "Pila nativa desconeguda",
+  enableNative: "Activa sondes natives (malloc/calloc/realloc/free)",
+  nativeRisk:
+    "Opcional. Requereix permisos de traçat; les sondes afegeixen feina a cada crida. La captura té límits de temps, mida i memòria.",
+
   overview: "Visió general",
   processes: "Processos",
   sessions: "Sessions",
@@ -222,6 +243,27 @@ export const ca = {
 export type Key = keyof typeof ca;
 export type Locale = "ca" | "es" | "en";
 const es: Record<Key, string> = {
+  nativeOnly:
+    "Pilas nativas observadas. No se infieren líneas de Python. Los dominios de memoria no son aditivos.",
+  nativeFlameHelp:
+    "Haz clic para ampliar una pila. Esc vuelve a la vista completa. El árbol de llamadas ofrece navegación con teclado.",
+  resetZoom: "Restablecer ampliación",
+  symbolFilter: "Símbolo",
+  libraryFilter: "Biblioteca",
+  threadFilter: "Hilo (TID)",
+  minimumSize: "Tamaño mínimo (bytes)",
+  observedAllocated: "Bytes asignados observados",
+  inexactNative:
+    "Captura incompleta: los supervivientes observados pueden ser incorrectos. No se publica un total exacto de memoria retenida.",
+  icicle: "Vista de carámbanos",
+  noNativeSites:
+    "Ninguna asignación coincide con los filtros. Las pilas desconocidas se indican explícitamente.",
+  nativeSites: "Sitios de asignación nativa",
+  unknownStack: "Pila nativa desconocida",
+  enableNative: "Activar sondas nativas (malloc/calloc/realloc/free)",
+  nativeRisk:
+    "Opcional. Requiere permisos de trazado; las sondas añaden trabajo a cada llamada. La captura tiene límites de tiempo, tamaño y memoria.",
+
   overview: "Vista general",
   processes: "Procesos",
   sessions: "Sesiones",
@@ -443,6 +485,27 @@ const es: Record<Key, string> = {
   noNotifications: "No hay notificaciones nuevas",
 };
 const en: Record<Key, string> = {
+  nativeOnly:
+    "Observed native stacks. Python source lines are not inferred. Memory domains are not additive.",
+  nativeFlameHelp:
+    "Click a frame to zoom. Esc resets the view. The call tree provides keyboard navigation.",
+  resetZoom: "Reset zoom",
+  symbolFilter: "Symbol",
+  libraryFilter: "Library",
+  threadFilter: "Thread (TID)",
+  minimumSize: "Minimum size (bytes)",
+  observedAllocated: "Observed allocated bytes",
+  inexactNative:
+    "Incomplete capture: observed survivors may be incorrect. Exact retained-memory totals are suppressed.",
+  icicle: "Icicle view",
+  noNativeSites:
+    "No allocations match these filters. Unknown stacks are explicitly labeled.",
+  nativeSites: "Native allocation sites",
+  unknownStack: "Unknown native stack",
+  enableNative: "Enable native probes (malloc/calloc/realloc/free)",
+  nativeRisk:
+    "Optional. Requires tracing permissions; probes add work to every call. Captures have duration, size and memory limits.",
+
   overview: "Overview",
   processes: "Processes",
   sessions: "Sessions",

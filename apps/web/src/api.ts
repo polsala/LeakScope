@@ -12,6 +12,9 @@ export type Session = Omit<
     lost_samples: number;
     incomplete: boolean;
     event_count?: number;
+    lost_events?: number;
+    lost_native?: number;
+    native_failure?: string;
   };
 };
 export type Summary = {
