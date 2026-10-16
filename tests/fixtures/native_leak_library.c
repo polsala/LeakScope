@@ -14,6 +14,15 @@ __attribute__((noinline)) void *leakscope_leak_site(size_t size) {
     if (p) memset(p, 0x35, size);
     return p;
 }
+__attribute__((noinline)) void *leakscope_calloc_site(size_t size) {
+    void *p = calloc(1, size);
+    if (p) memset(p, 0x47, size);
+    volatile size_t overflowing_count = SIZE_MAX;
+    void *overflow = calloc(overflowing_count, 2);
+    if (overflow) { free(overflow); abort(); } /* Independent overflow contract. */
+    free(NULL);
+    return p;
+}
 __attribute__((noinline)) void leakscope_cleanup_site(size_t size) {
     void *p = malloc(size);
     if (p) { memset(p, 0x63, size); __asm__ volatile("" : : "r"(p) : "memory"); free(p); }
@@ -24,7 +33,7 @@ int fixture_step(unsigned count, size_t size, unsigned mode) {
         if (mode == 1) { leakscope_cleanup_site(size); continue; }
         if (mode == 3 && used >= 16) { leakscope_cleanup_site(size); continue; }
         if (used >= LIMIT) { pthread_mutex_unlock(&lock); return -1; }
-        void *p = leakscope_leak_site(size);
+        void *p = mode == 4 ? leakscope_calloc_site(size) : leakscope_leak_site(size);
         if (!p) { pthread_mutex_unlock(&lock); return -2; }
         blocks[used] = p; sizes[used] = size; used++; retained += size;
         if (mode == 2) {

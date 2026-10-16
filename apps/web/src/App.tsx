@@ -1478,7 +1478,13 @@ function SessionDetail({ id, role }: { id: string; role: string }) {
       </div>
       <PageHead
         title={t("session") + " " + id.slice(0, 8)}
-        description={active ? t("live") : t("finished")}
+        description={
+          s.data.state === "failed"
+            ? t("failed")
+            : active
+              ? t("live")
+              : t("finished")
+        }
       >
         <button onClick={() => setPaused(!paused)}>
           {paused ? <Play size={14} /> : <Pause size={14} />}{" "}
@@ -1506,6 +1512,9 @@ function SessionDetail({ id, role }: { id: string; role: string }) {
           </button>
         )}
       </PageHead>
+      {s.data.state === "failed" && (
+        <Failure error={new Error(s.data.reason)} />
+      )}
       {s.data.quality.native_failure && (
         <p role="alert" className="native-warning">
           {s.data.quality.native_failure}

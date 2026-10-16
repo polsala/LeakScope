@@ -30,7 +30,7 @@ def command(child, line):
     return json.loads(child.stdout.readline())
 
 
-@pytest.mark.parametrize("mode", [0, 1, 2, 3])
+@pytest.mark.parametrize("mode", [0, 1, 2, 3, 4])
 def test_real_kernel_native_path(tmp_path, mode):
     library = tmp_path / "libgroundtruth.so"
     subprocess.run(
@@ -167,7 +167,7 @@ def test_real_kernel_native_path(tmp_path, mode):
             assert report.status_code == 201, report.text
             assert "native" in report.json()["document"]
             html = client.get("/api/v1/reports/%s/download" % report.json()["id"])
-            assert "leakscope_leak_site" in html.text or mode in {1, 2}
+            assert "leakscope_leak_site" in html.text or mode in {1, 2, 4}
             evidence = {
                 "kernel": platform.release(),
                 "mode": mode,

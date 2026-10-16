@@ -284,6 +284,8 @@ def main():
                         }:
                             time.sleep(0.5)
                             result = call("GET", "/sessions/" + session_id)
+                        if result["state"] == "failed":
+                            raise RuntimeError(result.get("reason", "Native capture failed"))
                         if args.output:
                             response = client.get(f"/sessions/{session_id}/export")
                             response.raise_for_status()
