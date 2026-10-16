@@ -11,6 +11,26 @@ lib.fixture_step.restype = ctypes.c_int
 lib.fixture_bytes.restype = ctypes.c_size_t
 lib.fixture_blocks.restype = ctypes.c_size_t
 objects = []
+queues = []
+errors = []
+if len(sys.argv) > 2 and sys.argv[2] == 'threads':
+    import Queue
+    import threading
+    def worker(queue):
+        while True:
+            count = queue.get()
+            try:
+                result = lib.fixture_step(count, 65536, 0)
+                if result:
+                    errors.append(result)
+            finally:
+                queue.task_done()
+    for unused in range(2):
+        queue = Queue.Queue()
+        thread = threading.Thread(target=worker, args=(queue,))
+        thread.daemon = True
+        thread.start()
+        queues.append(queue)
 print(json.dumps({'ready': True, 'version': list(sys.version_info[:3])}))
 sys.stdout.flush()
 for line in iter(sys.stdin.readline, ''):
@@ -21,7 +41,14 @@ for line in iter(sys.stdin.readline, ''):
     if command[0] == 'run':
         count = int(command[1]) if len(command) > 1 else 48
         mode = int(command[2]) if len(command) > 2 else 0
-        result = lib.fixture_step(count, 65536, mode)
+        if mode == 5:
+            for queue in queues:
+                queue.put(count // len(queues))
+            for queue in queues:
+                queue.join()
+            result = errors[0] if errors else 0
+        else:
+            result = lib.fixture_step(count, 65536, mode)
         if result:
             raise RuntimeError('Controlled fixture allocation failed: %s' % result)
     elif command[0] == 'release':

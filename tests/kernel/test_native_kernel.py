@@ -30,7 +30,7 @@ def command(child, line):
     return json.loads(child.stdout.readline())
 
 
-@pytest.mark.parametrize("mode", [0, 1, 2, 3, 4])
+@pytest.mark.parametrize("mode", [0, 1, 2, 3, 4, 5])
 def test_real_kernel_native_path(tmp_path, mode):
     library = tmp_path / "libgroundtruth.so"
     subprocess.run(
@@ -54,6 +54,7 @@ def test_real_kernel_native_path(tmp_path, mode):
             os.getenv("PYTHON27", "python2.7"),
             str(ROOT / "tests/fixtures/native_ctypes.py"),
             str(library),
+            *(["threads"] if mode == 5 else []),
         ],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
@@ -150,6 +151,20 @@ def test_real_kernel_native_path(tmp_path, mode):
             reader = Reader(file)
             kinds = {e["kind"] for chunk in reader.chunks() for e in chunk}
             assert {"allocation", "stack", "modules", "quality"}.issubset(kinds)
+            if mode == 5:
+                observed = list(e for chunk in Reader(file).chunks() for e in chunk)
+                fixture_stacks = {
+                    e["id"]
+                    for e in observed
+                    if e["kind"] == "stack"
+                    and any("libgroundtruth" in f["module"] for f in e["frames"])
+                }
+                tids = {
+                    e["event"]["thread"]
+                    for e in observed
+                    if e["kind"] == "allocation" and e["event"].get("stack") in fixture_stacks
+                }
+                assert len(tids) == 2, tids
             imported = client.post(
                 "/api/v1/captures/import",
                 content=capture.content,
