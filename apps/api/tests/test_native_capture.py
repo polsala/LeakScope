@@ -113,3 +113,11 @@ def test_native_reordered_sequence_fails_explicitly(tmp_path):
     writer.close()
     with pytest.raises(NativeAnalysisError, match="reordered"):
         analyze(path)
+
+
+def test_native_analysis_concurrency_budget(tmp_path):
+    from leakscope_api import native
+
+    with native._ANALYSES, native._ANALYSES:
+        with pytest.raises(NativeAnalysisError, match="Two native analyses"):
+            analyze(tmp_path / "never-opened.lscap")

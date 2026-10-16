@@ -5,13 +5,28 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import threading
 
 
 class NativeAnalysisError(RuntimeError):
     pass
 
 
+_ANALYSES = threading.BoundedSemaphore(2)
+
+
 def analyze(path: Path, **filters):
+    if not _ANALYSES.acquire(timeout=1):
+        raise NativeAnalysisError(
+            "Two native analyses are already running; retry after they finish"
+        )
+    try:
+        return _analyze(path, **filters)
+    finally:
+        _ANALYSES.release()
+
+
+def _analyze(path: Path, **filters):
     root = Path(__file__).resolve().parents[3]
     candidates = [
         os.getenv("LEAKSCOPE_ANALYZER_BIN"),
