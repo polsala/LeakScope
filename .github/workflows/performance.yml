@@ -21,13 +21,25 @@ jobs:
       - name: Check sensor baseline memory target
         run: .venv/bin/python -c 'import json;d=json.load(open("artifacts/benchmark.json"));assert all(r["sensor_rss_bytes"] < 64*1024*1024 for r in d["results"]),"sensor baseline RSS exceeded 64 MiB"'
       - run: bash scripts/build-python27.sh ucs4 release
+      - run: bash scripts/test-legacy.sh
+        env:
+          PYTHON27: ${{ github.workspace }}/.cache/python27/install-ucs4-release/bin/python2.7
+      - run: bash scripts/build-python27.sh ucs4 lab
+      - run: .venv/bin/python scripts/python-attribution-benchmark.py
+        env:
+          PYTHON27: ${{ github.workspace }}/.cache/python27/install-ucs4-release/bin/python2.7
       - name: Measure actual native capture latency with complete coverage
         shell: bash
         run: |
           if [ -n "$LEAKSCOPE_SENSOR_CAPABILITIES" ]; then
             sudo -n setcap "$LEAKSCOPE_SENSOR_CAPABILITIES" target/release/leakscope-sensor
           fi
-          .venv/bin/python scripts/native-benchmark.py
+          for policy in metrics native_light native_detailed; do
+            .venv/bin/python scripts/native-benchmark.py --policy "$policy" --rounds 5 --batches 64 --output "artifacts/kernel/benchmark-$policy.json"
+          done
+          for component in entry paired maps stack ring; do
+            .venv/bin/python scripts/native-benchmark.py --component "$component" --rounds 3 --batches 64 --output "artifacts/kernel/component-$component.json"
+          done
         env:
           PYTHON27: ${{ github.workspace }}/.cache/python27/install-ucs4-release/bin/python2.7
           LEAKSCOPE_SENSOR_BIN: ${{ github.workspace }}/target/release/leakscope-sensor
@@ -37,4 +49,4 @@ jobs:
           name: benchmark-evidence
           path: |
             artifacts/benchmark.json
-            artifacts/kernel/benchmark.json
+            artifacts/kernel/*.json

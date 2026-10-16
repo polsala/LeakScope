@@ -58,7 +58,7 @@ def allocate():
 
 app.router.routes.insert(0, app.router.routes.pop())
 try:
-    uvicorn.run(app, host="0.0.0.0", port=7833, access_log=False, timeout_graceful_shutdown=3)
+    uvicorn.run(app, host="127.0.0.1", port=7833, access_log=False, timeout_graceful_shutdown=3)
 finally:
     child.terminate()
     child.wait(timeout=3)

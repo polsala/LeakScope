@@ -24,6 +24,13 @@ jobs:
           LEAKSCOPE_SENSOR_BIN: ${{ github.workspace }}/target/release/leakscope-sensor
           LEAKSCOPE_ANALYZER_BIN: ${{ github.workspace }}/target/release/leakscope-analyzer
           PYTHON27: ${{ github.workspace }}/.cache/python27/install-ucs4-release/bin/python2.7
+      - name: Verify genuine Python allocation attribution and cleanup
+        run: |
+          bash scripts/test-legacy.sh
+          bash scripts/build-python27.sh ucs4 lab
+          .venv/bin/pytest -q tests/integration/test_python_attribution.py
+        env:
+          PYTHON27: ${{ github.workspace }}/.cache/python27/install-ucs4-release/bin/python2.7
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: release-kernel-evidence

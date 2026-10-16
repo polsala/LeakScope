@@ -13,6 +13,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: ./.github/actions/setup
       - run: bash scripts/build-python27.sh ucs4 release
+      - run: bash scripts/build-python27.sh ucs4 lab
       - run: corepack pnpm --dir apps/web exec playwright install --with-deps chromium
       - run: make test-e2e
         env:

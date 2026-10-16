@@ -10,6 +10,12 @@ cp "$source_root/bin/leakscope-analyzer" "$prefix/bin/"
 mkdir -p "$prefix/web-dist" "$prefix/docs"
 cp -R "$source_root/web-dist/." "$prefix/web-dist/"
 cp -R "$source_root/docs/." "$prefix/docs/"
+for compatibility in legacy-agent lab-patch; do
+  if [[ -d "$source_root/$compatibility" ]]; then
+    mkdir -p "$prefix/$compatibility"
+    cp -R "$source_root/$compatibility/." "$prefix/$compatibility/"
+  fi
+done
 "$python" -m venv "$prefix/venv"
 "$prefix/venv/bin/pip" install --force-reinstall --no-index --find-links "$source_root/wheels" leakscope==0.1.0
 cp "$source_root/launcher" "$prefix/bin/leakscope"

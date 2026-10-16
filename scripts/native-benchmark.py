@@ -23,6 +23,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     "--policy", choices=["metrics", "native_light", "native_detailed"], default="native_detailed"
 )
+parser.add_argument(
+    "--workload",
+    choices=["allocations", "python_cpu", "python_io", "erp_like"],
+    default="allocations",
+)
 parser.add_argument("--component", choices=["entry", "paired", "maps", "stack", "ring"])
 parser.add_argument("--rounds", type=int, default=3)
 parser.add_argument("--batches", type=int, default=24)
@@ -69,7 +74,9 @@ assert identity["version"] == [2, 7, 18]
 
 
 def batch():
-    child.stdin.write("bench\n")
+    child.stdin.write(
+        ("bench" if args.workload == "allocations" else "bench_" + args.workload) + "\n"
+    )
     child.stdin.flush()
     assert select.select([child.stdout], [], [], 10)[0], "Workload stalled"
     return json.loads(child.stdout.readline())
@@ -136,7 +143,8 @@ try:
         "context": context(),
         "policy": args.policy,
         "component": args.component,
-        "workload": "256 malloc/touch(4KiB)/free + 4 malloc/touch(1MiB)/free per batch; O0; A/B/A matched rounds",
+        "workload": args.workload
+        + ": 256 malloc/touch(4KiB)/free + 4 malloc/touch(1MiB)/free per batch, plus selected Python workload; O0; A/B/A matched rounds",
         "idle_seconds": args.idle,
         "rounds": [],
         "limitations": [
