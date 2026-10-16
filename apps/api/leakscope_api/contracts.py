@@ -59,8 +59,12 @@ class SessionCreate(Strict):
 
     @model_validator(mode="after")
     def policy_domains(self):
-        if self.profiling_policy == "metrics" and "native" in self.allocation_domains:
-            raise ValueError("Metrics policy cannot request native allocation probes")
+        if self.profiling_policy == "metrics" and (
+            self.mode != "observe" or any(d != "os_process" for d in self.allocation_domains)
+        ):
+            raise ValueError("Metrics policy supports only Observe process metrics")
+        if self.mode == "lab" and self.profiling_policy not in {None, "lab_full"}:
+            raise ValueError("Lab mode requires the Lab Full policy")
         if self.profiling_policy in {"native_light", "native_detailed", "python_deep"}:
             self.allocation_domains = list(dict.fromkeys(self.allocation_domains + ["native"]))
         if self.profiling_policy == "python_deep":

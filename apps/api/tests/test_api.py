@@ -124,6 +124,16 @@ def test_full_lifecycle_capture_compare_report(client):
 
 def test_idempotency_downgrade_validation_and_limits(client):
     body = {"process_key": process_key(client), "duration_seconds": 4, "mode": "deep"}
+    assert (
+        client.post("/api/v1/sessions", json={**body, "profiling_policy": "metrics"}).status_code
+        == 422
+    )
+    assert (
+        client.post(
+            "/api/v1/sessions", json={**body, "mode": "lab", "profiling_policy": "native_light"}
+        ).status_code
+        == 422
+    )
     response = client.post(
         "/api/v1/sessions", json=body, headers={"Idempotency-Key": "test-repeat-key"}
     )

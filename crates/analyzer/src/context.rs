@@ -58,6 +58,12 @@ pub struct Context {
 impl Context {
     pub fn ingest(&mut self, item: &Value) -> Result<(), String> {
         let kind = item["kind"].as_str().unwrap_or("");
+        if kind == "quality" {
+            self.incomplete |= item["quality"]["context_incomplete"]
+                .as_bool()
+                .unwrap_or(false);
+            return Ok(());
+        }
         if !["operation", "python_codes", "python_profile"].contains(&kind) {
             return Ok(());
         }
@@ -270,7 +276,8 @@ mod tests {
         assert!(c.frames("p", 7, 200, "python_functions").is_none());
         assert!(c.frames("p", 7, 375, "python_functions").is_none());
         assert!(c.frames("p", 8, 125, "python_functions").is_none());
-        c.incomplete = true;
+        c.ingest(&json!({"kind":"quality","quality":{"context_incomplete":true}}))
+            .unwrap();
         assert!(c.frames("p", 7, 125, "python_functions").is_none());
     }
 }

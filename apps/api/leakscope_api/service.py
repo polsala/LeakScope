@@ -402,16 +402,15 @@ class Collector:
                     )
                     if metadata["quality"].get("imported"):
                         extras = []  # Already in the preserved source chunks.
-                    extras = list(expand(extras, s.process_key, s.created_at))
                     sequence = w.last
-                    for offset in range(0, len(extras), 128):
-                        batch = []
-                        for event in extras[offset : offset + 128]:
-                            sequence += 1
-                            batch.append(
-                                {**event, "sequence": sequence, "process_key": s.process_key}
-                            )
-                        w.chunk(batch)
+                    batch = []
+                    for event in expand(extras, s.process_key, s.created_at):
+                        sequence += 1
+                        batch.append({**event, "sequence": sequence, "process_key": s.process_key})
+                        if len(batch) == 128:
+                            w.chunk(batch)
+                            batch = []
+                    w.chunk(batch)
                 w.chunk(
                     [{"sequence": w.last + 1, "kind": "quality", "quality": metadata["quality"]}]
                 )
