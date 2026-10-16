@@ -10,7 +10,10 @@ mkdir -p "$stage/bin" "$stage/wheels"
 bash scripts/test-ubuntu-native.sh
 cp artifacts/native-baseline/leakscope-sensor artifacts/native-baseline/leakscope-analyzer "$stage/bin/"
 cp -R artifacts/compatibility "$stage/"
-cp -R apps/web/dist "$stage/web-dist"
+mkdir -p "$stage/web-dist"
+cp -R apps/web/dist/. "$stage/web-dist/"
+mkdir -p "$stage/docs"
+cp -R docs/. "$stage/docs/"
 cp packaging/release/install.sh packaging/release/launcher LICENSE README.md "$stage/"
 cp -R packaging/systemd "$stage/"
 .venv/bin/uv export --frozen --no-dev --no-emit-project -o artifacts/runtime-requirements.txt

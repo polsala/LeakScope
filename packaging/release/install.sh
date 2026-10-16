@@ -3,11 +3,13 @@ set -euo pipefail
 source_root="$(cd "$(dirname "$0")" && pwd)"
 prefix="${1:-$HOME/.local/lib/leakscope}"
 python="${PYTHON:-python3.12}"
-"$python" -c 'import sys; assert sys.version_info >= (3,11), "Python >= 3.11 required"'
+"$python" -c 'import sys; assert sys.version_info[:2] == (3,12), "Bundled offline wheels require Python 3.12; source installations support Python >=3.11"'
 mkdir -p "$prefix/bin"
 cp "$source_root/bin/leakscope-sensor" "$prefix/bin/"
 cp "$source_root/bin/leakscope-analyzer" "$prefix/bin/"
-cp -R "$source_root/web-dist" "$prefix/"
+mkdir -p "$prefix/web-dist" "$prefix/docs"
+cp -R "$source_root/web-dist/." "$prefix/web-dist/"
+cp -R "$source_root/docs/." "$prefix/docs/"
 "$python" -m venv "$prefix/venv"
 "$prefix/venv/bin/pip" install --no-index --find-links "$source_root/wheels" leakscope==0.1.0
 cp "$source_root/launcher" "$prefix/bin/leakscope"
