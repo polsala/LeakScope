@@ -57,7 +57,18 @@ impl Trace {
             .load(OBJECT)?;
         let mut control = Array::try_from(bpf.take_map("config").ok_or("missing config")?)?;
         control.set(0, u64::from(pid), 0)?;
-        let namespace = std::fs::metadata(format!("/proc/{pid}/ns/pid"))?;
+        // Discovered PIDs are relative to this procfs view, NOT necessarily to
+        // the target's innermost namespace. Child namespaces still have an ID
+        // in the sensor namespace. A foreign procfs mount is explicitly rejected.
+        let status = std::fs::read_to_string("/proc/self/status")?;
+        if status
+            .lines()
+            .find_map(|l| l.strip_prefix("NSpid:"))
+            .is_some_and(|l| l.split_whitespace().count() > 1)
+        {
+            return Err("Foreign procfs PID namespace view is unsupported; run the sensor in the namespace owning this procfs mount".into());
+        }
+        let namespace = std::fs::metadata("/proc/self/ns/pid")?;
         control.set(2, namespace.dev(), 0)?;
         control.set(3, namespace.ino(), 0)?;
         let warnings=vec!["Native-only frame-pointer stacks; Python frames and lines are not inferred. Only the selected provider's outermost allocator calls are covered; custom/interposed allocators can be missed.".into()];
