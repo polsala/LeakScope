@@ -67,6 +67,8 @@ pub struct AllocationEvent {
     pub pid: u32,
     #[serde(default)]
     pub monotonic_ns: Option<u64>,
+    #[serde(default)]
+    pub started_at: Option<f64>,
     pub sequence: u64,
     pub process: String,
     pub domain: String,
@@ -98,13 +100,14 @@ pub struct NativeRecord {
     pub stack: i64,
     pub kind: u64,
     pub caller: u64,
+    pub started: u64,
 }
 impl NativeRecord {
     pub fn decode(data: &[u8]) -> std::io::Result<Self> {
-        if data.len() != 72 {
+        if data.len() != 80 {
             return Err(std::io::Error::other("native record size mismatch"));
         }
-        let mut words = [0u64; 9];
+        let mut words = [0u64; 10];
         for (i, bytes) in data.chunks_exact(8).enumerate() {
             words[i] = u64::from_le_bytes(bytes.try_into().unwrap());
         }
@@ -122,6 +125,7 @@ impl NativeRecord {
             stack: words[6] as i64,
             kind: words[7],
             caller: words[8],
+            started: words[9],
         })
     }
 }
@@ -130,8 +134,8 @@ mod native_tests {
     use super::*;
     #[test]
     fn wire_size_version_and_kind() {
-        assert!(NativeRecord::decode(&[0; 71]).is_err());
-        let mut data = [0u8; 72];
+        assert!(NativeRecord::decode(&[0; 79]).is_err());
+        let mut data = [0u8; 80];
         data[0] = 1;
         data[56] = 1;
         assert!(NativeRecord::decode(&data).is_ok());

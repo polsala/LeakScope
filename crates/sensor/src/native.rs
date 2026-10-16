@@ -194,6 +194,8 @@ impl Trace {
                 source: "linux_uprobe".into(),
                 pid: (record.thread >> 32) as u32,
                 monotonic_ns: Some(record.time),
+                started_at: (record.started != 0)
+                    .then_some(self.clock_offset + record.started as f64 / 1e9),
                 sequence: self.sequence,
                 process: process.into(),
                 domain: "native".into(),

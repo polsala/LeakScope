@@ -391,6 +391,7 @@ async fn main() -> io::Result<()> {
                                 source: "sensor_process_exit".into(),
                                 pid: l.pid,
                                 monotonic_ns: None,
+                                started_at: None,
                                 sequence,
                                 process: l.key.clone(),
                                 domain: "native".into(),

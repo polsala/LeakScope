@@ -30,6 +30,8 @@ impl Lifecycle {
         if e.version != 1
             || e.source.len() > 64
             || !e.timestamp.is_finite()
+            || e.started_at
+                .is_some_and(|t| !t.is_finite() || t > e.timestamp)
             || e.process.len() > 128
             || e.domain.len() > 64
             || e.stack.as_ref().is_some_and(|s| s.len() > 64)
@@ -85,7 +87,21 @@ impl Lifecycle {
                     return Ok(());
                 } // Failure retains the old block; realloc(p,0) is implementation dependent.
                 if let Some(old) = e.old_pointer.filter(|p| *p != 0) {
-                    self.release(&(e.process.clone(), e.domain.clone(), old));
+                    let old_key = (e.process.clone(), e.domain.clone(), old);
+                    if e.started_at.is_some_and(|start| {
+                        self.live
+                            .get(&old_key)
+                            .is_some_and(|allocation| allocation.timestamp > start)
+                    }) {
+                        // Another thread reused the old address before realloc
+                        // returned. Never free that new allocation generation.
+                        self.incomplete = true;
+                    } else {
+                        if old != e.pointer && e.started_at.is_none() {
+                            self.incomplete = true;
+                        }
+                        self.release(&old_key);
+                    }
                 }
                 self.allocate(key, e);
             }
@@ -179,6 +195,7 @@ mod tests {
             source: "unit_test".into(),
             pid: 1,
             monotonic_ns: None,
+            started_at: None,
             sequence: n,
             process: "one".into(),
             domain: "native".into(),
@@ -245,6 +262,7 @@ mod edge_cases {
             source: "unit_test".into(),
             pid: 1,
             monotonic_ns: None,
+            started_at: None,
             sequence: n,
             process: "worker".into(),
             domain: "native".into(),
@@ -301,5 +319,50 @@ mod edge_cases {
         }
         assert!(l.live.is_empty());
         assert!(!l.incomplete);
+    }
+}
+
+#[cfg(test)]
+mod concurrent_realloc {
+    use super::*;
+    #[test]
+    fn reused_old_pointer_before_realloc_return_is_not_freed() {
+        let mut l = Lifecycle::default();
+        let base = Event {
+            version: 1,
+            source: "unit_test".into(),
+            pid: 1,
+            monotonic_ns: None,
+            started_at: None,
+            sequence: 1,
+            process: "worker".into(),
+            domain: "native".into(),
+            pointer: 10,
+            old_pointer: None,
+            kind: "alloc".into(),
+            size: 70,
+            timestamp: 2.,
+            stack: None,
+            operation: None,
+            thread: 2,
+        };
+        // Old allocation predates capture. Thread 2 reuses its address after
+        // thread 1's realloc entry, but before thread 1's return event arrives.
+        l.apply(&base).unwrap();
+        let moved = Event {
+            sequence: 2,
+            pointer: 20,
+            old_pointer: Some(10),
+            kind: "realloc".into(),
+            size: 90,
+            timestamp: 3.,
+            started_at: Some(1.),
+            thread: 1,
+            ..base.clone()
+        };
+        l.apply(&moved).unwrap();
+        assert_eq!(l.live_by_domain()["native"], 160);
+        assert_eq!(l.live.len(), 2);
+        assert!(l.incomplete);
     }
 }
