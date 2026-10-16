@@ -27,7 +27,7 @@ Native golden fixtures are format tests and never stand in for kernel evidence.
 
 `bash scripts/test-kernel.sh` is a separate explicit trusted profile. It requires
 genuine CPython 2.7.18 and a sensor with sufficient tracing privileges; tests fail
-when attachment or actual events are absent. Seven real tests cover independent
+when attachment or actual events are absent. Eight real tests cover independent
 leak/cleanup/realloc/cache counters, forced 4 KiB ring loss and worker recycling.
 `LEAKSCOPE_BPF_RING_BYTES` is a bounded sensor configuration, not a fake-loss switch.
 

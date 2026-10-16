@@ -66,7 +66,7 @@ A controlled 48-block leak was attributed to its actual C caller with exactly
 Native binaries are built against glibc 2.31 and load on Ubuntu 20.04/22.04/24.04.
 Kernel attachment is verified on 6.19.14+kali-amd64; the Ubuntu kernel matrix
 and production overhead target remain unqualified. The allocation-heavy test
-measured about 748% median operation-latency overhead. Keep metrics-only as default.
+measured about 84.5% median operation-latency overhead. Keep metrics-only as default.
 
 ## CLI
 

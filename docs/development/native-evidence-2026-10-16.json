@@ -4,10 +4,10 @@
   "python": "2.7.18",
   "api_uid": 1000,
   "tests": {
-    "real_kernel": 7,
+    "real_kernel": 8,
     "kernel_browser": 1,
     "metrics_browser": 2,
-    "rust": 20,
+    "rust": 21,
     "portable_python": 26,
     "portable_python_skipped": 1,
     "vitest": 6,
@@ -45,23 +45,30 @@
       "truth_bytes": 3145728,
       "retained_bytes": 3145728,
       "kernel_loss": 0
+    },
+    {
+      "mode": 5,
+      "truth_bytes": 3145728,
+      "retained_bytes": 3145728,
+      "kernel_loss": 0
     }
   ],
   "benchmark": {
     "workload": "40 batches of 256 malloc/memset(64KiB)/free operations; 200ms idle between batches; O0 frame-pointer fixture",
-    "baseline_p50_ms": 0.29158592224121094,
-    "profiled_p50_ms": 2.472996711730957,
-    "profiled_p95_ms": 3.350973129272461,
-    "profiled_p99_ms": 4.180192947387695,
-    "p50_latency_increase_percent": 748.1193785772691,
+    "baseline_p50_ms": 0.5675554275512695,
+    "profiled_p50_ms": 1.046895980834961,
+    "profiled_p95_ms": 3.2019615173339844,
+    "profiled_p99_ms": 3.4351348876953125,
+    "p50_latency_increase_percent": 84.45704683889939,
     "kernel_events": 20840,
     "kernel_loss": 0,
     "collector_loss": 0,
-    "incomplete": false
+    "incomplete": false,
+    "previous_zero_loss_run_p50_increase_percent": 748.1193785772691
   },
   "native_sha256": {
-    "leakscope-sensor": "b4e212d7c69faaea135c2079bee2b0e56f0629cbc3099bd5b51fcefea16ce30a",
-    "leakscope-analyzer": "b870bf2bc38a8b3ad2537ab9bf8ae8dc4f4b16730c6f37e67e43ffc4d2929f47"
+    "leakscope-sensor": "6779f9501e84476ca01db7cbf4df7170efbf6a1b4dbeb9a1f46e5d14f8668a31",
+    "leakscope-analyzer": "7bee3ceaf485acb1de75cce893af611fd60f25a4a0ef18dc2d3acd977b85d5fe"
   },
   "ubuntu_runtime_abi": [
     "20.04",

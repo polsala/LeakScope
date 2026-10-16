@@ -39,3 +39,11 @@ capture SHA256; cache reuse verifies integrity. Filtered queries reconstruct fro
 raw chunks. Reports include native trees and limitations. RSS heuristic scores
 remain process-growth hypotheses; a surviving site alone does not prove a leak
 or distinguish a legitimate cache without workload/cooldown evidence.
+
+
+Realloc events preserve entry and return times. If another thread reuses the old
+address before realloc returns, the analyzer preserves the new pointer generation
+and downgrades survivor precision. It never frees that later allocation. Legacy
+moving-realloc records lacking entry time are conservatively inexact. This race is
+covered by a lifecycle test with a pre-attach old allocation. Requested payload
+sizes exclude allocator bookkeeping and size-class slack.

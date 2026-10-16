@@ -24,4 +24,4 @@ Production gate additionally requires controlled ERP CPU/RSS/p50/p95/p99 overhea
 stable high-rate captures, soak, kernel matrix, hard disk-full and recovery tests,
 all advertised interpreter ABIs, revocation/credential and privacy review, and
 accessibility certification. The 3–5% CPU target remains unverified. A separate allocator-heavy batch latency
-increase of 748% is a release concern. No production SLO is claimed.
+increase of 84% in the latest run (748% in another qualifying run) is a release concern. No production SLO is claimed.

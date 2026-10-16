@@ -24,13 +24,13 @@ workflow definitions are not evidence that GitHub or every supported kernel ran.
 | Native Ubuntu ABI | Binaries built against Ubuntu 20.04/glibc 2.31 and loaded with resolved dependencies in 20.04, 22.04 and 24.04 containers |
 | Ubuntu kernel matrix | Not certified; container ABI tests share the host kernel. Real attachment verified on 6.19.14+kali-amd64 only |
 | Resource safety | Duration, capture bytes, bounded ring/queues/tables, concurrent leases, sensor RSS guard, loss-triggered detailed stop, cleanup; CPU percentage is not a hard cap |
-| Performance targets | CPU target unverified; allocation-heavy latency regression measured: single synthetic allocation-heavy benchmark measured about 748% median operation latency overhead; ERP production overhead unmeasured |
+| Performance targets | CPU target unverified; allocation-heavy latency regression measured: single synthetic allocation-heavy benchmark measured about 84.5% median operation latency overhead; ERP production overhead unmeasured |
 | CI/release | Existing workflows extended; portable PR, BPF build, native compatibility matrix, trusted kernel/browser jobs, exact-tag kernel release dependency. Not executed on GitHub in this session |
 | Distribution | Baseline native binary build and Ubuntu execution verified; packaging now refuses host-glibc substitution and runs ABI checks. Final package validation evidence is recorded in the validation report |
 
 ## Phase 2 executed evidence
 
-- Real kernel: seven tests pass (leak, cleanup, realloc, calloc overflow, cache, ring loss, worker recycling/exec).
+- Real kernel: eight tests pass (leak, cleanup, realloc, calloc overflow, cache, ring loss, worker recycling/exec).
   API and fixture run as UID 1000; only the sensor executable receives tracing capabilities.
 - Leak ground truth: 48 × 65,536 = 3,145,728 retained bytes, correctly attributed
   to `leakscope_leak_site`; zero kernel loss in that workload.

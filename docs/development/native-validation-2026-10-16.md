@@ -13,7 +13,7 @@ CAP_BPF/CAP_PERFMON alone produced attach EACCES on this host; the successful
 configuration additionally included CAP_SYS_PTRACE and CAP_SYS_ADMIN. No kernel
 security setting was changed. This configuration does not certify Ubuntu kernels.
 
-`tests/kernel/test_native_kernel.py` passes seven tests. It verifies actual kernel
+`tests/kernel/test_native_kernel.py` passes eight tests. It verifies actual kernel
 loads and attachment, ring events, collector ACK/persistence, streaming capture
 replay/import, actual native symbols and DWARF source lines, interval comparison,
 reports, forced event loss and worker recycling/exec handling.
@@ -25,10 +25,12 @@ reports, forced event loss and worker recycling/exec handling.
 | Realloc growth and forced failures | 6,291,456 | 6,291,456 | 0 |
 | Cache limited to 16 blocks | 1,048,576 | 1,048,576 | 0 |
 | Calloc with overflow failures | 3,145,728 | 3,145,728 | 0 |
+| Two pre-existing Python threads | 3,145,728 | 3,145,728 | 0 |
 
 Site attribution includes `leakscope_leak_site`, not a guessed Python line.
 A 4 KiB actual kernel ring forces loss; exact survivors become unavailable.
-Replacement processes receive independent keys and never inherit pointer state.
+The threaded case checks two distinct actual allocation TIDs in the exported
+capture; the threads exist before attachment. Replacement processes receive independent keys and never inherit pointer state.
 
 The native Playwright journey passes against the kernel-backed server: process
 selection, capability check, opt-in probes, real allocations, live native sites,
@@ -39,7 +41,7 @@ are not committed as documentation evidence.
 
 ## Portable checks
 
-- Rust: 20 tests pass, including lifecycle realloc/failure/reuse/loss/exit, streaming
+- Rust: 21 tests pass, including lifecycle realloc/failure/reuse/loss/exit, streaming
   pointer churn, wire version bounds, and both Python-written LSCAP golden files.
 - Python: 26 pass, one opt-in installed-package skip; includes real process/agent,
   all public endpoint/security regressions and new native capture analysis tests.
@@ -92,3 +94,11 @@ used for qualification.
 The standalone package was installed offline into `/tmp/leakscope-phase2-installed`;
 its CLI version and installed migrations/API-resource test passed outside source
 imports. Native ELF loading/dependencies passed in all three Ubuntu containers.
+
+
+Final-binary repeat after the realloc entry-time safeguard: median 0.5676 ms
+baseline versus 1.0469 ms profiled (+84.5%); profiled p95 3.2020 ms and p99
+3.4351 ms. It again captured 20,840 actual events with zero kernel/collector loss
+and complete quality. The earlier qualifying +748.1% run remains recorded above.
+This large variation on a shared development host makes these observations
+unsuitable as a strict performance regression baseline or production guarantee.

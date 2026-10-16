@@ -31,9 +31,9 @@ A chunk's JSON array can contain `allocation` (the shared Event in `event`),
 `quality`, alongside existing metric/marker/GC records. A trailing quality record
 is authoritative collection quality. Capture sequence spans every record;
 allocation Event sequence spans the allocation stream only. Kernel records have
-an independent internal little-endian wire version: nine 64-bit words (version,
+an independent internal little-endian wire version: ten 64-bit words (version,
 namespace PID/TID, monotonic ns, pointer, prior pointer, size, signed stack ID,
-kind, actual entry caller return PC). It is not the portable capture encoding.
+kind, actual entry caller return PC, allocator-entry monotonic ns). It is not the portable capture encoding.
 
 The collector writes `.stream.partial` chunks continuously. It fsyncs before
 advancing the database ACK. Resume scans valid chunks, truncates an interrupted
