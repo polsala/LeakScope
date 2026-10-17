@@ -27,3 +27,20 @@ object-block lifetimes with verified executing Python frames under proven GIL
 conditions. See [Python attribution](python-attribution.md) for invariants,
 limits, exact versus temporal evidence and transport-loss semantics.
 All-generation GC and reference graphs remain unsupported.
+
+## Nonblocking transport contract (Phase 5)
+
+`mark()` returns true only when the complete Unix datagram was accepted by the
+local socket. This is not a collector persistence acknowledgment. There are no
+partial Unix datagram writes. Contention, reentrancy, serialization failure and
+full/disconnected sockets return false without waiting for the collector.
+`health()` exposes separate counters and `total_dropped`; increments execute
+under the native GIL-held C API, rather than nonatomic Python bytecode updates.
+The next accepted packet carries the cumulative loss snapshot. Loss occurring
+during serialization can first appear in a subsequent packet.
+
+Successful packets are serialized by one nonblocking lock and have increasing
+unique per-process sequences. Failed lock acquisition does not reserve a sequence;
+loss is still counted. Failed serialization/socket sends can leave sequence gaps.
+After fork both native counters and the Python lock, TLS, sequence and metadata
+epochs reset; the child never waits for an inherited transport lock.

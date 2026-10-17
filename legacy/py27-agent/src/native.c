@@ -23,9 +23,12 @@ typedef struct { char name[96]; uint64_t count; uint64_t shallow; } TypeCount;
 static int agent_fd = -1;
 static pid_t owner_pid = 0;
 static unsigned long dropped = 0;
+/* Updated only with the GIL held, including failed nonblocking lock attempts.
+ * Python += spans bytecodes and can lose increments under thread switching. */
+static unsigned long reentrant_dropped = 0, contention_dropped = 0, serialization_dropped = 0;
 static char endpoint[108] = {0};
 static double monotonic_seconds(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return t.tv_sec + t.tv_nsec / 1e9; }
-static void reset_socket(void) { if(owner_pid!=getpid())dropped=0; if (agent_fd >= 0) close(agent_fd); agent_fd = -1; owner_pid = getpid(); }
+static void reset_socket(void) { if(owner_pid!=getpid()){dropped=0;reentrant_dropped=0;contention_dropped=0;serialization_dropped=0;} if (agent_fd >= 0) close(agent_fd); agent_fd = -1; owner_pid = getpid(); }
 static PyObject *abi(PyObject *self, PyObject *args) {
     char result[160];
     (void)self; (void)args;
@@ -65,7 +68,26 @@ static PyObject *shutdown_agent(PyObject *self, PyObject *args) {
     control=(int(*)(int))dlsym(RTLD_DEFAULT,"_PyLeakScope_Control");if(control)control(0);
     reset_socket();endpoint[0]=0;Py_RETURN_NONE;
 }
-static PyObject *health(PyObject *self, PyObject *args) { (void)self;(void)args;if(owner_pid!=getpid())reset_socket();return Py_BuildValue("{s:l,s:k}", "pid", (long)getpid(), "dropped", dropped); }
+static PyObject *note_drop(PyObject *self, PyObject *args) {
+    int reason; (void)self;
+    if (!PyArg_ParseTuple(args,"i",&reason)) return NULL;
+    if (owner_pid!=getpid()) reset_socket();
+    switch(reason) {
+        case 1: reentrant_dropped++; break;
+        case 2: contention_dropped++; break;
+        case 3: serialization_dropped++; break;
+        default: PyErr_SetString(PyExc_ValueError,"Unknown drop reason"); return NULL;
+    }
+    Py_RETURN_NONE;
+}
+static PyObject *health(PyObject *self, PyObject *args) {
+    (void)self;(void)args;if(owner_pid!=getpid())reset_socket();
+    return Py_BuildValue("{s:l,s:k,s:k,s:k,s:k,s:K}","pid",(long)getpid(),
+        "dropped",dropped,"reentrant_dropped",reentrant_dropped,
+        "contention_dropped",contention_dropped,"serialization_dropped",serialization_dropped,
+        "total_dropped",(unsigned long long)dropped+reentrant_dropped+contention_dropped+serialization_dropped);
+}
+
 static int lab_api(void) {
     unsigned (*version)(void)=(unsigned(*)(void))dlsym(RTLD_DEFAULT,"_PyLeakScope_Version");
     unsigned (*size)(void)=(unsigned(*)(void))dlsym(RTLD_DEFAULT,"_PyLeakScope_EventSize");
@@ -171,6 +193,7 @@ static PyMethodDef methods[] = {
     {"profile_stop",profile_stop,METH_NOARGS,"Stop only LeakScope profiling on this thread"},
     {"profile_drain",profile_drain,METH_VARARGS,"Drain bounded function-boundary records at a safe point"},
     {"abi",abi,METH_NOARGS,"Compiled ABI fingerprint"},{"initialize",initialize,METH_VARARGS,"Configure a nonblocking local endpoint"},
+    {"note_drop",note_drop,METH_VARARGS,"Record one failed diagnostic attempt atomically under the GIL"},
     {"send",send_packet,METH_VARARGS,"Send one bounded packet; return false on loss"},{"snapshot",snapshot,METH_VARARGS,"Bounded generation-zero type aggregation"},
     {"lab_drain",lab_drain,METH_VARARGS,"Drain experimental object-block records at an explicit safe point"},{"health",health,METH_NOARGS,"Agent loss counters"},{"shutdown",shutdown_agent,METH_NOARGS,"Close native resources"},{NULL,NULL,0,NULL}
 };

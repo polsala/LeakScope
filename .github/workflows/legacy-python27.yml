@@ -18,14 +18,20 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - run: sudo apt-get update && sudo apt-get install -y build-essential zlib1g-dev libffi-dev libbz2-dev
-      - run: bash scripts/build-python27.sh ${{ matrix.unicode }} ${{ matrix.mode }}
+      - name: Build and execute genuine ABI tests
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/legacy
+          bash scripts/build-python27.sh ${{ matrix.unicode }} ${{ matrix.mode }} 2>&1 | tee artifacts/legacy/build-test.log
       - name: Archive ABI-specific agent and verified metadata
         run: |
           mkdir -p artifacts/legacy
-          cp .cache/python27/agent-${{ matrix.unicode }}-${{ matrix.mode }}/* artifacts/legacy/
+          cp .cache/python27/agent-${{ matrix.unicode }}-${{ matrix.mode }}/*.so .cache/python27/agent-${{ matrix.unicode }}-${{ matrix.mode }}/*.py artifacts/legacy/
           .cache/python27/install-${{ matrix.unicode }}-${{ matrix.mode }}/bin/python2.7 -c 'import sys;print(sys.version);print(sys.maxunicode)' > artifacts/legacy/interpreter.txt
           sha256sum artifacts/legacy/* > artifacts/legacy/SHA256SUMS
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
         with:
           name: agent-${{ matrix.unicode }}-${{ matrix.mode }}
           path: artifacts/legacy

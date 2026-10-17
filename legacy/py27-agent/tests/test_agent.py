@@ -68,32 +68,157 @@ class AgentTest(unittest.TestCase):
         self.assertEqual(agent.health()['reentrant_dropped'], before + 1)
         self.assertEqual(json.loads(self.sock.recv(32768))['payload']['name'], 'outer_marker')
 
-    def test_fork_threads_and_disconnect(self):
-        threads = [threading.Thread(target=lambda: agent.mark('thread')) for _ in range(4)]
+    def packet(self):
+        return json.loads(self.sock.recv(32768))
+
+    def join(self, thread):
+        thread.join(5)
+        self.assertFalse(thread.is_alive(), 'Diagnostic sender deadlocked')
+
+    def test_serial_delivery_order_and_native_thread_identity(self):
+        previous = 0
+        for unused in range(20):
+            results = []
+            def send():
+                results.append((native.context()['thread'], agent.mark('serial')))
+            thread = threading.Thread(target=send)
+            thread.start()
+            self.join(thread)
+            self.assertTrue(results[0][1])
+            packet = self.packet()
+            self.assertEqual(packet['thread'], results[0][0])
+            self.assertGreater(packet['sequence'], previous)
+            previous = packet['sequence']
+        self.sock.settimeout(0.02)
+        with self.assertRaises(socket.timeout):
+            self.sock.recv(32768)
+
+    def test_deterministic_contention_and_partial_delivery(self):
+        entered, release = threading.Event(), threading.Event()
+        original, results = agent.json.dumps, []
+        before = agent.health()['total_dropped']
+        def held(value, **kw):
+            entered.set()
+            if not release.wait(3):
+                raise RuntimeError('Test failed to release sender')
+            return original(value, **kw)
+        agent.json.dumps = held
+        owner = threading.Thread(target=lambda: results.append(agent.mark('owner')))
+        try:
+            owner.start()
+            self.assertTrue(entered.wait(2))
+            contenders = [threading.Thread(target=lambda: results.append(agent.mark('contender')))
+                          for unused in range(8)]
+            for thread in contenders:
+                thread.start()
+            for thread in contenders:
+                self.join(thread)
+            self.assertEqual(results, [False] * 8)
+            self.assertEqual(agent.health()['total_dropped'] - before, 8)
+        finally:
+            release.set()
+            self.join(owner)
+            agent.json.dumps = original
+        self.assertTrue(results[-1])
+        packet = self.packet()
+        self.assertEqual(packet['payload']['name'], 'owner')
+        # Packet loss is a snapshot taken before serialization; later losses
+        # must appear in the next accepted packet.
+        self.assertTrue(agent.mark('after_contention'))
+        self.assertEqual(self.packet()['dropped'], agent.health()['total_dropped'])
+
+    def test_high_rate_concurrent_senders_reconcile_every_result(self):
+        start, done = threading.Event(), threading.Event()
+        packets, results, errors = [], [], []
+        self.sock.settimeout(0.02)
+        def receive():
+            while not done.is_set():
+                try:
+                    packets.append(self.packet())
+                except socket.timeout:
+                    pass
+            while True:
+                try:
+                    packets.append(self.packet())
+                except socket.timeout:
+                    break
+        def send():
+            start.wait(3)
+            tid = native.context()['thread']
+            try:
+                for unused in range(500):
+                    results.append((tid, agent.mark('concurrent')))
+            except Exception as error:
+                errors.append(str(error))
+        before = agent.health()['total_dropped']
+        reader = threading.Thread(target=receive)
+        reader.start()
+        threads = [threading.Thread(target=send) for unused in range(8)]
         for thread in threads:
             thread.start()
-        for thread in threads:
-            thread.join()
-        packets = [json.loads(self.sock.recv(32768)) for _ in threads]
-        self.assertTrue(all(packet['kind'] == 'marker' for packet in packets))
-        self.assertEqual(len(set(packet['sequence'] for packet in packets)), len(threads))
-        self.assertEqual([packet['sequence'] for packet in packets], sorted(packet['sequence'] for packet in packets))
-        agent._send_lock.acquire()
+        start.set()
+        try:
+            for thread in threads:
+                self.join(thread)
+        finally:
+            done.set()
+            self.join(reader)
+        self.assertFalse(errors)
+        self.assertEqual(len(results), 4000)
+        successes = [tid for tid, sent in results if sent]
+        self.assertGreater(len(successes), 0)
+        self.assertEqual(len(packets), len(successes), 'A successful send was lost locally')
+        self.assertEqual(sorted(p['thread'] for p in packets), sorted(successes))
+        sequences = [p['sequence'] for p in packets]
+        self.assertEqual(sequences, sorted(set(sequences)))
+        self.assertEqual(agent.health()['total_dropped'] - before, 4000 - len(successes))
+
+    def test_fork_while_other_thread_holds_transport_lock(self):
+        held, release = threading.Event(), threading.Event()
+        def hold():
+            with agent._send_lock:
+                held.set()
+                release.wait(5)
+        owner = threading.Thread(target=hold)
+        owner.start()
+        self.assertTrue(held.wait(2))
+        self.assertFalse(agent.mark('parent_contention'))
         child = os.fork()
         if child == 0:
             import signal
-            signal.alarm(2)
-            agent.after_fork()
-            agent.mark('child')
-            os._exit(0)
-        agent._send_lock.release()
-        os.waitpid(child, 0)
-        self.assertEqual(json.loads(self.sock.recv(32768))['pid'], child)
+            signal.alarm(3)
+            try:
+                agent.after_fork()
+                if agent.health()['total_dropped'] != 0 or not agent.mark('child'):
+                    os._exit(2)
+                os._exit(0)
+            except BaseException:
+                os._exit(3)
+        try:
+            pid, status = os.waitpid(child, 0)  # child alarm bounds this wait
+            self.assertEqual(pid, child)
+            self.assertEqual(status, 0)
+            packet = self.packet()
+            self.assertEqual(packet['pid'], child)
+            self.assertEqual(packet['sequence'], 1)
+            self.assertEqual(packet['dropped'], 0)
+        finally:
+            release.set()
+            self.join(owner)
+        self.assertTrue(agent.mark('parent_after_fork'))
+        self.assertEqual(self.packet()['pid'], os.getpid())
+
+    def test_disconnected_collector_and_serialization_loss(self):
+        before = agent.health()['total_dropped']
+        self.assertFalse(agent._send('invalid', {'value': object()}))
+        self.assertEqual(agent.health()['total_dropped'], before + 1)
+        self.assertTrue(agent.mark('after_invalid'))
+        self.assertEqual(self.packet()['dropped'], before + 1)
         self.sock.close()
-        before = agent.health()['dropped']
-        for _ in range(10000):
+        before = agent.health()['total_dropped']
+        for unused in range(10000):
             self.assertFalse(agent.mark('disconnected'))
-        self.assertEqual(agent.health()['dropped'] - before, 10000)
+        self.assertEqual(agent.health()['total_dropped'] - before, 10000)
 
 
 if __name__ == '__main__':

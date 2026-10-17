@@ -14,8 +14,6 @@ _local = threading.local()
 _pid = os.getpid()
 _sequence = 0
 _send_lock = threading.Lock()
-_reentrant_drops = 0
-_serialization_drops = 0
 _pattern = re.compile(r'^[A-Za-z_][A-Za-z0-9_.: -]{0,79}$')
 _keys = frozenset(['operation', 'module', 'model', 'method', 'phase', 'worker_type'])
 _operation_sequence = 0
@@ -60,9 +58,10 @@ def _identity():
 
 
 def _ensure_process():
-    global _pid, _sequence, _local, _send_lock, _start_ticks, _profile_codes_sent, _lab_stacks_sent, _lab_active, _lab_last_sequence
+    global _pid, _sequence, _local, _send_lock, _start_ticks, _profile_codes_sent, _profile_codes_epoch, _lab_stacks_sent, _lab_active, _lab_last_sequence
     if _pid != os.getpid() or _start_ticks is None:
         _pid, _sequence, _local = os.getpid(), 0, threading.local()
+        _profile_codes_epoch = None
         _send_lock = threading.Lock()
         _start_ticks = _identity()
         _profile_codes_sent = set()
@@ -71,15 +70,15 @@ def _ensure_process():
 
 
 def _send(kind, payload):
-    global _sequence, _reentrant_drops, _serialization_drops
+    global _sequence
     _ensure_process()
     if getattr(_local, 'sending', False):
-        _reentrant_drops += 1
+        native.note_drop(1)
         return False
     # Never wait for another application thread or a collector. Sequence gaps
     # and cumulative loss are visible in the next successful packet.
     if not _send_lock.acquire(False):
-        _reentrant_drops += 1
+        native.note_drop(2)
         return False
     _local.sending = True
     native.profile_pause(1)
@@ -92,10 +91,10 @@ def _send(kind, payload):
         event = {'version': 1, 'pid': _pid, 'start_ticks': _start_ticks, 'sequence': _sequence,
                  'thread': context['thread'], 'monotonic_ns': context['monotonic_ns'],
                  'timestamp': time.time(), 'kind': kind, 'payload': payload,
-                 'dropped': native.health()['dropped'] + _reentrant_drops + _serialization_drops}
+                 'dropped': native.health()['total_dropped']}
         return native.send(json.dumps(event, separators=(',', ':')))
     except Exception:
-        _serialization_drops += 1
+        native.note_drop(3)
         return False
     finally:
         native.profile_pause(0)
@@ -172,11 +171,10 @@ def _flush_profile(max_batches=8):
 def flush_profile(max_batches=8):
     """Serialization is an explicit attribution gap on this thread."""
     native.profile_pause(1)
-    global _serialization_drops
     try:
         return _flush_profile(max_batches)
     except Exception:
-        _serialization_drops += 1
+        native.note_drop(3)
         return False
     finally:
         native.profile_pause(0)
@@ -255,17 +253,15 @@ def shutdown():
 
 
 def health():
-    result = native.health()
-    result['reentrant_dropped'] = _reentrant_drops
-    result['serialization_dropped'] = _serialization_drops
-    return result
+    _ensure_process()
+    return native.health()
 
 
 def flush_lab(max_events=2048):
     """Drain real Lab object blocks. Separate domain; never additive with libc."""
     if not 1 <= max_events <= 16384:
         raise ValueError('Lab event flush budget 1..16384')
-    global _lab_last_sequence, _serialization_drops
+    global _lab_last_sequence
     _ensure_process()
     native.profile_pause(1)
     native.lab_pause(1)
@@ -287,7 +283,7 @@ def flush_lab(max_events=2048):
             delivered = _send('lab_events', {'epoch':epoch, 'events': events[offset:offset+64], 'lost': lost, 'unknown_frees':batch['unknown_frees'], 'stop_reason': batch['stop_reason']}) and delivered
         return delivered
     except Exception:
-        _serialization_drops += 1
+        native.note_drop(3)
         return False
     finally:
         native.lab_pause(0)
