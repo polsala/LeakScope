@@ -158,6 +158,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/release/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Readiness */
+        get: operations["readiness_api_v1_release_readiness_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me": {
         parameters: {
             query?: never;
@@ -439,7 +456,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Experiments */
+        get: operations["experiments_api_v1_sessions__sid__experiments_get"];
         put?: never;
         /** Create */
         post: operations["create_api_v1_sessions__sid__experiments_post"];
@@ -922,7 +940,8 @@ export interface components {
             /** @default {
              *       "max_processes": 32,
              *       "max_samples_per_process": 10000,
-             *       "max_duration_seconds": 604800
+             *       "max_duration_seconds": 604800,
+             *       "max_capture_windows": 100
              *     } */
             monitoring: components["schemas"]["Monitoring"];
             /** @default {
@@ -1238,6 +1257,11 @@ export interface components {
              * @default 604800
              */
             max_duration_seconds: number;
+            /**
+             * Max Capture Windows
+             * @default 100
+             */
+            max_capture_windows: number;
         };
         /** NativeAnalysisView */
         NativeAnalysisView: {
@@ -2066,6 +2090,37 @@ export interface operations {
             };
         };
     };
+    readiness_api_v1_release_readiness_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     me_api_v1_me_get: {
         parameters: {
             query?: never;
@@ -2651,6 +2706,39 @@ export interface operations {
                 "application/json": components["schemas"]["ExternalPerformance"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    experiments_api_v1_sessions__sid__experiments_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

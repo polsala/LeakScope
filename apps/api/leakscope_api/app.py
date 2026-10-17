@@ -44,6 +44,7 @@ from .contracts import ProcessView, ProcessPage
 from .limits import BodyLimit
 from .monitoring import Observer, install_routes as monitoring_routes
 from .investigation import Findings, install_routes as findings_routes
+from .readiness import evaluate as release_readiness
 
 LEVELS = {"viewer": 0, "analyst": 1, "operator": 2, "admin": 3}
 ROOT = Path(__file__).resolve().parents[3]
@@ -319,6 +320,10 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
     @app.get("/api/v1/version", dependencies=[Depends(read)])
     def version():
         return {"version": __version__, "protocol": 1, "capture_format": 1}
+
+    @app.get("/api/v1/release/readiness", dependencies=[Depends(read)])
+    def readiness():
+        return release_readiness()
 
     @app.get("/api/v1/me")
     def me(role=Depends(read)):
@@ -1276,6 +1281,10 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
         else:
             document["process"] = p.metadata_json
         identifier = uuid.uuid4().hex
+        html = render(document)
+        required = len(json.dumps(document).encode()) + len(html.encode()) + 65536
+        if collector.disk_usage() + required > cfg.max_storage_mb * 1024**2:
+            raise HTTPException(507, "Report would exceed storage quota")
         with db_factory.begin() as db:
             db.add(
                 m.Report(
@@ -1284,7 +1293,7 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
                     title=body.title,
                     created_at=time.time(),
                     document=document,
-                    html=render(document),
+                    html=html,
                 )
             )
         collector.audit(role, "report.create", identifier)

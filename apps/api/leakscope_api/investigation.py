@@ -14,6 +14,7 @@ from pydantic import Field
 from sqlalchemy import select
 from . import models as m
 from .config import Strict
+from .context_capture import expand
 from .native import diagnose, NativeAnalysisError
 from .contracts import NativeFrameView
 
@@ -214,9 +215,9 @@ class Findings:
             "attribution_quality": "metrics_only",
             "capture_gaps": bool(session.quality.get("capture_gaps")),
             "repeated_operations": sum(g["completed"] for g in operations["groups"]),
-            "survived_cooldown": bool(
-                end and phases.get("cooldown") and end - phases["cooldown"] >= 60
-            ),
+            # A manual boundary is not evidence of continued allocation coverage.
+            # Enable this only after checking the actual trace end below.
+            "survived_cooldown": False,
             "operation": experiment.operation if experiment else None,
         }
         sites = []
@@ -247,6 +248,26 @@ class Findings:
                     lost_events=analysis["lost_events"],
                     capture_gaps=analysis["quality"].get("capture_gaps", False),
                 )
+                if (
+                    end
+                    and phases.get("cooldown")
+                    and end - phases["cooldown"] >= 60
+                    and session.state in {"ready", "degraded"}
+                    and analysis["exact_survivors"]
+                ):
+                    observed_end = (
+                        session.quality.get("capture_window", {}).get("detached_at", 0) or 0
+                    )
+                    if domain == "python_block":
+                        observed_end = max(
+                            (
+                                r["event"]["timestamp"]
+                                for r in expand(records, session.process_key, session.created_at)
+                                if r.get("kind") == "allocation"
+                            ),
+                            default=0,
+                        )
+                    evidence["survived_cooldown"] = observed_end >= end
                 for site in sorted(
                     analysis["top_sites"],
                     key=lambda s: s.get("known_live_bytes") or 0,
@@ -272,6 +293,11 @@ class Findings:
                 evidence["source_locations"] = [f for site in sites[:5] for f in site["frames"][:4]]
             except (HTTPException, NativeAnalysisError) as error:
                 unavailable = str(error)[:500]
+        snapshots = [
+            s
+            for s in snapshots
+            if (baseline is None or s.timestamp >= baseline) and (end is None or s.timestamp <= end)
+        ]
         gc_deltas = []
         if len(snapshots) >= 2:
             a, b = snapshots[0].snapshot, snapshots[-1].snapshot
@@ -362,6 +388,14 @@ def install_routes(app, findings, read, analyst, operator):
             "lost_events": q.get("lost_events", 0) + q.get("lost_native", 0),
             "effective_policy": q.get("effective_policy", "metrics"),
             "external_measurement": q.get("external_performance"),
+            "budgets": {
+                **collector.config.overhead.model_dump(),
+                "target_cpu_increase_percent": row.config["cpu_overhead_target"],
+            },
+            "capture_limits": {
+                "max_capture_mb": row.config["max_capture_mb"],
+                "max_sensor_rss_mb": row.config["max_sensor_rss_mb"],
+            },
         }
 
     @app.post("/api/v1/sessions/{sid}/performance")
@@ -406,6 +440,23 @@ def install_routes(app, findings, read, analyst, operator):
             db.add(row)
         collector.audit(role, "experiment.create", row.id)
         return {"id": row.id, "session_id": sid, "operation": body.operation, "phases": []}
+
+    @app.get("/api/v1/sessions/{sid}/experiments", dependencies=[Depends(read)])
+    def experiments(sid: str):
+        with collector.db() as db:
+            if db.get(m.Session, sid) is None:
+                raise HTTPException(404, "Session not found")
+            return {
+                "items": [
+                    {"id": r.id, "session_id": sid, "operation": r.operation, "phases": r.phases}
+                    for r in db.scalars(
+                        select(m.Experiment)
+                        .where(m.Experiment.session_id == sid)
+                        .order_by(m.Experiment.created_at)
+                        .limit(10)
+                    )
+                ]
+            }
 
     @app.post("/api/v1/experiments/{identifier}/phases")
     def phase(identifier: str, body: PhaseCreate, role=Depends(analyst)):
