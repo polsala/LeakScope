@@ -37,6 +37,11 @@ if [[ ! -e "$release/.installed" ]]; then
   cp -a --no-preserve=ownership,mode,xattr,context "$source_root/." "$release/"
   find "$release" -type d -exec chmod go-w {} +
   find "$release" -type f -exec chmod u-s,g-s,go-w {} +
+  # --no-preserve=mode deliberately drops ACLs and executable flags. Restore
+  # executability only, never set-ID bits, ACLs or file capabilities.
+  while IFS= read -r -d '' executable; do
+    chmod a+x "$release/$executable"
+  done < <(find "$source_root" -type f -perm /111 -printf '%P\0')
   "$release/runtime/bin/python3.12" -I -m venv "$release/venv"
   "$release/venv/bin/python" -I -m pip install --no-index --find-links "$release/wheels" leakscope==0.1.0
   cp "$release/launcher" "$release/bin/leakscope"
