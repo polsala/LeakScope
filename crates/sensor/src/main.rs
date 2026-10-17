@@ -436,16 +436,18 @@ async fn main() -> io::Result<()> {
                                         "event_rate_guard"
                                     });
                                 l.native_quality["incomplete"] = json!(true);
-                                l.native_quality["effective_policy"] = json!("metrics");
-                                l.native_quality["policy_transitions"] = json!([{"from":l.native_quality["profiling_policy"],"to":"metrics","timestamp":now(),"reason":l.native_quality["detailed_tracing_stopped"]}]);
+                                let reason = l.native_quality["detailed_tracing_stopped"]
+                                    .as_str()
+                                    .unwrap_or("native_guard")
+                                    .to_owned();
+                                policy_transition(l, "metrics", &reason);
                             }
                         }
                         Err(e) => {
                             finish_trace(l);
                             l.native_quality["native_failure"] = json!(format!("{e:?}"));
                             l.native_quality["unknown_loss"] = json!(true);
-                            l.native_quality["effective_policy"] = json!("metrics");
-                            l.native_quality["policy_transitions"] = json!([{"from":l.native_quality["profiling_policy"],"to":"metrics","timestamp":now(),"reason":l.native_quality["native_failure"]}]);
+                            policy_transition(l, "metrics", &format!("{e:?}"));
                             l.native_quality["incomplete"] = json!(true);
                         }
                     }
@@ -669,23 +671,23 @@ fn finish_trace(l: &mut Lease) {
     }
 }
 fn preserve_quality(old: &Value, mut new: Value) -> Value {
-    for key in ["controller", "policy_transitions", "effective_policy"] {
+    for key in [
+        "controller",
+        "policy_transitions",
+        "policy_transitions_lost",
+        "effective_policy",
+    ] {
         if !old[key].is_null() {
             new[key] = old[key].clone();
         }
     }
+    if old["policy_transitions_lost"].as_u64().unwrap_or(0) > 0 {
+        new["incomplete"] = json!(true);
+    }
     new
 }
 fn policy_transition(l: &mut Lease, to: &str, reason: &str) {
-    let mut transitions = l.native_quality["policy_transitions"]
-        .as_array()
-        .cloned()
-        .unwrap_or_default();
-    if transitions.len() < 16 {
-        transitions.push(json!({"from":l.native_quality["profiling_policy"],"to":to,"timestamp":now(),"reason":reason}));
-    }
-    l.native_quality["policy_transitions"] = json!(transitions);
-    l.native_quality["effective_policy"] = json!(to);
+    append_policy_transition(&mut l.native_quality, to, reason);
     if to == "metrics" {
         l.native_quality["coverage_gap_after_native"] = json!(true);
         l.native_quality["incomplete"] = json!(true);
@@ -699,4 +701,47 @@ fn policy_transition(l: &mut Lease, to: &str, reason: &str) {
         l,
         json!({"kind":"policy_transition","timestamp":now(),"to":to,"reason":reason}),
     );
+}
+fn append_policy_transition(quality: &mut Value, to: &str, reason: &str) {
+    let from = quality
+        .get("effective_policy")
+        .filter(|p| p.is_string())
+        .unwrap_or(&quality["profiling_policy"])
+        .clone();
+    let mut transitions = quality["policy_transitions"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    if transitions.len() < 16 {
+        transitions.push(json!({"from":from,"to":to,"timestamp":now(),"reason":reason}));
+    } else {
+        quality["policy_transitions_lost"] =
+            json!(quality["policy_transitions_lost"].as_u64().unwrap_or(0) + 1);
+        quality["incomplete"] = json!(true);
+    }
+    quality["policy_transitions"] = json!(transitions);
+    quality["effective_policy"] = json!(to);
+}
+#[cfg(test)]
+mod transition_tests {
+    use super::*;
+    #[test]
+    fn hard_guard_preserves_prior_reduction_and_actual_from_policy() {
+        let mut q =
+            json!({"profiling_policy":"native_detailed","effective_policy":"native_detailed"});
+        append_policy_transition(&mut q, "native_stacks_caller", "collector_lag_target");
+        append_policy_transition(&mut q, "metrics", "kernel_event_loss_guard");
+        assert_eq!(q["policy_transitions"].as_array().unwrap().len(), 2);
+        assert_eq!(q["policy_transitions"][0]["reason"], "collector_lag_target");
+        assert_eq!(q["policy_transitions"][1]["from"], "native_stacks_caller");
+        for _ in 0..20 {
+            append_policy_transition(&mut q, "metrics", "test");
+        }
+        assert_eq!(q["policy_transitions"].as_array().unwrap().len(), 16);
+        assert_eq!(q["policy_transitions_lost"], 6);
+        assert_eq!(q["incomplete"], true);
+        let refreshed = preserve_quality(&q, json!({"incomplete":false}));
+        assert_eq!(refreshed["policy_transitions_lost"], 6);
+        assert_eq!(refreshed["incomplete"], true);
+    }
 }
