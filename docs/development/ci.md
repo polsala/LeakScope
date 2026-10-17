@@ -1,5 +1,23 @@
 # Continuous integration
 
+Phase 4 extends these existing workflows. Integration mounts a real 1 MiB tmpfs
+on an ephemeral hosted runner and tests ENOSPC recovery. The scheduled soak runs
+one-hour genuine Python/cache observation with restarts plus a short session
+lifecycle soak. Protected kernel jobs include physical attach/detach, automatic
+growth triggers and controller feedback timeouts. Protected performance jobs
+store matched ERP Metrics/Light/Detailed/burst trials in addition to historical
+components and genuine Deep/Lab hook results. Failed/incomplete trials cannot
+qualify as exact evidence. No stable application CPU gate is invented.
+
+Release publication is explicitly a GitHub prerelease while production gates
+remain open. `/api/v1/release/readiness`, the Settings UI and
+`scripts/release-gates.py` evaluate current-source command receipts, including
+failure, expiry and fingerprint checks. Definitions in YAML alone never verify a
+gate. Receipts are trusted operator artifacts, not cryptographic attestations.
+Packages carry a source fingerprint for installed evaluation. Missing evidence
+fails closed. These Phase 4 workflows were linted locally; no remote execution
+is claimed.
+
 The repository supplies PR quality, native, legacy ABI, integration, browser,
 kernel, performance, soak, fuzz, security and release workflows. Workflows are
 implemented commands but have not been executed on GitHub in this session.

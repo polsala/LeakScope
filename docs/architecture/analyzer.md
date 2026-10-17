@@ -1,5 +1,11 @@
 # Native analysis
 
+Phase 4 reuses this binary for bounded process-growth diagnosis and ranked,
+deterministic hypotheses. See [leak hypotheses](leak-hypotheses.md). Continuous
+RSS evidence and independently observed retained allocations remain distinct.
+Loss, missing intervals and multiple activation epochs suppress exact survivors;
+no pointer history is combined between independent native windows.
+
 The analyzer reuses Lifecycle and the allocation Event exported from the protocol
 crate. It reads LSCAP chunks incrementally. SQLite contains coordination and
 metrics; raw allocations remain in capture files.

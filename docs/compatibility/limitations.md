@@ -25,18 +25,22 @@ engineering preview. See implementation-status.md for executed evidence.
   Collector outages can cause disclosed loss. Collector spools are durable.
 - CPU overhead is workload dependent. The measured synthetic native operation
   latency exceeds the initial target; no ERP production guarantee is available.
-- Full sustained 100k/s qualification, long soak, ENOSPC/fork storms and every ABI
+- Full sustained 100k/s qualification, multi-hour native soak, SQLite-volume ENOSPC/fork storms and every ABI
   variant remain unverified. uWSGI/RQ version matrices remain incomplete.
-- Reports are retained; report deletion and exhaustive cleanup of orphaned
-  failure artifacts remain work. Active captures are protected from retention.
+- Reports are retained until explicit admin deletion. Raw deletion preserves
+  reports. Active captures are protected from retention. Bounded failure-spool
+  cleanup and a real capture-volume ENOSPC recovery test are implemented.
 - Native Canvas graphs have keyboard call-tree alternatives; complete WCAG 2.2
-  AA certification and arbitrary draggable A/B interval selection remain open.
+  AA certification remains open. A/B intervals support chart dragging and
+  accessible timestamp inputs.
 
 Native Light excludes unselected small allocations, retains selected pointers
 through frees/shrinks and reports map loss. It reduces output, not all uprobe
 traps. Lab safe-point allocation exclusion has a bounded lifetime map; multiple
 activation epochs leave gaps and invalidate exact survivor totals. Agent
-transport/staging is bounded and can lose data in bursts. No full adaptive
-CPU/lag controller, all-generation GC, async context identity or formal Python
-leak classifier is implemented. Rebuild the agent for the actual interpreter;
+transport/staging is bounded and can lose data in bursts. Neither
+all-generation GC nor asynchronous ownership identity is implemented. Phase 4 has
+adaptive CPU/lag safety and deterministic hypotheses; neither establishes causal
+overhead or proves a leak. One-hour metrics/cache restart soak passed, with
+collector/driver RSS growth still requiring longer qualification. Rebuild the agent for the actual interpreter;
 prebuilt agent glibc compatibility across Ubuntu versions is not certified.

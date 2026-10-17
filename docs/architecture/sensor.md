@@ -1,5 +1,12 @@
 # Sensor
 
+Phase 4 adds separately owned [capture windows](capture-windows.md) and
+[adaptive control](adaptive-profiling.md). Continuous monitors use read-only
+procfs requests without a native lease. Each native window physically owns and
+drops its Aya links. Safety checks run once per second independently of metric
+sampling. The bounded ACK queue reports loss and utilization; kernel/agent
+occupancy is explicitly unavailable. No monitor injects application code.
+
 The Rust sensor uses authenticated, length-bounded Protobuf envelopes over a
 0600 Unix socket. Peer credentials and target UID must equal the sensor UID.
 Process keys include host, boot, PID namespace, PID and start ticks. Sampling and

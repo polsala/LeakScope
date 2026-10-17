@@ -4,7 +4,59 @@ LeakScope is an engineering preview. No policy has a universal <5% application
 CPU guarantee. In particular, allocator-heavy Native Detailed and Lab profiling
 are expensive and should first be evaluated in staging for short investigations.
 
-## Executed measurements, 2026-10-16
+## Phase 4: measured ERP bursts, 2026-10-16/17
+
+The new generated Python 2.7.18 workload creates 128 ORM-like dictionaries with
+4 KiB payloads and invoice lines, performs 25,000 integer checksum operations and
+eight real native 64 KiB malloc/touch/free calls per job. Three matched A/B/A
+rounds use 128 jobs and 50 ms idle per phase. Bursts physically attach Detailed
+probes for just two middle jobs, then close every probe descriptor. All final
+native runs match expected controlled allocation counts/bytes, zero controlled
+survivors, zero kernel/collector loss and complete quality.
+
+| Strategy | Active target CPU change | Whole-workload CPU change | Job p95 | Job p99 |
+| --- | --- | --- | --- | --- |
+| Metrics | No allocator instrumentation | -22.1% to -0.4% | 4.742–5.086 ms | 5.760–6.042 ms |
+| Native Light | +45.0% to +83.3% | Same as active | 7.850–8.075 ms | 8.962–10.787 ms |
+| Native Detailed | +4.2% to +40.1% | Same as active | 6.816–7.871 ms | 7.278–10.307 ms |
+| Detailed burst, 2/128 jobs | -0.9% to +116.8% | +2.4% to +9.2% | 5.767–6.184 ms | 7.103–7.292 ms |
+
+These are shared-host powersave observations. Negative Metrics changes and the
+surprising Detailed/Light ordering show substantial baseline/cache/frequency
+variation. They do not establish that Detailed is intrinsically cheaper or that
+profiling accelerates Python. Two active samples per burst are too few for a
+meaningful tail estimate. Whole-workload quantiles include mostly uninstrumented
+jobs. No <1% Metrics or <5% low-impact SLO is qualified; one burst round exceeded
+5%. The new workload is different from the allocation-heavy Phase 3 fixture;
+cross-table differences are not a causal optimization estimate.
+
+API activation took about 100–145 ms; physical detach/cleanup about 1.14–1.22 s.
+Target jobs are idle during setup/cleanup in this controlled driver. Those wall
+costs are recorded separately, not hidden in target CPU. Final sensor RSS ranged
+about 21–82 MiB across strategies. Collector CPU includes the test driver and is
+not an independently certified service-cost measurement. Allocator trap counts
+remain unavailable; collected event counts are not trap counts.
+
+Earlier versions of this same qualification run failed under collector queue
+pressure (1,293 and then 210 lost userspace events); neither is qualified as a
+fast exact trace. Backlog-aware draining, one-pass serialization, compression
+context reuse and a bounded 16,384-record/4 MiB ACK queue let the final runs pass
+without loss. These changes address transport capacity, not the cost of entering
+uprobes. Native Light still traps matching calls while attached. The fundamental
+new strategy is removing probes between independent windows, with less coverage.
+
+[Machine-readable Phase 4 evidence](phase4-performance-evidence.json) preserves
+raw per-operation CPU/latency, environment, sensor hashes, loss, quality, memory
+and processing times, plus raw-file checksums. Full captures stay under artifacts
+because they contain addresses and paths. See [qualification procedure](performance-qualification.md).
+
+The benchmarked sensor SHA256 is recorded in every strategy (burst:
+`c1c8e2fb462ca2397f0bd6555a55433e47189daea7de2ccce4125a2aeb5221eb`).
+A subsequent safety-history-only fix preserves earlier transition reasons across
+hard guards; its unit/kernel regressions are separate. These timing observations
+were not remeasured after that fix and are not a certification of the final build.
+
+## Historical Phase 3 measurements, 2026-10-16
 
 Intel Core i7-1165G7 @ 2.80 GHz, powersave governor, Linux
 6.19.14+kali-amd64, genuine CPython 2.7.18, dynamically linked libc, shared

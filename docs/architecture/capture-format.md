@@ -59,3 +59,13 @@ checked before use and never mistaken for the portable JSON encoding. A final
 high-water confirmation and loss/epoch quality govern survivor precision.
 Older metrics/native captures remain readable without Python attribution.
 Cross-language golden tests and genuine Lab capture import/replay both pass.
+
+## Capture windows (v1-compatible)
+
+Optional `capture_window` events record armed/detached/gap boundaries and their
+activation epoch. Quality includes actual userspace monotonic bounds and physical
+link-close time. Older readers can skip unknown record kinds and still read
+metrics/allocations. The current Rust analyzer explicitly invalidates continuous
+survivor claims for gaps or multiple activation epochs. Monitoring links separate
+ordinary captures rather than concatenating their pointer tables. Compression
+contexts are reused per writer without changing the bytes/framing contract.

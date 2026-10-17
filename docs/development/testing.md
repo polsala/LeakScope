@@ -1,5 +1,13 @@
 # Testing
 
+Phase 4 adds `apps/api/tests/test_production.py`, real HTTP CLI and restart
+integration tests, genuine Python 2 metric growth/cache/cleanup controls,
+`tests/kernel/test_windows.py`, real ENOSPC in `tests/reliability/test_storage.py`
+and the [one-hour observation soak](soak-validation.md). The ordinary browser
+suite includes monitoring, findings and manual experiment phases. Kernel tests
+must run explicitly on an authorized protected runner. Benchmarks require zero
+loss and independent selected allocation counts, not merely a successful launch.
+
 `make test` runs Rust correctness tests, Python endpoint/integration/security
 tests and Vitest UI tests. Real-process tests use subprocesses and local sockets;
 run in an environment that permits both. Build the agent with `make test-legacy`

@@ -1,12 +1,17 @@
 # Actual implementation status
 
-Engineering preview, updated 2026-10-16. Phase 3 extends the real native pipeline
-with explicit policies, cooperative Python attribution and verified Lab frames. It is not production-certified. Local GitHub
+Engineering preview, updated 2026-10-17. Phase 4 adds durable observation,
+physical capture windows, adaptive safety and deterministic findings to the real
+native/Python attribution pipeline. It is not production-certified. Local GitHub
 workflow definitions are not evidence that GitHub or every supported kernel ran.
 
 | Capability | Status and actual evidence |
 | --- | --- |
 | Metrics-only Observe | Implemented and tested; same-UID procfs, stable identities, real Python 2 metrics, bounded sessions, reports and capture import/export |
+| Continuous observation | Durable capped metrics without allocator leases/probes; actual Python leak/cache/cleanup controls, growth detection, restart and one-hour soak passed |
+| Capture windows | Physically owned/dropped Aya links, explicit independent epochs and gaps; authorized automatic growth trigger, manual windows and twelve repeated clean cycles tested |
+| Adaptive safety | Actual target/sensor CPU, collector lag/feedback, ACK queue, loss and external latency; hysteresis, stack reduction and detach preserve metrics. CPU causality and kernel/agent occupancy are unknown |
+| Findings and repeated operations | Deterministic Rust hypotheses with evidence/contradictions/risk; actual retained sites, GC deltas, per-thread operation aggregates, persisted manual A/B/cooldown phases. Short captures often remain insufficient evidence |
 | Native libc attachment | Implemented; Aya 0.14.0, all malloc/calloc/realloc/free entry/return pairs, file-offset ELF attachment, namespace-aware filtering; real kernel tests passed |
 | Probe lifecycle | Owned maps/links detach on failure and shutdown; raw thread-exit and exec tracepoints; fork children excluded; worker recycling verified |
 | Kernel transport | Actual ring-buffer reads, bounded pending map, per-CPU loss counters, bounded ACK queue; forced kernel overflow verified |
@@ -28,7 +33,49 @@ workflow definitions are not evidence that GitHub or every supported kernel ran.
 | CI/release | Existing workflows extended; portable PR, BPF build, native compatibility matrix, trusted kernel/browser jobs, exact-tag kernel release dependency. Not executed on GitHub in this session |
 | Distribution | Baseline native binary build and Ubuntu execution verified; packaging now refuses host-glibc substitution and runs ABI checks. Final package validation evidence is recorded in the validation report |
 
-## Phase 3 executed evidence
+## Phase 4 executed evidence
+
+- Rust 31 tests pass. Portable Python 41 pass, one opt-in installed-package test
+  is separate. Strict type/style/lint checks pass; Vitest six tests pass.
+- Real kernel regression: all 21 cases pass together, including the twelve-window
+  memory/descriptor test. Existing positive 3,145,728-byte leak and zero
+  cleanup controls, realloc/threshold/cache/loss/recycling/native/Python cases
+  remain functional. Automatic sustained-growth capture requires both operator
+  and host authorization. Missing feedback detaches with 60-second metric sampling.
+- The twelve-cycle test leaves zero perf/BPF descriptors after every window.
+  Final-run sensor RSS stabilizes near 85.0 MiB; end-minus-fifth-window RSS is
+  4,194,304 bytes. An earlier run stabilized near 67.3 MiB. Neither proves
+  indefinite native-session stability.
+- Four ordinary browser journeys pass, including monitoring, findings, manual
+  experiment phases and accessible interval comparison; the genuine kernel
+  flamegraph/call-tree/report browser journey also passes. Comparison selections
+  now survive recording/processing state changes.
+- Genuine UCS2 release and UCS4 debug agent suites each pass eleven applicable
+  tests with four Lab-only skips; UCS4 Lab passes all fifteen. Existing verified
+  Python lines and positive/negative attribution integrations remain intact.
+- Actual separate 1 MiB capture-filesystem ENOSPC, durable-prefix recovery,
+  collector/sensor restart and active-file protection tests pass. Error causes
+  include errno and exact survivors stay suppressed after recovery.
+- One-hour metrics/cache soak: 3,600.317 real seconds, 17,772 jobs, twelve
+  collector lifetimes, no false cache anomaly. Collector plus driver RSS grew
+  14,192,640 bytes; sensor RSS changed -942,080 bytes. This is not multi-hour
+  native or zero-growth certification.
+- Final three-round matched ERP benchmarks pass independent cleanup/count/loss
+  assertions for Metrics, Light, Detailed and physical bursts. Burst amortized
+  CPU +2.4–9.2% observes only 2/128 jobs; active cost remains noisy/high. Metrics
+  and <5% production targets remain unqualified. Historical Phase 3 costs are
+  preserved in [performance evidence](development/production-performance.md).
+- Existing CI jobs now include true ENOSPC, scheduled observation soak, window
+  safety and ERP burst comparisons. Local Actionlint passes; GitHub execution is
+  not claimed. Publication remains an explicit prerelease with fail-closed
+  current-source readiness receipts, not automatic production labeling.
+
+See [production investigation](usage/production-investigation.md),
+[capture windows](architecture/capture-windows.md),
+[hypotheses](architecture/leak-hypotheses.md) and
+[reliability evidence](development/soak-validation.md).
+
+## Historical Phase 3 executed evidence
 
 - Rust: 25 tests; portable Python: 31 pass, one opt-in installed-package skip.
 - Genuine agent: 15 tests; four Lab-only skips on stock, all pass on UCS4 Lab.
@@ -74,22 +121,24 @@ shipping raw pointers, local credentials or fixture host paths.
 
 ## Release blockers
 
-Application overhead targets, sustained high event rates, prolonged soak,
+Application overhead targets, sustained high event rates, multi-hour native soak,
 complete Ubuntu kernel qualification, transient mapping-history correctness, compressed/split
-DWARF, full heap/PyMem coverage, stronger crash/disk-full coverage and
+DWARF, full heap/PyMem coverage, SQLite-volume crash/disk-full coverage and
 complete accessibility review remain. Native data can identify observable retained
 sites; it cannot alone prove a leak, establish Python ownership, or explain all RSS.
 See kernel-gaps.md, backend-gaps.md, compatibility/limitations.md and quality-gates.md.
 
-Phase 3 also leaves full adaptive target-CPU/lag control, all-generation GC,
-reference graphs, formal Python leak scoring/control classification, complete
+Phase 4 implements measured adaptive control and deterministic hypotheses but
+does not establish causal target overhead, calibrated probabilities or ownership.
+Remaining work includes all-generation GC,
+reference graphs, complete
 async/subinterpreter/GIL-state matrices, Lab debug combinations, long-running
 high-rate cooperative transport and prebuilt-agent glibc portability unfinished.
 Short bounded fixtures are verified; large ERP/RQ/uWSGI production certification
 and full-pipeline Deep/Lab performance are not. The standalone bundle includes
 agent/patch sources for rebuilding against the deployment's interpreter.
 
-Final standalone tarball (17 MiB), Debian package (16 MiB), modern wheel/source
+Historical Phase 3 standalone tarball (17 MiB), Debian package (16 MiB), modern wheel/source
 distribution, SHA256 manifest and 618-component SBOM were built. Offline install
 into a fresh prefix passed the CLI and installed migration/API test. Bundled
 agent sources compile with genuine CPython2.7 and produce actual profile records.

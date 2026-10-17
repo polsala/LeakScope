@@ -16,17 +16,24 @@ blocks use a separate domain. Thread/library/symbol/size/time filtering works. P
 Comparisons include observed native allocation cohorts and quality alongside RSS.
 They mean allocations created during each interval and surviving at its end,
 not total live process memory. Full multidimensional cohort exploration, Parquet,
-remote hub, report deletion and complete user-management UI remain unfinished.
+remote hub and complete user-management UI remain unfinished. Admin report/raw
+capture deletion APIs are implemented; saved reports survive capture removal.
 
 Raw metrics/captures and cached summaries have configurable retention. Exhaustive
-disk-full and orphaned-failure-spool cleanup still require qualification. Backend
-logging/OTel, complete target CPU percentages and historical mapping UX remain
+disk-full qualification remains incomplete for a filesystem containing SQLite
+itself; a real separate capture-filesystem ENOSPC recovery test passes. Abandoned
+partial-file cleanup protects active sessions. Backend
+logging/OTel and historical mapping UX remain
 preview limitations. Native capture paths themselves do not run business code.
 
 Cooperative evidence stages at most 2,048 records and 16 MiB (or one quarter
 of the capture budget) per session. Larger workloads can lose context; loss
 disables precision. Live analysis uses a bounded private JSONL overlay from the
 same durable rows; final captures retain those rows and actual Lab allocations.
-Operation timeline filters are not a full asynchronous ownership model. Formal
-Python hypothesis scoring and automated repeated-workload control detection
-remain incomplete. No business operation is executed by production APIs.
+Operation timeline filters are not a full asynchronous ownership model. Phase 4
+adds durable metrics monitors, deterministic Rust hypotheses, explicit manual
+experiment phases and compatible interval comparisons. It does not run controlled
+business workloads automatically. Strong retention classifications require real
+compatible evidence; short traces frequently remain insufficient. No business
+operation is executed by production APIs. One collector instance per database is
+supported; multi-collector coordination is not implemented.

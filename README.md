@@ -62,12 +62,22 @@ contracts, executable validation, installers, CI and operator guidance.
 
 ## Native investigations
 
+Phase 4 adds [continuous metrics observation and bounded investigations](docs/usage/production-investigation.md),
+[automatic growth detection](docs/usage/automatic-detection.md), physical native
+capture windows, adaptive safety, deterministic findings and repeated-operation
+experiments. Monitoring keeps no allocator probes attached. Separate windows
+never become one exact lifetime trace. Readiness stays fail-closed until independent
+release gates qualify; releases remain engineering previews.
+
+Actual local results, scoped readiness and remaining blockers are recorded in
+the [Phase 4 validation report](docs/development/phase4-validation.md).
+
 See the [complete native leak tutorial](docs/usage/native-allocation-leak.md).
 A controlled 48-block leak was attributed to its actual C caller with exactly
 3,145,728 retained bytes and zero loss; the cleanup control retained zero.
 Native binaries are built against glibc 2.31 and load on Ubuntu 20.04/22.04/24.04.
 Kernel attachment is verified on 6.19.14+kali-amd64; the Ubuntu kernel matrix
-and production overhead target remain unqualified. Final allocation-heavy target CPU costs range +289–633% for Native Light and
+and production overhead target remain unqualified. Historical Phase 3 allocation-heavy target CPU costs range +289–633% for Native Light and
 +605–687% for Detailed on shared hardware. Keep metrics-only as default; no
 production CPU target is qualified. See [measured performance](docs/development/production-performance.md).
 
@@ -90,6 +100,13 @@ domains. See [attribution evidence](docs/architecture/python-attribution.md).
 .venv/bin/leakscope capture --pid 1234 --native --duration 30s --output native.lscap
 .venv/bin/leakscope analyze investigation.lscap
 .venv/bin/leakscope report investigation.lscap --output report.html
+.venv/bin/leakscope monitor --pid 1234 --duration 24h --json
+.venv/bin/leakscope watch --pid 1234 --growth-mb 100 --window 30m --json
+.venv/bin/leakscope investigate --pid 1234 --policy native_light --duration 5s --json
+.venv/bin/leakscope findings SESSION_ID --json
+.venv/bin/leakscope performance SESSION_ID --json
+.venv/bin/leakscope report SESSION_ID --output investigation.html
+.venv/bin/leakscope release-readiness --json
 ```
 
 The CLI reads `.data/admin.token`, or `LEAKSCOPE_TOKEN`, and uses the same role

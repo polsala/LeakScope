@@ -40,8 +40,15 @@ Collector disconnection cannot block an ERP operation; failed datagrams are lost
 and quality is downgraded. This is availability protection, not guaranteed lossless
 delivery. Long continuous Lab workloads need frequent explicit safe-point drains.
 
-A full adaptive controller for measured target CPU, collector lag, external
-request latency and automatic stack-depth changes is **not implemented**. Existing
-guards stop detail rather than claiming a CPU SLO. Controlled ERP/uWSGI/RQ
+Phase 4 adds a measured adaptive controller for target/sensor CPU, collector lag,
+explicit external latency and stack-depth reduction followed by physical detach.
+Reference observations are not a causal CPU baseline. Kernel/agent occupancy is
+unavailable and labeled explicitly. The sensor samples itself once per second;
+the collector drains backlog promptly, reuses compression state and serializes
+each chunk once. The ACK queue is bounded to 16,384 records AND 4 MiB serialized
+data, with an independent sensor RSS guard. These are throughput/availability
+improvements, not elimination of allocator traps. Physical windows remove probes
+between investigations. See [adaptive control](adaptive-profiling.md) and
+[capture windows](capture-windows.md). Controlled ERP/uWSGI/RQ
 performance qualification remains a release blocker. See the measured
 [performance record](../development/production-performance.md).

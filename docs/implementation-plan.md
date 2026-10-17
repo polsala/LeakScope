@@ -32,3 +32,12 @@ Executed checklist: [phase3-checklist.md](phase3-checklist.md). Real Python/Lab
 validation and matched performance evidence are documented under development/.
 The end-to-end bounded attribution slice works; production performance, full
 adaptive control and broader compatibility/reliability acceptance remain open.
+
+## Phase 4 — observation, independent investigations and safety
+
+The implemented slice and explicit remaining certification work are tracked in
+[phase4-checklist.md](phase4-checklist.md). Continuous metrics, real physical
+windows, adaptive safety, deterministic findings, manual A/B operations, storage
+recovery, translated UI/CLI and scoped release gates are connected. Local kernel,
+Python, browser, ENOSPC, one-hour soak and matched performance evidence is in
+implementation-status.md and development/. This remains an engineering preview.

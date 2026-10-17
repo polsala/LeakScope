@@ -23,8 +23,9 @@ These are runtime ABI checks, not certification of each distribution's kernel.
 Production gate additionally requires controlled ERP CPU/RSS/p50/p95/p99 overhead,
 stable high-rate captures, soak, kernel matrix, hard disk-full and recovery tests,
 all advertised interpreter ABIs, revocation/credential and privacy review, and
-accessibility certification. The 3–5% CPU target remains unverified. A separate allocator-heavy batch latency
-increase of 84% in the latest run (748% in another qualifying run) is a release concern. No production SLO is claimed.
+accessibility certification. The 3–5% CPU target remains unverified. Historical
+Phase 2 allocation-heavy latency measurements included +84% and +748%; later
+workload-specific measurements do not erase that evidence. No production SLO is claimed.
 
 ## Phase 3 gates
 
@@ -40,4 +41,22 @@ Production performance remains blocked: final shared-host allocation-heavy CPU
 changes are +289–633% Light and +605–687% Detailed. Lower output is not a <5% SLO.
 Require dedicated-hardware raw trials, confidence intervals, end-to-end Deep/Lab
 CPU and latency, high-rate/soak/outage/ENOSPC and external target-KPI qualification.
-A full adaptive controller and time-specific mapping history are unfinished.
+Phase 4 implements measured adaptive control and physical capture windows;
+causal CPU certification and time-specific mapping history remain unfinished.
+
+## Phase 4 gates
+
+Local real-kernel tests must verify actual descriptor closure, independent
+epochs, no cross-gap precision, growth-trigger authorization and safety fallback
+with metrics continuing. A complete cleanup trace must match independent counts
+and zero retained bytes. A 3 MiB positive control must still match. Bursts must
+report active AND amortized overhead and omitted coverage. Losing a Detailed
+trace under load fails accuracy qualification, even if target CPU drops afterward.
+
+One-hour metrics/cache/restart soak and separate-filesystem ENOSPC recovery have
+local evidence. Multi-hour native stability, SQLite-volume failure, fork/FD
+storms, dedicated ERP/uWSGI/RQ CPU/latency, Ubuntu kernels, comprehensive WCAG,
+security and provenance remain open. The machine-readable dashboard is
+fail-closed; command receipts must match current source and actual tested scope.
+Engineering previews are published as prereleases. Passing portable tests or one
+local kernel does not certify a production release.

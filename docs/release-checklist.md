@@ -20,3 +20,10 @@ Phase 3 additions before any production claim:
 - [ ] Certify agent binary glibc baseline or distribute only target-built source.
 - [ ] Complete mapping-history, signal/subinterpreter and full adaptive-controller gates.
 - [ ] Run the protected exact-tag real-kernel and genuine Lab attribution gates.
+
+Phase 4 adds current-source command receipts and a fail-closed readiness
+endpoint/dashboard. Production requires all independent gates verified; local
+partial ABI/kernel/storage/soak evidence cannot be promoted by editing a workflow.
+Published engineering previews use `--prerelease`. Physical burst duty cycle and
+active-window cost must both be disclosed; separate windows never supply exact
+cross-gap lifetimes. See phase4-checklist.md for executed and still-open scope.

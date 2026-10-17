@@ -1,0 +1,251 @@
+{
+  "schema_version": 1,
+  "production_ready": false,
+  "release_label": "engineering_preview",
+  "gates": [
+    {
+      "key": "portable",
+      "title": "Portable tests and API contracts",
+      "status": "verified",
+      "reason": "Current-source Rust, Python API/security/integration, Vitest, lint and type checks; installed package and privileged kernel are separate gates",
+      "evidence": {
+        "status": "verified",
+        "passed": true,
+        "exit_code": 0,
+        "started_at": 1792229662.1695108,
+        "completed_at": 1792229771.463531,
+        "source_fingerprint": "4f2bdcfd11f947885e8c1aa2c2800e5e4212a9d1c32820ed4874cc0dddbe2b5a",
+        "command": [
+          "make",
+          "test",
+          "lint",
+          "typecheck"
+        ],
+        "reason": "Current-source Rust, Python API/security/integration, Vitest, lint and type checks; installed package and privileged kernel are separate gates"
+      }
+    },
+    {
+      "key": "kernel",
+      "title": "Real kernel attachment and browser fixtures",
+      "status": "partially_verified",
+      "reason": "Real tests on Linux 6.19.14 only; Ubuntu kernel matrix and protected remote CI remain unverified",
+      "evidence": {
+        "status": "partially_verified",
+        "passed": true,
+        "exit_code": 0,
+        "started_at": 1792229689.2178295,
+        "completed_at": 1792229822.0422184,
+        "source_fingerprint": "4f2bdcfd11f947885e8c1aa2c2800e5e4212a9d1c32820ed4874cc0dddbe2b5a",
+        "command": [
+          "docker",
+          "run",
+          "--rm",
+          "--privileged",
+          "--network",
+          "none",
+          "-v",
+          "<workspace>:/source",
+          "leakscope-kernel:phase4",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/kernel"
+        ],
+        "reason": "Real tests on Linux 6.19.14 only; Ubuntu kernel matrix and protected remote CI remain unverified"
+      }
+    },
+    {
+      "key": "python_abi",
+      "title": "Genuine CPython 2.7 ABI matrix",
+      "status": "partially_verified",
+      "reason": "Genuine UCS2 release, UCS4 debug and UCS4 Lab; remaining ABI/vendor matrix not certified",
+      "evidence": {
+        "status": "partially_verified",
+        "passed": true,
+        "exit_code": 0,
+        "started_at": 1792229822.0809352,
+        "completed_at": 1792229827.6909702,
+        "source_fingerprint": "4f2bdcfd11f947885e8c1aa2c2800e5e4212a9d1c32820ed4874cc0dddbe2b5a",
+        "command": [
+          "bash",
+          "scripts/test-python27-installed.sh"
+        ],
+        "reason": "Genuine UCS2 release, UCS4 debug and UCS4 Lab; remaining ABI/vendor matrix not certified"
+      }
+    },
+    {
+      "key": "binary_compatibility",
+      "title": "Ubuntu native binary runtime loading",
+      "status": "verified",
+      "reason": "Actual glibc 2.31 binary loading and ldd on Ubuntu 20.04/22.04/24.04 containers; kernel tracing is a separate gate",
+      "evidence": {
+        "status": "verified",
+        "passed": true,
+        "exit_code": 0,
+        "started_at": 1792229827.7343776,
+        "completed_at": 1792229829.3534212,
+        "source_fingerprint": "4f2bdcfd11f947885e8c1aa2c2800e5e4212a9d1c32820ed4874cc0dddbe2b5a",
+        "command": [
+          "bash",
+          "scripts/test-ubuntu-native.sh"
+        ],
+        "reason": "Actual glibc 2.31 binary loading and ldd on Ubuntu 20.04/22.04/24.04 containers; kernel tracing is a separate gate"
+      }
+    },
+    {
+      "key": "performance",
+      "title": "Controlled target CPU and latency qualification",
+      "status": "experimental",
+      "reason": "Measured matched ERP runs on shared powersave hardware. Partial burst coverage; no production CPU/latency SLO",
+      "evidence": {
+        "status": "experimental",
+        "passed": true,
+        "exit_code": 0,
+        "started_at": 1792229896.4190142,
+        "completed_at": 1792229896.4764647,
+        "source_fingerprint": "4f2bdcfd11f947885e8c1aa2c2800e5e4212a9d1c32820ed4874cc0dddbe2b5a",
+        "command": [
+          "<workspace>/.venv/bin/python",
+          "scripts/summarize-bursts.py",
+          "--output",
+          "artifacts/performance/receipt-summary.json"
+        ],
+        "reason": "Measured matched ERP runs on shared powersave hardware. Partial burst coverage; no production CPU/latency SLO"
+      }
+    },
+    {
+      "key": "soak",
+      "title": "Long-running memory stability and restarts",
+      "status": "partially_verified",
+      "reason": "Current-source 60-second restart smoke; prior observation slice completed 3600 seconds. Multi-hour native qualification remains open",
+      "evidence": {
+        "status": "partially_verified",
+        "passed": true,
+        "exit_code": 0,
+        "started_at": 1792229835.230249,
+        "completed_at": 1792229896.3781455,
+        "source_fingerprint": "4f2bdcfd11f947885e8c1aa2c2800e5e4212a9d1c32820ed4874cc0dddbe2b5a",
+        "command": [
+          "<workspace>/.venv/bin/python",
+          "tests/soak/observation.py",
+          "--duration",
+          "60",
+          "--restart-interval",
+          "20",
+          "--output",
+          "artifacts/soak/phase4-final-minute.json"
+        ],
+        "reason": "Current-source 60-second restart smoke; prior observation slice completed 3600 seconds. Multi-hour native qualification remains open"
+      }
+    },
+    {
+      "key": "security",
+      "title": "Dependency, source and privilege review",
+      "status": "partially_verified",
+      "reason": "Actual API security tests and production JavaScript dependency audit; full security/provenance/rotation review remains open",
+      "evidence": {
+        "status": "partially_verified",
+        "passed": true,
+        "exit_code": 0,
+        "started_at": 1792229896.5155747,
+        "completed_at": 1792229899.876624,
+        "source_fingerprint": "4f2bdcfd11f947885e8c1aa2c2800e5e4212a9d1c32820ed4874cc0dddbe2b5a",
+        "command": [
+          "make",
+          "test-security"
+        ],
+        "reason": "Actual API security tests and production JavaScript dependency audit; full security/provenance/rotation review remains open"
+      }
+    },
+    {
+      "key": "storage_recovery",
+      "title": "Real ENOSPC, quota and recovery",
+      "status": "partially_verified",
+      "reason": "Real separate capture-filesystem ENOSPC and prefix recovery; SQLite-volume ENOSPC is unqualified",
+      "evidence": {
+        "status": "partially_verified",
+        "passed": true,
+        "exit_code": 0,
+        "started_at": 1792229829.392105,
+        "completed_at": 1792229835.1877854,
+        "source_fingerprint": "4f2bdcfd11f947885e8c1aa2c2800e5e4212a9d1c32820ed4874cc0dddbe2b5a",
+        "command": [
+          "docker",
+          "run",
+          "--rm",
+          "--network",
+          "none",
+          "--tmpfs",
+          "/full:rw,size=1048576,uid=1000,gid=1000,mode=0700",
+          "-e",
+          "LEAKSCOPE_ENOSPC_PATH=/full",
+          "-e",
+          "LEAKSCOPE_SENSOR_BIN=/source/artifacts/native-baseline/leakscope-sensor",
+          "-v",
+          "<workspace>:/source",
+          "leakscope-kernel:phase4",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/reliability/test_storage.py"
+        ],
+        "reason": "Real separate capture-filesystem ENOSPC and prefix recovery; SQLite-volume ENOSPC is unqualified"
+      }
+    },
+    {
+      "key": "accessibility",
+      "title": "Keyboard, screen reader and contrast qualification",
+      "status": "partially_verified",
+      "reason": "Actual Chromium keyboard/mobile/translated investigation journeys; full WCAG screen-reader/contrast certification remains open",
+      "evidence": {
+        "status": "partially_verified",
+        "passed": true,
+        "exit_code": 0,
+        "started_at": 1792229902.7727919,
+        "completed_at": 1792229916.7861705,
+        "source_fingerprint": "4f2bdcfd11f947885e8c1aa2c2800e5e4212a9d1c32820ed4874cc0dddbe2b5a",
+        "command": [
+          "corepack",
+          "pnpm",
+          "--dir",
+          "apps/web",
+          "exec",
+          "playwright",
+          "test"
+        ],
+        "reason": "Actual Chromium keyboard/mobile/translated investigation journeys; full WCAG screen-reader/contrast certification remains open"
+      }
+    },
+    {
+      "key": "packaging",
+      "title": "Offline installation and package integrity",
+      "status": "partially_verified",
+      "reason": "Fresh offline installation with actual API/web/sensor/analyzer/monitor/findings/report; distribution-wide runtime/kernel matrix remains separate",
+      "evidence": {
+        "status": "partially_verified",
+        "passed": true,
+        "exit_code": 0,
+        "started_at": 1792229899.9196947,
+        "completed_at": 1792229902.7317827,
+        "source_fingerprint": "4f2bdcfd11f947885e8c1aa2c2800e5e4212a9d1c32820ed4874cc0dddbe2b5a",
+        "command": [
+          "<workspace>/.venv/bin/python",
+          "scripts/validate-package.py",
+          "--prefix",
+          "/tmp/leakscope-phase4-installed"
+        ],
+        "reason": "Fresh offline installation with actual API/web/sensor/analyzer/monitor/findings/report; distribution-wide runtime/kernel matrix remains separate"
+      }
+    },
+    {
+      "key": "provenance",
+      "title": "Release source/build provenance and signatures",
+      "status": "blocked",
+      "reason": "Missing, stale, failed or mismatched source evidence",
+      "evidence": null
+    }
+  ],
+  "source_fingerprint": "4f2bdcfd11f947885e8c1aa2c2800e5e4212a9d1c32820ed4874cc0dddbe2b5a",
+  "trust": "Explicit trusted build/operator command receipts; not signed provenance. Kernel/ABI/performance scopes must be reviewed.",
+  "lab": "experimental"
+}

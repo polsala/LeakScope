@@ -49,3 +49,11 @@ Python operation/function correlation, forced loss and native browser regression
 pass on the same real kernel. Nonzero monotonic time namespaces are rejected
 rather than joined to incompatible Python clocks. In-flight/late stop events
 downgrade survivors. Full kernel/namespace matrices remain unverified.
+
+Phase 4 physically detached windows and adaptive safety pass on this same local
+kernel. Tests inspect actual sensor perf/BPF descriptors, independent epochs,
+automatic growth authorization and stale collector feedback with slow metric
+sampling. Twelve repeated windows stabilize near 67–85 MiB sensor RSS across local runs with zero
+probe descriptors after each. This is a bounded local exercise, not prolonged
+100k/s, transient mappings, namespace or Ubuntu kernel certification. Ring
+occupancy remains unavailable; actual ring/collector loss counters are reported.
