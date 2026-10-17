@@ -6,6 +6,7 @@ export UV_CACHE_DIR="${UV_CACHE_DIR:-$root/.cache/uv}"
 make build
 stage="$root/artifacts/leakscope-0.1.0-linux-x86_64"
 mkdir -p "$stage/bin" "$stage/wheels"
+.venv/bin/python -c 'from pathlib import Path; from leakscope_api.readiness import fingerprint; print(fingerprint(Path.cwd()))' > "$stage/source-fingerprint"
 # Never package host-linked binaries: enforce the Ubuntu 20.04/glibc 2.31 baseline.
 bash scripts/test-ubuntu-native.sh
 cp artifacts/native-baseline/leakscope-sensor artifacts/native-baseline/leakscope-analyzer "$stage/bin/"

@@ -73,7 +73,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           shopt -s nullglob
-          gh release create "${GITHUB_REF_NAME}" artifacts/*.tar.gz artifacts/*.deb artifacts/SHA256SUMS* artifacts/sbom.cdx.json dist/*.whl dist/*.tar.gz --generate-notes
+          # Engineering preview until all independent production gates qualify.
+          # Portable/kernel success alone is insufficient for production labeling.
+          gh release create "${GITHUB_REF_NAME}" artifacts/*.tar.gz artifacts/*.deb artifacts/SHA256SUMS* artifacts/sbom.cdx.json dist/*.whl dist/*.tar.gz --generate-notes --prerelease
+      - name: Publish fail-closed machine-readable readiness
+        run: .venv/bin/python scripts/release-gates.py > artifacts/release-readiness.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: distribution
@@ -82,3 +86,4 @@ jobs:
             artifacts/*.deb
             artifacts/SHA256SUMS*
             artifacts/sbom.cdx.json
+            artifacts/release-readiness.json

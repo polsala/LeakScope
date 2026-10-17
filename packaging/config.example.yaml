@@ -9,6 +9,30 @@ profiling:
   max_capture_mb: 50
   max_concurrent_sessions: 2
   max_sensor_rss_mb: 128
+  allow_automatic_native_capture: false
+  max_automatic_native_seconds: 15
+  automatic_capture_cooldown_seconds: 600
+monitoring:
+  max_processes: 32
+  max_samples_per_process: 10000
+  max_duration_seconds: 604800
+  max_capture_windows: 100
+detection:
+  enabled: true
+  minimum_observation_seconds: 900
+  warmup_seconds: 300
+  window_seconds: 300
+  sustained_windows: 3
+  minimum_growth_bytes: 52428800
+  minimum_rate_bytes_per_hour: 20971520
+  maximum_sample_gap_seconds: 60
+overhead:
+  target_cpu_increase_percent: 5
+  maximum_sensor_cpu_percent: 50
+  maximum_collector_lag_ms: 500
+  minimum_observation_seconds: 10
+  consecutive_violations: 2
+  maximum_target_latency_increase_percent: 20
 retention:
   process_metrics_days: 7
   raw_captures_hours: 24

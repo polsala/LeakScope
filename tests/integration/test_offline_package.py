@@ -21,6 +21,7 @@ assert len(app.routes)>40
 from pathlib import Path
 assert (Path(__import__("leakscope_api").__file__).parent/"migrations/versions/0001_initial.py").is_file()
 assert (Path(__import__("leakscope_api").__file__).parent/"migrations/versions/0002_agent_evidence.py").is_file()
+assert (Path(__import__("leakscope_api").__file__).parent/"migrations/versions/0003_monitoring.py").is_file()
 print("installed migrations and API factory passed")"""
     result = subprocess.run(
         [str(interpreter), "-c", code],

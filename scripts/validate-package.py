@@ -13,6 +13,7 @@ import httpx
 parser = argparse.ArgumentParser()
 parser.add_argument("--prefix", type=Path, required=True)
 args = parser.parse_args()
+assert len((args.prefix / "source-fingerprint").read_text().strip()) == 64
 with tempfile.TemporaryDirectory(prefix="leakscope-package-qa-") as temporary:
     data = Path(temporary)
     env = {**os.environ, "LEAKSCOPE_DATA": str(data), "PYTHONPATH": ""}
@@ -45,6 +46,16 @@ with tempfile.TemporaryDirectory(prefix="leakscope-package-qa-") as temporary:
                 "items"
             ]
             target = next(p for p in processes if p["pid"] == os.getpid())
+            monitor = client.post(
+                "/api/v1/monitors",
+                json={
+                    "process_key": target["key"],
+                    "duration_seconds": 30,
+                    "interval_seconds": 0.2,
+                },
+            )
+            monitor.raise_for_status()
+            mid = monitor.json()["id"]
             response = client.post(
                 "/api/v1/sessions",
                 json={
@@ -55,6 +66,10 @@ with tempfile.TemporaryDirectory(prefix="leakscope-package-qa-") as temporary:
             )
             response.raise_for_status()
             sid = response.json()["id"]
+            experiment = client.post(
+                f"/api/v1/sessions/{sid}/experiments", json={"operation": "package.fixture"}
+            )
+            experiment.raise_for_status()
             for _ in range(50):
                 session = client.get("/api/v1/sessions/" + sid).json()
                 if session["state"] in {"ready", "degraded", "failed", "cancelled", "expired"}:
@@ -63,7 +78,20 @@ with tempfile.TemporaryDirectory(prefix="leakscope-package-qa-") as temporary:
             assert session["state"] == "ready", session
             timeline = client.get("/api/v1/sessions/" + sid + "/timeline").json()
             assert len(timeline["items"]) >= 2 and timeline["items"][0]["rss"] > 0
-            print("Offline package: API, web assets, migrations, sensor and real capture passed")
+            assert client.get(f"/api/v1/monitors/{mid}/timeline").json()["items"]
+            assert client.post(f"/api/v1/monitors/{mid}/stop").json()["state"] == "stopped"
+            findings = client.get(f"/api/v1/sessions/{sid}/findings")
+            findings.raise_for_status()
+            assert findings.json()["hypothesis"]["known_retained_bytes"] is None
+            assert not client.get("/api/v1/release/readiness").json()["production_ready"]
+            report = client.post(
+                "/api/v1/reports", json={"session_id": sid, "title": "Installed real capture"}
+            )
+            report.raise_for_status()
+            assert client.get(f"/api/v1/reports/{report.json()['id']}/download").is_success
+            print(
+                "Offline package: API, web assets, all migrations, native sensor/analyzer, real capture, monitor, findings, experiment and report passed"
+            )
     finally:
         if child.poll() is None:
             child.send_signal(signal.SIGINT)

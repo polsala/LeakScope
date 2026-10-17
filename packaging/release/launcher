@@ -3,4 +3,5 @@ set -euo pipefail
 prefix="$(cd "$(dirname "$0")/.." && pwd)"
 export PATH="$prefix/bin:$PATH"
 export LEAKSCOPE_WEB_DIST="$prefix/web-dist"
+export LEAKSCOPE_BUILD_FINGERPRINT_FILE="$prefix/source-fingerprint"
 exec "$prefix/venv/bin/leakscope" "$@"
