@@ -16,8 +16,9 @@ import httpx
 
 
 class Deployment(AbstractContextManager):
-    def __init__(self, executable: Path, data: Path, *, timeout=30, port=0, env=None):
+    def __init__(self, executable: Path, data: Path, *, timeout=30, port=0, env=None, command=None):
         self.executable = executable.resolve()
+        self.command = command
         self.data = data.resolve()
         self.timeout = timeout
         # Hold the candidate port until immediately before Popen; a collision
@@ -40,7 +41,8 @@ class Deployment(AbstractContextManager):
         self.log = (self.data / "server.log").open("wb")
         try:
             self.child = subprocess.Popen(
-                [str(self.executable), "serve", "--listen", f"127.0.0.1:{self.port}"],
+                self.command
+                or [str(self.executable), "serve", "--listen", f"127.0.0.1:{self.port}"],
                 cwd=self.data,
                 env=self.env,
                 stdin=subprocess.DEVNULL,

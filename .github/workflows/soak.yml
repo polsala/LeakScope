@@ -37,13 +37,15 @@ jobs:
             !artifacts/soak/**/leakscope.sqlite3*
             !artifacts/soak/**/*.sock
   native-authorization:
-    if: github.ref == 'refs/heads/main' && inputs.profile == 'native'
+    if: inputs.profile == 'native'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
       deployments: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Reject native dispatch outside trusted main
+        run: test "$GITHUB_REF" = refs/heads/main
       - run: python3 scripts/check-trusted-environment.py kernel-validation
         env:
           GH_TOKEN: ${{ github.token }}
