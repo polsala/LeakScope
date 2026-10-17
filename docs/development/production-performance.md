@@ -130,3 +130,14 @@ p95, p99, confidence intervals, target CPU/RSS, profiler CPU/RSS, loss, lag,
 storage growth, analysis time and attribution coverage. Full-pipeline Deep/Lab,
 100k/s, long soak, externally supplied target KPIs and stable regression thresholds
 remain release blockers. Do not discard incomplete events to meet a target.
+
+## Phase 5 measurements
+
+The sensor working set improved to ~25 MiB in the unchanged twelve-window test
+versus a separate ~85 MiB baseline peak; this is sensor RSS, not target CPU.
+New five-trial shared-host ORM-like results remain unqualified: Light CPU
++56.21..84.16%, Detailed +5.14..38.66%, burst whole-workload -15.34..+8.60%
+while observing only 2/128 operations. Negative values indicate noise, not a
+claimed speedup. See [full evidence and latency ranges](phase5-validation.md).
+Historical allocation-intensive costs remain relevant. Controlled hardware,
+real database/uWSGI/RQ loads and full Deep/Lab costs remain release blockers.

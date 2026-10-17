@@ -58,3 +58,12 @@ Phase 3 policies and guard transitions are documented in overhead-control.md.
 Nonzero monotonic time namespaces are rejected. Detach counts in-flight calls
 and late records; uncertainty invalidates survivor precision. Native Light
 uses a bounded non-LRU selected-pointer table and preserves selected lifetimes.
+
+## Phase 5 memory stability
+
+The sensor uses a single Tokio event-loop thread. Native attach/drain and symbol
+resolution already serialize under the state mutex; this keeps short-lived ELF
+allocation working sets reusable rather than distributing them across allocator
+arenas. Socket I/O remains asynchronous. This is a measured sensor-RSS change,
+not a guarantee of target CPU overhead or high-rate throughput. Kernel regression
+checks retain their original memory limits and always preserve raw arrays.

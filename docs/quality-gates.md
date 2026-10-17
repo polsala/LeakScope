@@ -60,3 +60,18 @@ security and provenance remain open. The machine-readable dashboard is
 fail-closed; command receipts must match current source and actual tested scope.
 Engineering previews are published as prereleases. Passing portable tests or one
 local kernel does not certify a production release.
+
+## Phase 5 fail-closed scope
+
+A `verified` receipt must list every mandatory scope in `REQUIRED_SCOPE` in
+`readiness.py`, in addition to passing execution, matching source fingerprint and
+freshness. Missing production kernel, ABI, workload, manual review or deployment
+coverage blocks the gate. Use repeated `--scope ITEM` only for actual executed
+coverage. Partial smoke receipts do not authorize promotion. Source fingerprints
+now include extensionless packaging files, Dockerfiles and systemd units.
+
+Hosted PR/main gates include real installed offline Debian/tarball tests in three
+Ubuntu userlands. Kernel matrix jobs require distinct protected runner labels for
+5.15, 6.8 and 6.19 and verify `uname` before execution. Containers do not count as
+separate kernels. The native soak job uses the existing `kernel-validation`
+environment and never runs untrusted PR code. API-root startup is refused.

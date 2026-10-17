@@ -1,0 +1,440 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-17",
+  "production_ready": false,
+  "host": {
+    "kernel": "6.19.14+kali-amd64",
+    "cpu_model": "11th Gen Intel(R) Core(TM) i7-1165G7 @ 2.80GHz",
+    "governors": [
+      "powersave"
+    ],
+    "qualification": "shared development hardware; not a performance SLO"
+  },
+  "python27": {
+    "stock_abis": [
+      "ucs2_release",
+      "ucs2_debug",
+      "ucs4_release",
+      "ucs4_debug"
+    ],
+    "lab_abis": [
+      "ucs2_lab",
+      "ucs4_lab"
+    ],
+    "tests_per_abi": 20,
+    "expected_lab_only_skips_on_stock": 4,
+    "shared_ucs4_release": {
+      "maxunicode": 1114111,
+      "lab": false,
+      "version": [
+        2,
+        7,
+        18
+      ],
+      "cflags": "-fno-strict-aliasing -O1 -std=gnu99 -fno-omit-frame-pointer -fno-strict-aliasing -DNDEBUG -g -fwrapv -O3 -Wall -Wstrict-prototypes",
+      "abi": "cpython-2.7.18-ucs32-ptr64-gc32-trace0",
+      "shared": true,
+      "compiler": "GCC 15.2.0"
+    },
+    "vendor_patched_abis": "not_tested"
+  },
+  "ubuntu_userlands": {
+    "20.04": {
+      "offline_deb_and_tar_smoke": true,
+      "kernel_qualified": false
+    },
+    "22.04": {
+      "offline_deb_and_tar_smoke": true,
+      "kernel_qualified": false
+    },
+    "24.04": {
+      "offline_deb_and_tar_smoke": true,
+      "kernel_qualified": false
+    }
+  },
+  "kernels": {
+    "5.4": {
+      "native": "unsupported",
+      "metrics": "fallback"
+    },
+    "5.15": {
+      "native": "not_tested"
+    },
+    "6.8": {
+      "native": "not_tested"
+    },
+    "6.19.14+kali-amd64": {
+      "native": "verified_in_scope",
+      "scope": "Positive/cleanup/realloc/loss/detach fixtures"
+    }
+  },
+  "systemd": {
+    "user_services": "passed_readiness_capture_restart_cleanup",
+    "root_units": "not_tested"
+  },
+  "protected_github_environments": {
+    "kernel-validation": "missing_404",
+    "release": "not_configured",
+    "preflight": "fails_closed"
+  },
+  "performance": {
+    "metrics": {
+      "passed": true,
+      "cpu_overhead_percent_range": [
+        -22.209915279665104,
+        11.464198453533193
+      ],
+      "cpu_overhead_percent_median": -1.499017935156688,
+      "active_cpu_overhead_percent_range": null,
+      "profiled_cpu_seconds": [
+        0.4694580000000007,
+        0.4560609999999996,
+        0.40471000000000057,
+        0.4847159999999997,
+        0.31498800000000315
+      ],
+      "latency_ms": [
+        {
+          "p50": 4.2419,
+          "p95": 5.183,
+          "p99": 6.6571
+        },
+        {
+          "p50": 4.0371,
+          "p95": 5.573,
+          "p99": 7.369
+        },
+        {
+          "p50": 3.0301,
+          "p95": 5.8689,
+          "p99": 7.0291
+        },
+        {
+          "p50": 4.2539,
+          "p95": 5.409,
+          "p99": 7.7519
+        },
+        {
+          "p50": 1.8392,
+          "p95": 4.4682,
+          "p99": 5.7299
+        }
+      ],
+      "coverage_operations": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "native_light": {
+      "passed": true,
+      "cpu_overhead_percent_range": [
+        56.214953737436524,
+        84.15817266363975
+      ],
+      "cpu_overhead_percent_median": 64.61249515006038,
+      "active_cpu_overhead_percent_range": [
+        56.214953737436524,
+        84.15817266363975
+      ],
+      "profiled_cpu_seconds": [
+        0.7825510000000003,
+        0.7721609999999997,
+        0.9222540000000023,
+        0.907488999999992,
+        0.9087960000000024
+      ],
+      "latency_ms": [
+        {
+          "p50": 6.8719,
+          "p95": 8.4569,
+          "p99": 11.0779
+        },
+        {
+          "p50": 6.907,
+          "p95": 9.0079,
+          "p99": 9.4762
+        },
+        {
+          "p50": 7.4189,
+          "p95": 7.9229,
+          "p99": 11.394
+        },
+        {
+          "p50": 7.478,
+          "p95": 8.08,
+          "p99": 9.49
+        },
+        {
+          "p50": 7.4291,
+          "p95": 8.3411,
+          "p99": 9.6099
+        }
+      ],
+      "coverage_operations": [
+        128,
+        128,
+        128,
+        128,
+        128
+      ]
+    },
+    "native_detailed": {
+      "passed": true,
+      "cpu_overhead_percent_range": [
+        5.144431364946644,
+        38.663553906352696
+      ],
+      "cpu_overhead_percent_median": 25.37910932530034,
+      "active_cpu_overhead_percent_range": [
+        5.144431364946644,
+        38.663553906352696
+      ],
+      "profiled_cpu_seconds": [
+        0.6951329999999994,
+        0.7270040000000004,
+        0.6922239999999986,
+        0.7187790000000023,
+        0.577459000000001
+      ],
+      "latency_ms": [
+        {
+          "p50": 5.141,
+          "p95": 8.162,
+          "p99": 11.2908
+        },
+        {
+          "p50": 5.867,
+          "p95": 7.9951,
+          "p99": 8.3239
+        },
+        {
+          "p50": 5.316,
+          "p95": 7.8361,
+          "p99": 8.1429
+        },
+        {
+          "p50": 5.5029,
+          "p95": 8.7628,
+          "p99": 10.4439
+        },
+        {
+          "p50": 4.0109,
+          "p95": 7.8089,
+          "p99": 8.6951
+        }
+      ],
+      "coverage_operations": [
+        128,
+        128,
+        128,
+        128,
+        128
+      ]
+    },
+    "burst": {
+      "passed": true,
+      "cpu_overhead_percent_range": [
+        -15.342567378066551,
+        8.60187481949617
+      ],
+      "cpu_overhead_percent_median": 1.91123215620701,
+      "active_cpu_overhead_percent_range": [
+        -15.908970346398077,
+        117.88457473046007
+      ],
+      "profiled_cpu_seconds": [
+        0.5766270000000003,
+        0.5497689999999977,
+        0.558320999999995,
+        0.603537000000002,
+        0.4678720000000105
+      ],
+      "latency_ms": [
+        {
+          "p50": 4.627,
+          "p95": 4.832,
+          "p99": 5.5721
+        },
+        {
+          "p50": 4.606,
+          "p95": 4.9322,
+          "p99": 7.1759
+        },
+        {
+          "p50": 4.642,
+          "p95": 4.844,
+          "p99": 5.424
+        },
+        {
+          "p50": 4.653,
+          "p95": 5.249,
+          "p99": 7.7031
+        },
+        {
+          "p50": 4.5929,
+          "p95": 4.987,
+          "p99": 7.6351
+        }
+      ],
+      "coverage_operations": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    }
+  },
+  "soaks": {
+    "phase5-native-two-hours": {
+      "passed": true,
+      "completed_sessions": 431,
+      "actual_seconds": 7211.590431680001,
+      "limitations": [
+        "Collector shares the driver process.",
+        "Independent bounded windows, with coverage gaps.",
+        "Thresholds are regression smoke budgets, not multi-hour certification baselines."
+      ],
+      "native_loss_sum": 0,
+      "all_probe_fds_detached": true,
+      "resources": {
+        "sensor_rss": {
+          "first": 56508416,
+          "last": 86753280,
+          "max": 117583872
+        },
+        "collector_rss": {
+          "first": 92626944,
+          "last": 142213120,
+          "max": 144130048
+        },
+        "collector_fds": {
+          "first": 16,
+          "last": 16,
+          "max": 18
+        },
+        "wal_bytes": {
+          "first": 1062992,
+          "last": 1091832,
+          "max": 1112432
+        },
+        "storage_bytes": {
+          "first": 1462115,
+          "last": 27064574,
+          "max": 27064574
+        }
+      }
+    },
+    "phase5-single-thread-one-hour": {
+      "passed": true,
+      "completed_sessions": 216,
+      "actual_seconds": 3607.1848638999945,
+      "limitations": [
+        "Collector shares the driver process.",
+        "Independent bounded windows, with coverage gaps.",
+        "Thresholds are regression smoke budgets, not multi-hour certification baselines."
+      ],
+      "native_loss_sum": 0,
+      "all_probe_fds_detached": true,
+      "resources": {
+        "sensor_rss": {
+          "first": 28131328,
+          "last": 37040128,
+          "max": 37040128
+        },
+        "collector_rss": {
+          "first": 92643328,
+          "last": 124121088,
+          "max": 124121088
+        },
+        "collector_fds": {
+          "first": 16,
+          "last": 16,
+          "max": 16
+        },
+        "wal_bytes": {
+          "first": 1054752,
+          "last": 1091832,
+          "max": 1100072
+        },
+        "storage_bytes": {
+          "first": 1453237,
+          "last": 14093446,
+          "max": 14093446
+        }
+      }
+    },
+    "phase5-installed-native": {
+      "passed": true,
+      "completed_sessions": 25,
+      "actual_seconds": 120.784846413997,
+      "limitations": [
+        "Collector is a separate installed process.",
+        "Independent bounded windows, with coverage gaps.",
+        "Thresholds are regression smoke budgets, not multi-hour certification baselines."
+      ],
+      "native_loss_sum": 0,
+      "all_probe_fds_detached": true,
+      "resources": {
+        "sensor_rss": {
+          "first": 28884992,
+          "last": 36597760,
+          "max": 36925440
+        },
+        "collector_rss": {
+          "first": 90812416,
+          "last": 92557312,
+          "max": 94732288
+        },
+        "collector_fds": {
+          "first": 16,
+          "last": 16,
+          "max": 16
+        },
+        "wal_bytes": {
+          "first": 622152,
+          "last": 1100072,
+          "max": 1100072
+        },
+        "storage_bytes": {
+          "first": 960626,
+          "last": 1818001,
+          "max": 1818001
+        }
+      }
+    },
+    "remote_observation": {
+      "duration_requested_seconds": 3600,
+      "kind": "measured_python27_metrics_cache_soak",
+      "restarts": 12,
+      "operations": 17889,
+      "sensor_rss_bytes_end_minus_start": -65536,
+      "collector_driver_rss_bytes_end_minus_start": 13135872,
+      "actual_duration_seconds": 3600.337435383,
+      "passed": true
+    },
+    "remote_lifecycle": {
+      "requested_seconds": 300,
+      "completed_sessions": 245,
+      "passed": true,
+      "actual_seconds": 301.0754657100001
+    }
+  },
+  "production_blockers": [
+    "Additional real Ubuntu kernels",
+    "Root system-unit deployment and interrupted migration recovery",
+    "Controlled ERP/database/uWSGI/RQ workload qualification",
+    "Multi-hour sustained native, Python Deep and Lab matrix on final installed build",
+    "Manual accessibility review",
+    "Complete native-library SBOM/security qualification and signed provenance"
+  ],
+  "review_source_fingerprint": "42f927d8240ab0b6dc3eee0c4234faea61416786c4b6565ea8b0ebc8a4cfbaa2",
+  "evidence_scope": "Independent executed runs on several commits and binary hashes; review fingerprint is not test provenance",
+  "native_browser": {
+    "passed": true,
+    "scope": "Actual BPF capture, native flamegraph and report on kernel 6.19.14+kali-amd64"
+  }
+}

@@ -57,3 +57,11 @@ sampling. Twelve repeated windows stabilize near 67–85 MiB sensor RSS across l
 probe descriptors after each. This is a bounded local exercise, not prolonged
 100k/s, transient mappings, namespace or Ubuntu kernel certification. Ring
 occupancy remains unavailable; actual ring/collector loss counters are reported.
+
+## Phase 5 qualification scope
+
+Native allocator accounting, positive/cleanup controls and physical detach were
+rerun on 6.19.14+kali-amd64. A sensor RSS regression was corrected without changing
+probe/accounting behavior. 5.15 and 6.8 require distinct real protected VM runners;
+no local container result qualifies those kernels. Native Windows/Deep/Lab soak
+durations and thread-runtime changes must retain their own actual measurements.

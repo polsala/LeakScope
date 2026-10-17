@@ -67,3 +67,19 @@ costs on protected hardware. No stable target CPU regression baseline or full
 production workload qualification is claimed. Agent compatibility sources and
 all required C headers ship in the standalone bundle. These workflows pass local
 actionlint validation; no remote GitHub run was started or claimed here.
+
+## Phase 5 execution
+
+Portable quality also runs on main. Native workflow includes actual installed
+package tests, using the bundled runtime and networking disabled. ABI build logs
+are uploaded even on failure. Soak uses the shared authenticated startup helper;
+logs, incomplete results and raw time series are retained. The protected native
+soak is independent from the hosted metrics soak and must really attach probes.
+Kernel runners need `kernel-5.15`, `kernel-6.8` or `kernel-6.19` labels matching
+their actual VM/host kernel, plus `leakscope-kernel`. Unknown/unavailable runners
+are unverified, never successful skips. Configure protected environments outside
+repository code and never register public PR runners with tracing privileges.
+
+The release workflow pins the provenance action, attests distribution artifacts
+when trusted GitHub OIDC infrastructure executes it, and preserves optional GPG
+signing. Merely configuring this action does not create local provenance.

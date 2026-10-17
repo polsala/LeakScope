@@ -1,3 +1,9 @@
+> Phase 5 engineering preview: offline bundled-runtime packages, reliable startup,
+> genuine six-way Python 2 ABI tests and SQLite recovery are available. Production
+> promotion remains blocked pending the documented kernel, performance, deployment,
+> long-duration and security gates. See [installation](docs/installation/release-candidate.md)
+> and [executed evidence](docs/development/phase5-validation.md).
+
 # LeakScope
 
 Local memory investigations for long-running Linux processes, with a cooperative

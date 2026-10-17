@@ -35,3 +35,12 @@ Agent binaries built on a newer glibc are not certified for Ubuntu 20.04; the
 standalone package includes source for compilation against the target interpreter.
 CI defines further UCS2/UCS4 configurations but their presence is not executed
 certification. Lab debug combinations remain unverified.
+
+## Phase 5 genuine execution
+
+Both UCS2/UCS4 stock release/debug and isolated Lab builds execute 20 tests each;
+stock builds skip four Lab-only tests intentionally. A shared-libpython UCS4
+release with explicit custom flags also passes. Shim/native transport mismatch
+is rejected before activation; rebuild both together. These exact configurations
+do not certify arbitrary vendor layouts, all shared/debug/Lab combinations or
+subinterpreter deployments. External same-UID metrics remain the fallback.

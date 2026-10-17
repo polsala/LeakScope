@@ -1,22 +1,31 @@
 # Offline installation
 
-On a compatible connected build host run `make package`. Transfer the versioned
-tarball and SHA256SUMS over a trusted channel and verify with `sha256sum -c`.
-Extract into a private directory and run `PYTHON=python3.12 bash install.sh PREFIX`.
-The installer uses only the included wheelhouse and does not fetch dependencies.
-It requires an installed compatible Python with venv and pip; it is not a bundled
-Python runtime. Wheels match the build Python ABI and platform.
+On a connected build host run `make package`. Transfer the versioned standalone
+archive, Debian package if desired, and `SHA256SUMS` over a trusted channel.
+Authenticate the manifest/signature/attestation when available, then verify hashes
+before extracting into a private directory.
 
-Run `PREFIX/bin/leakscope doctor`, then `PREFIX/bin/leakscope serve` from a
-directory whose `.data` is private. The launcher sets the native sensor PATH and
-the web distribution path. Check credentials and access policy before monitoring.
+```sh
+sha256sum --check SHA256SUMS
+# Run inside the extracted distribution:
+bash verify.sh .
+bash install.sh "$HOME/.local/lib/leakscope"
+```
 
-Release checksums establish integrity against a trusted manifest, not publisher
-authenticity by themselves. Detached signatures exist only when release signing
-credentials are configured and signing actually succeeds.
+The distribution includes pinned CPython 3.12.15, the complete wheelhouse, native
+binaries and web assets. Targets do not need an external modern Python or Docker.
+The installer performs no network access. Ordinary runtime files and licenses
+remain inspectable; bundled security updates require a new LeakScope release.
+Native binaries retain the verified Ubuntu 20.04/glibc 2.31 baseline.
 
-The standalone wheelhouse targets CPython 3.12 on Linux x86_64. Supply that
-modern runtime before running install.sh; Python 2 is only the monitored target.
-Native sensor/analyzer binaries use the separately verified glibc 2.31 baseline.
-Offline operator documentation is included under docs/ in the distribution and
-installation prefix. Repeated package builds refresh the actual frontend index.
+Run `PREFIX/bin/leakscope doctor`, then `PREFIX/bin/leakscope serve` as an
+unprivileged UID authorized for the target. Use a private `LEAKSCOPE_DATA` directory.
+The launcher selects the matching native binaries, web assets and build identity.
+Root API startup is refused. For privileged sensors use a root-owned system
+installation and separately managed units, not a writable user installation.
+
+Checksums alone do not establish publisher authenticity. Signatures exist only
+when credentials are configured and signing actually succeeded. The verifier
+checks file contents, unexpected files and symlink metadata. See the
+[installation and upgrade guide](release-candidate.md) for service setup,
+consistent database backups, rollback restrictions and retained data.

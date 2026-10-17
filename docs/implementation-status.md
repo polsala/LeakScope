@@ -1,9 +1,28 @@
 # Actual implementation status
 
-Engineering preview, updated 2026-10-17. Phase 4 adds durable observation,
-physical capture windows, adaptive safety and deterministic findings to the real
-native/Python attribution pipeline. It is not production-certified. Local GitHub
-workflow definitions are not evidence that GitHub or every supported kernel ran.
+Engineering preview, updated 2026-10-17 for Phase 5. Nonblocking transport loss
+accounting, authenticated startup, offline bundled-runtime installation, SQLite
+recovery, deployment diagnostics and release gates are implemented and exercised.
+This is not production-certified. [Phase 5 evidence](development/phase5-validation.md)
+distinguishes remote CI passes, local measurements and unfinished qualification.
+Historical Phase 4/3 measurements below remain relevant; later smoke tests do not
+certify every kernel, vendor ABI, workload or deployment configuration.
+
+Phase 5 adds a pinned auditable CPython 3.12.15 runtime, versioned offline installer
+and compatible-schema rollback, separate unprivileged API/sensor systemd units,
+actual installed Debian/tarball userland validation, native GIL-held drop counters,
+real SQLite main/WAL ENOSPC and active-recording prefix recovery, online backup,
+WAL pressure protection and bounded health checks. All six stock/Lab ABI matrix
+configurations execute genuine Python 2.7.18 tests. Native sensor repeated-window
+RSS decreased from a separate ~85 MiB baseline peak to ~25 MiB using one event-loop
+thread; target CPU and latency costs are not newly certified. The full native
+regression suite passes without relaxing its accounting/memory assertions.
+
+Root system deployment, interrupted migrations, additional real Ubuntu kernels,
+controlled ERP/uWSGI/RQ costs, sustained native/Deep/Lab multi-hour matrices,
+manual accessibility and complete runtime provenance remain release blockers.
+Long-running test results must be recorded after completion, not inferred from
+an active process. See the current receipts and raw `artifacts/soak/` evidence.
 
 | Capability | Status and actual evidence |
 | --- | --- |
@@ -30,7 +49,7 @@ workflow definitions are not evidence that GitHub or every supported kernel ran.
 | Ubuntu kernel matrix | Not certified; container ABI tests share the host kernel. Real attachment verified on 6.19.14+kali-amd64 only |
 | Resource safety | Duration, capture bytes, bounded ring/queues/tables, concurrent leases, sensor RSS guard, loss-triggered detailed stop, cleanup; CPU percentage is not a hard cap |
 | Policies/performance | Metrics, Native Light, Detailed, Python Deep and Lab Full exposed. Light preserves threshold-selected lifetimes and reduces output; final allocation-heavy CPU +289–633% Light, +605–687% Detailed. No <5% qualification |
-| CI/release | Existing workflows extended; portable PR, BPF build, native compatibility matrix, trusted kernel/browser jobs, exact-tag kernel release dependency. Not executed on GitHub in this session |
+| CI/release | Existing workflows extended; portable PR, BPF build, native compatibility matrix, trusted kernel/browser jobs, exact-tag kernel release dependency. Hosted portable/ABI/browser/integration/security and installed-package runs are recorded in the Phase 5 validation report; privileged environment preflight fails closed |
 | Distribution | Baseline native binary build and Ubuntu execution verified; packaging now refuses host-glibc substitution and runs ABI checks. Final package validation evidence is recorded in the validation report |
 
 ## Phase 4 executed evidence

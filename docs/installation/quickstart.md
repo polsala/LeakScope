@@ -12,3 +12,6 @@ really retains memory and exits after a bounded run; use it outside production.
 For remote access, use `ssh -L 7831:127.0.0.1:7831 user@host`, then browse the
 local forwarded port. LeakScope stays on loopback. Stop with Ctrl-C, which requests
 session stops and finalization before shutting down the owned sensor.
+
+For an offline installation with no external modern Python requirement, use the
+[bundled-runtime distribution](release-candidate.md). Run the API unprivileged.

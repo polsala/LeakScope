@@ -66,3 +66,15 @@ The browser suite includes verified Lab frames and report download. See
 python-attribution-validation.md for actual counts and production-performance.md
 for real matched measurements. Kernel profiling still requires the trusted
 profile; ordinary portable tests neither fake attachment nor require BPF.
+
+## Phase 5 reliability profiles
+
+`tests/reliability/test_database.py` runs portable backup/restore, corruption,
+transaction/read-only and WAL-pressure tests by default. Set
+`LEAKSCOPE_SQLITE_ENOSPC_PATH` to a separate genuinely bounded 4 MiB filesystem
+for main/WAL exhaustion, API creation and active-recording failure tests. The
+filesystem is filled deliberately; never point this profile at application data.
+`tests/support/services.py` is shared by the lifecycle soak and installed-package
+journey. It uses private data, bounded authenticated readiness and retained logs.
+`tests/soak/native.py` requires explicit trusted kernel authorization and writes
+raw measurements; `passed=false` during a run is not a completed qualification.
