@@ -1,7 +1,26 @@
 import struct
+import errno
 import pytest
 from leakscope_api.capture import Writer, Reader, CaptureError
 from leakscope_api.analysis import slope, summarize
+
+
+def test_quota_failure_preserves_recoverable_prefix_and_resume(tmp_path):
+    path = tmp_path / "budget.stream.partial"
+    writer = Writer(path, {"format": 1})
+    writer.chunk([{"sequence": 1, "kind": "metric"}])
+    before = path.read_bytes()
+    with pytest.raises(OSError) as failure:
+        writer.chunk([{"sequence": 2, "payload": "x" * 1000}], max_raw_bytes=20)
+    assert failure.value.errno == errno.EDQUOT
+    assert path.read_bytes() == before
+    writer.out.close()  # Simulate interruption without a fabricated footer.
+    resumed = Writer.resume(path, {"format": 1})
+    resumed.chunk([{"sequence": 2, "kind": "metric"}], max_raw_bytes=1024)
+    resumed.close()
+    reader = Reader(path)
+    assert [e["sequence"] for batch in reader.chunks() for e in batch] == [1, 2]
+    assert not reader.recovered and not reader.missing_sequences
 
 
 @pytest.mark.parametrize("count", [0, 1, 10, 300])

@@ -1,6 +1,7 @@
 """Portable LSCAP v1. Matches crates/capture byte for byte."""
 
 import hashlib
+import errno
 import json
 import os
 import struct
@@ -32,6 +33,7 @@ class Writer:
         self.out.write(MAGIC + struct.pack(">I", len(data)) + data + hashlib.sha256(data).digest())
         self.out.flush()  # Live analysis may read before the first sensor sample.
         self.last = 0
+        self.compressor = zstd.ZstdCompressor(level=3)
 
     @classmethod
     def resume(cls, path: Path, metadata: dict):
@@ -46,16 +48,19 @@ class Writer:
         writer.out.truncate(reader.good_offset)
         writer.out.seek(reader.good_offset)
         writer.last = last
+        writer.compressor = zstd.ZstdCompressor(level=3)
         return writer
 
-    def chunk(self, events):
+    def chunk(self, events, *, max_raw_bytes=None):
         if not events:
             return
         raw = encode(events)
+        if max_raw_bytes is not None and len(raw) > max_raw_bytes:
+            raise OSError(errno.EDQUOT, "Capture would exceed the configured storage quota")
         first, last = events[0]["sequence"], events[-1]["sequence"]
         if len(raw) > MAX_CHUNK or first <= self.last or last < first:
             raise CaptureError("Invalid chunk size or sequence")
-        compressed = zstd.ZstdCompressor(level=3).compress(raw)
+        compressed = self.compressor.compress(raw)
         self.out.write(
             HEADER.pack(len(raw), len(compressed), first, last, hashlib.sha256(raw).digest())
         )

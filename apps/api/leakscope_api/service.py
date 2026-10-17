@@ -154,7 +154,10 @@ class Collector:
                 profiling_policy=cfg.get("profiling_policy") or "native_detailed",
                 min_allocation_size=cfg.get("min_allocation_size", 65536),
                 native_stacks=cfg.get("native_stacks", "full"),
-                overhead_budget=self.config.overhead.model_dump(),
+                overhead_budget={
+                    **self.config.overhead.model_dump(),
+                    "target_cpu_increase_percent": cfg["cpu_overhead_target"],
+                },
                 prior_metrics_cpu_percent=cfg.get("prior_metrics_cpu_percent"),
             )
             expected_policy = cfg.get("profiling_policy") or "native_detailed"
@@ -275,12 +278,8 @@ class Collector:
                 lag_ms = max(0, (time.time() - min(stamps)) * 1000) if stamps else None
                 new_events = [event for event in events if event["sequence"] > writer.last]
                 if new_events:
-                    estimated = len(json.dumps(new_events).encode()) + 4096
-                    if self.disk_usage() + estimated > self.config.max_storage_mb * 1024**2:
-                        raise OSError(
-                            errno.EDQUOT, "Capture would exceed the configured storage quota"
-                        )
-                    writer.chunk(new_events)
+                    available = self.config.max_storage_mb * 1024**2 - self.disk_usage() - 4096
+                    writer.chunk(new_events, max_raw_bytes=available)
                     os.fsync(
                         writer.out.fileno()
                     )  # ACK only durable chunks, before metadata commit.
@@ -326,7 +325,15 @@ class Collector:
                         s.reason = "storage_quota"
                         s.quality = {**s.quality, "incomplete": True}
                         transition(s, "stopping")
-                await asyncio.sleep(0.2)
+                # ACK durable chunks promptly and keep draining a bounded
+                # backlog. A fixed 200 ms sleep imposed an avoidable throughput
+                # ceiling even when the sensor had already queued more data.
+                if response.get("pending_events", 0) > len(events):
+                    await asyncio.sleep(0)
+                else:
+                    await asyncio.sleep(
+                        0.05 if s.quality.get("coverage") == "native_observed" else 0.2
+                    )
         except asyncio.CancelledError:
             raise
         except Exception as error:
@@ -337,8 +344,13 @@ class Collector:
             with contextlib.suppress(SQLAlchemyError, OSError):
                 with self.db.begin() as db:
                     s = db.get(m.Session, session_id)
-                    s.quality = {**s.quality, "incomplete": True}
-                    s.reason = "collector_error: " + type(error).__name__
+                    code = (
+                        errno.errorcode.get(error.errno or 0, "OSError")
+                        if isinstance(error, OSError)
+                        else type(error).__name__
+                    )
+                    s.quality = {**s.quality, "incomplete": True, "collector_failure": code}
+                    s.reason = "collector_error: " + code
         finally:
             if writer is not None:
                 with contextlib.suppress(OSError):
@@ -567,8 +579,41 @@ class Collector:
                 )
             )
             for s in finished:
-                for suffix in (".lscap", ".manifest.json"):
+                for suffix in (
+                    ".lscap",
+                    ".manifest.json",
+                    ".partial",
+                    ".stream.partial",
+                    ".analysis.partial",
+                ):
                     (self.capture_dir / (s.id + suffix)).unlink(missing_ok=True)
+            db.execute(
+                delete(m.MonitorSample).where(
+                    m.MonitorSample.timestamp < now - retention.process_metrics_days * 86400
+                )
+            )
+            for monitor in db.scalars(
+                select(m.Monitor).where(
+                    m.Monitor.state != "observing",
+                    m.Monitor.ended_at < now - retention.summaries_days * 86400,
+                )
+            ):
+                for model in (m.MonitorSample, m.CaptureWindow, m.Anomaly):
+                    db.execute(delete(model).where(model.monitor_id == monitor.id))
+                db.delete(monitor)
+            active_ids = set(db.scalars(select(m.Session.id).where(m.Session.state.in_(ACTIVE))))
+        # Abandoned staging data is retained for a day for recovery. Restrict
+        # cleanup to our generated names; never follow a path supplied by a user.
+        for path in self.capture_dir.glob("*.partial"):
+            identifier = path.name.split(".", 1)[0]
+            if len(identifier) != 32 or any(c not in "0123456789abcdef" for c in identifier):
+                continue
+            with contextlib.suppress(OSError):
+                if (
+                    identifier not in active_ids
+                    and path.stat().st_mtime < now - retention.raw_captures_hours * 3600
+                ):
+                    path.unlink()
         # Reports are retained; deleting investigations is an explicit user operation.
 
     async def close(self):

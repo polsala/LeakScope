@@ -41,6 +41,7 @@ class Monitoring(Strict):
     max_processes: int = Field(32, ge=1, le=128)
     max_samples_per_process: int = Field(10000, ge=100, le=100000)
     max_duration_seconds: int = Field(604800, ge=60, le=2592000)
+    max_capture_windows: int = Field(100, ge=1, le=1000)
 
 
 class Overhead(Strict):

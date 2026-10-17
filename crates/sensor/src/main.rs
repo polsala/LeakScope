@@ -92,7 +92,7 @@ async fn handle(req: Value, state: &Arc<Mutex<State>>) -> Value {
                 .values()
                 .map(|l| {
                     let capacity = if l.native_quality["coverage"] == "native_observed" {
-                        4096.
+                        16384.
                     } else {
                         256.
                     };
@@ -313,7 +313,7 @@ async fn handle(req: Value, state: &Arc<Mutex<State>>) -> Value {
                     size < 600_000
                 })
                 .collect();
-            json!({"events":events,"quality":l.native_quality,"lost_native":l.lost_native,"lost_samples":l.lost,"stopped":l.stopped && events.len()==l.queue.len(),"reason":l.reason,"last_sequence":l.sequence,"samples":l.samples})
+            json!({"events":events,"pending_events":l.queue.len(),"queue_utilization":(l.queue_bytes as f64/(4.*1024.*1024.)).max(l.queue.len() as f64/16384.),"quality":l.native_quality,"lost_native":l.lost_native,"lost_samples":l.lost,"stopped":l.stopped && events.len()==l.queue.len(),"reason":l.reason,"last_sequence":l.sequence,"samples":l.samples})
         }
         "release" => {
             let id = req["session"].as_str().unwrap_or("");
@@ -463,11 +463,16 @@ async fn main() -> io::Result<()> {
                     l.reason = "duration_limit".into();
                     continue;
                 }
-                if t < l.next {
+                let metric_due = t >= l.next;
+                let safety_due =
+                    l.trace.is_some() && l.controller_check.elapsed() >= Duration::from_secs(1);
+                if !metric_due && !safety_due {
                     continue;
                 }
-                l.next = t + Duration::from_secs_f64(l.interval);
-                let p = match read_process(l.pid, uid, l.samples % 10 == 0) {
+                if metric_due {
+                    l.next = t + Duration::from_secs_f64(l.interval);
+                }
+                let p = match read_process(l.pid, uid, metric_due && l.samples % 10 == 0) {
                     Ok(p) if p.key == l.key => p,
                     _ => {
                         finish_trace(l);
@@ -519,7 +524,7 @@ async fn main() -> io::Result<()> {
                             l.collector_lag_ms
                         },
                         queue_utilization: (l.queue_bytes as f64 / (4. * 1024. * 1024.))
-                            .max(l.queue.len() as f64 / 4096.),
+                            .max(l.queue.len() as f64 / 16384.),
                         kernel_lost: l.native_quality["lost_events"].as_u64().unwrap_or(0),
                         collector_lost: l.lost_native,
                         external_latency_increase_percent: l.external_latency_increase,
@@ -549,9 +554,11 @@ async fn main() -> io::Result<()> {
                         }
                     }
                 }
-                let event = json!({"process_key":l.key,"kind":"metric","sample":p.sample});
-                l.samples += 1;
-                enqueue(l, event);
+                if metric_due {
+                    let event = json!({"process_key":l.key,"kind":"metric","sample":p.sample});
+                    l.samples += 1;
+                    enqueue(l, event);
+                }
             }
         }
     });
@@ -604,7 +611,7 @@ fn enqueue(l: &mut Lease, mut event: Value) {
     event["sequence"] = json!(l.sequence);
     while l.queue.len()
         >= if l.native_quality["coverage"] == "native_observed" {
-            4096
+            16384
         } else {
             256
         }

@@ -6,6 +6,7 @@ own Trace; completion drops kernel links. Pointer state never crosses windows.
 
 import asyncio
 import math
+import statistics
 import time
 import uuid
 from typing import Literal
@@ -267,6 +268,18 @@ class Observer:
             row = db.get(m.Monitor, identifier)
             cfg = row.config
             if (
+                db.scalar(
+                    select(func.count())
+                    .select_from(m.CaptureWindow)
+                    .where(m.CaptureWindow.monitor_id == identifier)
+                )
+                >= self.config.monitoring.max_capture_windows
+            ):
+                raise HTTPException(
+                    409,
+                    "Monitor capture-window budget reached; review findings before a new monitor",
+                )
+            if (
                 row.state != "observing"
                 or not cfg.get("automatic_policy")
                 or time.time() < row.next_capture
@@ -293,6 +306,16 @@ class Observer:
                 return None
             cfg = row.config
         # Same existing native capability and sensor authorization checks.
+        with self.db() as db:
+            if (
+                db.scalar(
+                    select(func.count())
+                    .select_from(m.CaptureWindow)
+                    .where(m.CaptureWindow.monitor_id == identifier)
+                )
+                >= self.config.monitoring.max_capture_windows
+            ):
+                raise HTTPException(409, "Monitor capture-window budget reached")
         with self.db() as db:
             process = db.get(m.Process, row.process_key)
         capabilities = await self.collector.call("native_capabilities", pid=process.pid)
@@ -336,6 +359,48 @@ class Observer:
             "monitor_id": identifier,
             "capture_reason": reason,
         }
+        # An observed pre-capture reference, not a causal counterfactual. Exclude
+        # intervals covered by any native session and require enough measurements.
+        with self.db() as db:
+            recent = list(
+                db.scalars(
+                    select(m.MonitorSample)
+                    .where(
+                        m.MonitorSample.monitor_id == identifier,
+                        m.MonitorSample.timestamp >= time.time() - 120,
+                    )
+                    .order_by(m.MonitorSample.timestamp.desc())
+                    .limit(120)
+                )
+            )
+            earliest = recent[-1].timestamp if recent else time.time()
+            traced = db.scalar(
+                select(func.count())
+                .select_from(m.Session)
+                .where(
+                    m.Session.process_key == row.process_key,
+                    m.Session.created_at >= earliest - 600,
+                    (m.Session.ended_at.is_(None)) | (m.Session.ended_at >= earliest),
+                )
+            )
+        cpus = [
+            r.data["target_cpu_percent"]
+            for r in recent
+            if r.data.get("target_cpu_percent") is not None
+        ]
+        if (
+            len(cpus) >= 10
+            and recent[0].timestamp - earliest >= self.config.overhead.minimum_observation_seconds
+            and not traced
+        ):
+            settings["prior_metrics_cpu_percent"] = statistics.median(cpus)
+            settings["cpu_reference"] = {
+                "source": "preceding_metrics_median_not_a_controlled_baseline",
+                "samples": len(cpus),
+                "start": earliest,
+                "end": recent[0].timestamp,
+                "limitations": "Workload changes can cause a difference; this does not measure causal profiler overhead",
+            }
         with self.db.begin() as db:
             current = db.get(m.Monitor, identifier)
             current.next_capture = time.time() + max(
@@ -410,6 +475,8 @@ def install_routes(app, observer, read, operator):
 
     @app.post("/api/v1/monitors", response_model=MonitorView, status_code=201)
     async def create(body: MonitorCreate, role=Depends(operator)):
+        if observer.collector.disk_usage() + 65536 >= observer.config.max_storage_mb * 1024**2:
+            raise HTTPException(507, "Cannot reserve monitor metadata within storage quota")
         if body.automatic_policy and not observer.config.profiling.allow_automatic_native_capture:
             raise HTTPException(
                 409,

@@ -187,3 +187,101 @@ def test_adaptive_external_latency_detaches_and_preserves_metrics(tmp_path, targ
         )
         findings = client.get("/api/v1/sessions/%s/findings" % sid).json()
         assert findings["hypothesis"]["known_retained_bytes"] is None
+
+
+def test_real_growth_automatically_starts_only_authorized_bounded_window(tmp_path, target):
+    cfg = Config(
+        data_path=str(tmp_path / "collector"),
+        profiling=Profiling(
+            allow_automatic_native_capture=True,
+            max_automatic_native_seconds=2,
+            automatic_capture_cooldown_seconds=30,
+        ),
+    )
+    app = create_app(cfg)
+    with TestClient(
+        app,
+        headers={"Authorization": "Bearer " + (Path(cfg.data_path) / "admin.token").read_text()},
+    ) as client:
+        p = process(client, target.pid)
+        monitor = client.post(
+            "/api/v1/monitors",
+            json={
+                "process_key": p["key"],
+                "duration_seconds": 30,
+                "interval_seconds": 0.2,
+                "automatic_policy": "native_light",
+                "capture_seconds": 2,
+                "detection": {
+                    "minimum_observation_seconds": 4,
+                    "warmup_seconds": 1,
+                    "window_seconds": 1,
+                    "sustained_windows": 3,
+                    "minimum_growth_bytes": 1048576,
+                    "minimum_rate_bytes_per_hour": 1048576,
+                    "maximum_sample_gap_seconds": 2,
+                },
+            },
+        )
+        assert monitor.status_code == 201, monitor.text
+        mid = monitor.json()["id"]
+        assert app.state.collector.sensor.call("health")["kernel_probe_fds"] == 0
+        for unused in range(70):
+            truth = command(target, "run 16 0")
+            time.sleep(0.2)
+            timeline = client.get("/api/v1/monitors/%s/timeline" % mid).json()
+            if timeline["windows"]:
+                break
+        assert truth["bytes"] >= 1048576
+        assert timeline["analysis"]["trend"]["anomaly"], timeline
+        assert timeline["windows"], timeline
+        sid = timeline["windows"][0]["session_id"]
+        command(target, "run 48 0")
+        final = wait_session(client, sid)
+        assert final["config"]["capture_reason"] == "automatic_growth"
+        assert final["config"]["duration_seconds"] == 2
+        assert final["quality"]["capture_window"]["physically_detached"]
+        assert app.state.collector.sensor.call("health")["kernel_probe_fds"] == 0
+        assert client.get("/api/v1/anomalies").json()["items"]
+
+
+def test_collector_feedback_timeout_detaches_even_with_slow_metrics(tmp_path, target):
+    cfg = Config(data_path=str(tmp_path / "collector"))
+    app = create_app(cfg)
+    with TestClient(
+        app,
+        headers={"Authorization": "Bearer " + (Path(cfg.data_path) / "admin.token").read_text()},
+    ) as client:
+        p = process(client, target.pid)
+        sensor = app.state.collector.sensor
+        sid = "feedback-timeout-fixture"
+        response = sensor.call(
+            "start",
+            session=sid,
+            pid=target.pid,
+            process_key=p["key"],
+            duration=20,
+            interval=60,
+            max_bytes=10 * 1024**2,
+            max_sensor_rss_mb=128,
+            native=True,
+            allow_downgrade=False,
+            profiling_policy="native_detailed",
+            overhead_budget=Overhead(
+                minimum_observation_seconds=1, consecutive_violations=1
+            ).model_dump(),
+        )
+        assert response["quality"]["coverage"] == "native_observed", response
+        assert sensor.call("health")["kernel_probe_fds"] > 0
+        # Health checks do not acknowledge or refresh this capture's feedback.
+        for unused in range(120):
+            health = sensor.call("health")
+            if health["kernel_probe_fds"] == 0:
+                break
+            time.sleep(0.05)
+        assert health["native_traces"] == health["kernel_probe_fds"] == 0, health
+        result = sensor.call("stop", session=sid, ack=0)
+        assert result["quality"]["incomplete"]
+        assert result["quality"]["coverage_gap_after_native"]
+        assert "collector_lag" in str(result["quality"]["policy_transitions"])
+        sensor.call("release", session=sid)
