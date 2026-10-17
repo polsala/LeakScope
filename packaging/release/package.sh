@@ -46,4 +46,6 @@ cp "$stage/FILES.sha256" artifacts/package-files.sha256
 tar --sort=name --mtime="@$SOURCE_DATE_EPOCH" --owner=0 --group=0 --numeric-owner -cf - -C artifacts leakscope-0.1.0-linux-x86_64 | gzip -n > artifacts/leakscope-0.1.0-linux-x86_64.tar.gz
 sha256sum artifacts/leakscope-0.1.0-linux-x86_64.tar.gz > artifacts/SHA256SUMS
 if command -v dpkg-deb >/dev/null; then bash packaging/deb/build.sh "$stage"; fi
-(cd artifacts && sha256sum leakscope-0.1.0-linux-x86_64.tar.gz leakscope-source.tar.gz leakscope_0.1.0_amd64.deb > SHA256SUMS)
+cp dist/leakscope-0.1.0-py3-none-any.whl dist/leakscope-0.1.0.tar.gz artifacts/
+.venv/bin/python scripts/sbom.py
+(cd artifacts && sha256sum leakscope-0.1.0-linux-x86_64.tar.gz leakscope-source.tar.gz leakscope_0.1.0_amd64.deb leakscope-0.1.0-py3-none-any.whl leakscope-0.1.0.tar.gz sbom.cdx.json > SHA256SUMS)

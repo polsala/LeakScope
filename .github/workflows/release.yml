@@ -79,6 +79,9 @@ jobs:
           subject-path: |
             artifacts/*.tar.gz
             artifacts/*.deb
+            artifacts/*.whl
+            artifacts/sbom.cdx.json
+            artifacts/SHA256SUMS
       - name: Optional detached signatures
         env:
           RELEASE_GPG_KEY: ${{ secrets.RELEASE_GPG_KEY }}
@@ -96,7 +99,7 @@ jobs:
           shopt -s nullglob
           # Engineering preview until all independent production gates qualify.
           # Portable/kernel success alone is insufficient for production labeling.
-          gh release create "${GITHUB_REF_NAME}" artifacts/*.tar.gz artifacts/*.deb artifacts/SHA256SUMS* artifacts/sbom.cdx.json dist/*.whl dist/*.tar.gz --generate-notes --prerelease
+          gh release create "${GITHUB_REF_NAME}" artifacts/leakscope-0.1.0-linux-x86_64.tar.gz artifacts/leakscope-source.tar.gz artifacts/leakscope_0.1.0_amd64.deb artifacts/leakscope-0.1.0-py3-none-any.whl artifacts/leakscope-0.1.0.tar.gz artifacts/SHA256SUMS* artifacts/sbom.cdx.json --generate-notes --prerelease
       - name: Publish fail-closed machine-readable readiness
         run: .venv/bin/python scripts/release-gates.py > artifacts/release-readiness.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -105,6 +108,7 @@ jobs:
           path: |
             artifacts/*.tar.gz
             artifacts/*.deb
+            artifacts/*.whl
             artifacts/SHA256SUMS*
             artifacts/sbom.cdx.json
             artifacts/release-readiness.json
