@@ -22,7 +22,7 @@ for version in 20.04 22.04 24.04; do
       fi
       test "$(stat -c %u /opt/leakscope/current/bin/leakscope-sensor)" = 0
       useradd --uid 10001 --create-home qa
-      su -s /bin/sh qa -c "test ! -w /opt/leakscope/current/bin/leakscope-sensor"
+      su -s /bin/sh qa -c "test ! -w /opt/leakscope/current/bin/leakscope-sensor && test ! -w /opt/leakscope/current/bin"
       cd /tmp
       if /opt/leakscope/bin/leakscope serve > /tmp/root-api.log 2>&1; then
         echo "Root API startup must be refused" >&2; exit 1

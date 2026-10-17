@@ -1,12 +1,31 @@
 #!/usr/bin/env bash
 # Offline, versioned installation. No network, privileged actions or data deletion.
 set -euo pipefail
+umask 022
 source_root="$(cd "$(dirname "$0")" && pwd)"
 prefix="$(realpath -m "${1:-$HOME/.local/lib/leakscope}")"
 bash "$source_root/verify.sh" "$source_root"
 release_id="$(cat "$source_root/source-fingerprint")"
 [[ "$release_id" =~ ^[a-f0-9]{64}$ ]] || { echo 'Invalid build identity' >&2; exit 2; }
+if [[ "$(id -u)" = 0 ]]; then
+  ancestor="$(dirname "$prefix")"
+  while [[ "$ancestor" != / ]]; do
+    if [[ -d "$ancestor" ]]; then
+      mode="$(stat -c %a "$ancestor")"
+      [[ "$(stat -c %u "$ancestor")" = 0 ]] || { echo 'Root installations require root-owned ancestors' >&2; exit 2; }
+      if (( (8#$mode & 0022) != 0 && (8#$mode & 01000) == 0 )); then
+        echo 'Root installation ancestor is writable by another account' >&2; exit 2
+      fi
+    fi
+    ancestor="$(dirname "$ancestor")"
+  done
+fi
 mkdir -p "$prefix/releases" "$prefix/bin"
+for managed in "$prefix" "$prefix/releases" "$prefix/bin"; do
+  [[ "$(stat -c %u "$managed")" = "$(id -u)" && ! -L "$managed" ]] || { echo 'Installation directories must be owned by the installing UID and not symlinks' >&2; exit 2; }
+  chmod go-w "$managed"
+done
+[[ ! -L "$prefix/install.lock" ]] || { echo 'Installation lock must not be a symlink' >&2; exit 2; }
 exec 9>"$prefix/install.lock"
 flock -n 9 || { echo 'Another installation is active' >&2; exit 2; }
 release="$prefix/releases/$release_id"
