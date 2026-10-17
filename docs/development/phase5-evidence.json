@@ -69,7 +69,7 @@
     }
   },
   "systemd": {
-    "user_services": "passed_readiness_capture_restart_cleanup",
+    "user_services": "passed_authenticated_ExecStartPost_capture_restart_cleanup",
     "root_units": "not_tested"
   },
   "protected_github_environments": {
@@ -431,10 +431,81 @@
     "Manual accessibility review",
     "Complete native-library SBOM/security qualification and signed provenance"
   ],
-  "review_source_fingerprint": "42f927d8240ab0b6dc3eee0c4234faea61416786c4b6565ea8b0ebc8a4cfbaa2",
+  "review_source_fingerprint": "52cb28e32fd01fa719f3cca15acf8ccaa25dcca522853b6eedcc551e307a73e8",
   "evidence_scope": "Independent executed runs on several commits and binary hashes; review fingerprint is not test provenance",
   "native_browser": {
     "passed": true,
     "scope": "Actual BPF capture, native flamegraph and report on kernel 6.19.14+kali-amd64"
+  },
+  "github_actions": {
+    "verified_commit": "1ecbc797520e191d0c8a9eb313d893532e3ffef0",
+    "runs": {
+      "portable": {
+        "run_id": 39058997636,
+        "conclusion": "success"
+      },
+      "native_and_installed_package": {
+        "run_id": 39058997643,
+        "conclusion": "success"
+      },
+      "python_abi_seven_jobs": {
+        "run_id": 39058997634,
+        "conclusion": "success"
+      },
+      "browser": {
+        "run_id": 39058997635,
+        "conclusion": "success"
+      },
+      "integration": {
+        "run_id": 39058997623,
+        "conclusion": "success"
+      },
+      "security": {
+        "run_id": 39058997652,
+        "conclusion": "success"
+      },
+      "repaired_metrics_and_lifecycle_soak": {
+        "run_id": 39025381308,
+        "conclusion": "success"
+      }
+    },
+    "soak_commit": "56f12b7e7d9edaf4ce5249151269ec9d7302c88f",
+    "privileged_remote": "not_executed; protected environments are missing"
+  },
+  "artifact_build": {
+    "commit": "1ecbc797520e191d0c8a9eb313d893532e3ffef0",
+    "dirty": false,
+    "source_date_epoch": 1792262314,
+    "source_fingerprint": "52cb28e32fd01fa719f3cca15acf8ccaa25dcca522853b6eedcc551e307a73e8",
+    "checksums": [
+      "c92f94d4b75238c9c4fa32f17915fad7f882057df74372ecdf3ac3a6dc759b8b  leakscope-0.1.0-linux-x86_64.tar.gz",
+      "1b293c7d735da13548623ddd97304ea10dec1f46216654fa395fad555d59687d  leakscope-source.tar.gz",
+      "8228e75cc382de334d17c8ce29ef103286e10e35dd3d3e0731e66f1719fa7617  leakscope_0.1.0_amd64.deb",
+      "822c705ab97bf1f262c69bfd84e35ffb2bac4ba4c77a6f92370bcb89ecbf74e0  leakscope-0.1.0-py3-none-any.whl",
+      "5c5a881db713b3a41427a8393c499ef042ee14c7956cdaa94b621319a9011e49  leakscope-0.1.0.tar.gz",
+      "87093e695084596663bb3ad6289b7eed1f5e8620fe6b9c14224d7f94e0bfdc80  sbom.cdx.json"
+    ]
+  },
+  "portable_final": {
+    "python_passed": 54,
+    "expected_profile_skips": 6,
+    "rust_passed": 31,
+    "vitest_passed": 6,
+    "playwright_passed": 5
+  },
+  "compatible_schema_upgrade": {
+    "passed": true,
+    "old_source": "726f75baf8e1f0fdee5eca36459eba3d6026a06466db8f6c4eb17572aeba46f1",
+    "new_source": "52cb28e32fd01fa719f3cca15acf8ccaa25dcca522853b6eedcc551e307a73e8",
+    "scope": "Two source-identified engineering previews using the current compatible schema; not arbitrary future downgrade certification",
+    "backup_created": true,
+    "capture_preserved": true,
+    "report_preserved": true
+  },
+  "storage_final": {
+    "actual_bounded_volume_tests_passed": 11,
+    "sqlite_volume_bytes": 4194304,
+    "capture_volume_bytes": 1048576,
+    "interrupted_migration": "not_tested"
   }
 }

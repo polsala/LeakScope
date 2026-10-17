@@ -40,8 +40,18 @@ Both real-root and effective-root API rejection remain mandatory.
 
 Commit `56f12b7` passed remote ABI, integration, browser, native and security
 workflows. Commit `97efd12` also passed the new portable and installed-package
-jobs. Later commits require their own execution evidence; consult GitHub and the
-raw local artifacts rather than treating these earlier passes as universal.
+jobs. The final code at clean commit `1ecbc79` passed all six remote workflows:
+[portable](https://github.com/polsala/LeakScope/actions/runs/39058997636),
+[ABI, seven jobs including shared libpython](https://github.com/polsala/LeakScope/actions/runs/39058997634),
+[native, Ubuntu ABI and installed package](https://github.com/polsala/LeakScope/actions/runs/39058997643),
+[integration](https://github.com/polsala/LeakScope/actions/runs/39058997623),
+[browser](https://github.com/polsala/LeakScope/actions/runs/39058997635) and
+[security](https://github.com/polsala/LeakScope/actions/runs/39058997652).
+The repaired [scheduled metrics/lifecycle soak](https://github.com/polsala/LeakScope/actions/runs/39025381308)
+passed at `56f12b7`: 3,600.337 seconds, 17,889 controlled jobs and twelve
+collector lifetimes; the separate 301-second lifecycle slice completed 245
+sessions. This is actual remote execution evidence, with source scopes kept
+separate. Later source changes require their own receipts.
 
 ## Deployment and storage
 
@@ -59,7 +69,8 @@ metrics capture, monitors, findings, experiments, capture export/import and HTML
 reports. Reinstall and Debian removal preserved the independent application.
 These containers shared Linux 6.19.14+kali-amd64; they do not qualify Ubuntu kernels.
 
-A real user-systemd test at UID 1000 started the separately managed installed API
+A real user-systemd test at UID 1000, including authenticated `ExecStartPost`,
+started the separately managed installed API
 and sensor, recorded a session, restarted the API, preserved data and stopped
 both units. `NoNewPrivileges=yes` was active. This is not root system-unit,
 service-user provisioning or privileged tracing certification. Default packaged
@@ -78,6 +89,7 @@ and integrity checks pass. API creation returns 507 under database pressure.
 Exhaustion during recording preserves a durable capture prefix and reconciles
 as incomplete after restart. Online WAL backup/restore, corruption detection,
 read-only SQLite access and WAL write-pressure guards execute portable tests.
+The final combined bounded-volume profile passed eleven database/capture tests.
 Interrupted Alembic migrations and filesystem-level read-only remounts still
 require qualification. WAL thresholds stop generated writes at statement
 boundaries; they are not a filesystem-level hard limit against arbitrary SQL or
@@ -131,8 +143,10 @@ bash scripts/test-installed-ubuntu.sh
 .venv/bin/python scripts/release-gates.py --require-production
 ```
 
-The final command must fail until all mandatory scopes have current passing
-receipts. Manual screen-reader/contrast review, controlled ERP/uWSGI/RQ costs,
+The final command must exit 3 until all mandatory scopes have current passing
+receipts. Portable, genuine ABI and binary loading are verified locally; packaging
+and storage remain partial because root system deployment and interrupted
+migrations have not passed. Manual screen-reader/contrast review, controlled ERP/uWSGI/RQ costs,
 Ubuntu kernel VMs, sustained native/Deep/Lab multi-hour runs, runtime dependency
 provenance and root system deployment remain release blockers.
 
@@ -176,3 +190,15 @@ Unicode widths and four stock configurations executed 20 tests per interpreter
 (four expected Lab-only skips on each stock build). A genuine shared-libpython
 UCS4 release with explicit custom compiler flags also passed its stock tests;
 this does not qualify every vendor ABI or shared/debug/Lab combination.
+
+## Delivered local artifacts
+
+The clean `1ecbc79` build (`dirty: false`) produced the ~49 MiB standalone
+archive, ~40 MiB Debian package, backend wheel/sdist, reproducible source
+archive and validated 626-component CycloneDX SBOM in `artifacts/`.
+`SHA256SUMS` covers every published payload, with a separate exact file/symlink
+manifest inside the distribution. The native baseline remains glibc 2.31.
+Checksums and the bundled runtime hash provide integrity, not authenticated
+provenance. No tag, production promotion, signature or remote release was
+created. Later documentation-only evidence commits do not alter the tested
+source fingerprint.
