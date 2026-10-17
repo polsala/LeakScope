@@ -317,10 +317,19 @@ def test_repeated_bursts_bound_sensor_memory_and_close_kernel_descriptors(tmp_pa
             health = app.state.collector.sensor.call("health")
             assert health["kernel_probe_fds"] == health["native_traces"] == 0, health
             measured.append(health["sample"]["rss"])
+        output = Path(
+            os.getenv(
+                "LEAKSCOPE_WINDOW_EVIDENCE", str(ROOT / "artifacts/kernel/repeated-windows.json")
+            )
+        )
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(
+            json.dumps(
+                {"rss_bytes": measured, "windows": 12, "probe_fds_after_each": 0, "passed": False}
+            )
+        )
         assert max(measured) < 128 * 1024**2, measured
         assert measured[-1] - measured[4] < 32 * 1024**2, measured
-        output = ROOT / "artifacts/kernel/repeated-windows.json"
-        output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(
             json.dumps(
                 {"rss_bytes": measured, "windows": 12, "probe_fds_after_each": 0, "passed": True}

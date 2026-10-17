@@ -326,7 +326,12 @@ async fn handle(req: Value, state: &Arc<Mutex<State>>) -> Value {
         _ => err("unsupported sensor action"),
     }
 }
-#[tokio::main]
+// Native attach, symbolization and drain already serialize under State's mutex.
+// A multi-thread runtime moved large short-lived ELF buffers between glibc
+// arenas. Reusing one allocator working set limits that arena proliferation.
+// One event-loop thread keeps that bounded working set reusable. Socket I/O is
+// still asynchronous; application processes never wait for this runtime.
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> io::Result<()> {
     let args: Vec<_> = std::env::args().collect();
     if args.iter().any(|s| s == "--version") {

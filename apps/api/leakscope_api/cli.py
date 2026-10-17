@@ -194,6 +194,10 @@ def main():
             print(json.dumps(result, indent=2))
             return
         if args.command == "serve":
+            if os.getuid() == 0:
+                raise RuntimeError(
+                    "The API must run under an unprivileged service UID. Install as administrator, then run serve as the monitored application UID; grant tracing privileges only to the separate sensor."
+                )
             import uvicorn
             from .app import create_app
 
@@ -307,6 +311,17 @@ def main():
                     ).free,
                     "remediation": "Metrics-only Observe requires same UID and readable procfs. Cooperative agent must be initialized by the application; no injection is attempted.",
                 }
+                if (data / "leakscope.sqlite3").exists():
+                    from .storage import check
+
+                    try:
+                        result["sqlite"] = check(data / "leakscope.sqlite3")
+                    except (sqlite3.Error, RuntimeError) as error:
+                        result["sqlite"] = {
+                            "status": "unavailable",
+                            "reason": type(error).__name__,
+                            "remediation": "Stop services, preserve main/WAL/SHM files and restore a verified backup.",
+                        }
                 binary = shutil.which("leakscope-sensor") or str(
                     Path(__file__).resolve().parents[3] / "target/debug/leakscope-sensor"
                 )

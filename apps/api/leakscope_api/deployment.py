@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import platform
+import os
 import shutil
 import sys
 from pydantic import BaseModel
@@ -39,3 +40,17 @@ def files(data: Path):
         "database_bytes": size("leakscope.sqlite3"),
         "wal_bytes": size("leakscope.sqlite3-wal"),
     }
+
+
+def storage_ready(data: Path, captures: Path, max_wal_mb: int):
+    for directory in {data, captures}:
+        if (
+            shutil.disk_usage(directory).free < 1024**2
+            or os.statvfs(directory).f_flag & os.ST_RDONLY
+        ):
+            return False
+    database = data / "leakscope.sqlite3"
+    wal = Path(str(database) + "-wal")
+    return os.access(database, os.W_OK) and (
+        not wal.exists() or wal.stat().st_size < max_wal_mb * 1024**2
+    )

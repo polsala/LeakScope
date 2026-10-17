@@ -35,7 +35,7 @@ from .contracts import (
     ReportCreate,
     transition,
 )
-from .deployment import DeploymentHealth, files as deployment_files
+from .deployment import DeploymentHealth, files as deployment_files, storage_ready
 from .db import database
 from .reports import render, redact_paths
 from .context_capture import expand
@@ -60,7 +60,7 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
     private_directory(data / "captures")
     admin_token = credential(data / "admin.token")
     sensor_token = credential(data / "sensor.token")
-    engine, db_factory = database(data / "leakscope.sqlite3", cfg.sqlite_max_wal_mb)
+    engine, db_factory = database(data / "leakscope.sqlite3", lambda: cfg.sqlite_max_wal_mb)
     with db_factory.begin() as db:
         for name in LEVELS:
             if not db.get(m.Role, name):
@@ -342,6 +342,11 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
 
     @app.get("/api/v1/health/ready", dependencies=[Depends(read)])
     async def ready():
+        if not storage_ready(data, captures, cfg.sqlite_max_wal_mb):
+            raise HTTPException(
+                503,
+                "Storage is full, read-only or beyond its WAL budget; persistence is unavailable",
+            )
         try:
             with db_factory() as db:
                 db.execute(select(1))

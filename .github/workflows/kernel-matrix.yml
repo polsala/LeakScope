@@ -11,11 +11,22 @@ jobs:
       LEAKSCOPE_SENSOR_CAPABILITIES: ${{ vars.LEAKSCOPE_SENSOR_CAPABILITIES }}
     # Never run untrusted PR code on a host with tracing capabilities.
     if: github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, linux, x64, leakscope-kernel]
+    strategy:
+      fail-fast: false
+      matrix:
+        kernel: ['5.15', '6.8', '6.19']
+    runs-on: [self-hosted, linux, x64, leakscope-kernel, 'kernel-${{ matrix.kernel }}']
     environment: kernel-validation
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Verify this is a genuine matching VM or host kernel
+        shell: bash
+        run: |
+          case "$(uname -r)" in
+            "${{ matrix.kernel }}".*) uname -a ;;
+            *) echo 'Runner kernel does not match the requested matrix entry' >&2; exit 1 ;;
+          esac
       - uses: ./.github/actions/setup
       - run: bash scripts/build-python27.sh ucs4 release
       - run: make test-native
@@ -34,7 +45,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: kernel-evidence
+          name: kernel-evidence-${{ matrix.kernel }}
           path: |
             artifacts/kernel
             artifacts/kernel-browser.log

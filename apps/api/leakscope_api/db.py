@@ -11,6 +11,8 @@ class WALPressure(SQLAlchemyError):
 
 
 def database(path: Path, max_wal_mb=64):
+    if path.is_symlink():
+        raise RuntimeError("SQLite database must not be a symlink")
     if path.exists():
         # Fail before migration on corruption; never delete or "repair" evidence.
         import sqlite3
@@ -46,7 +48,10 @@ def database(path: Path, max_wal_mb=64):
         ):
             wal = Path(str(path) + "-wal")
             try:
-                if wal.stat().st_size >= max_wal_mb * 1024**2:
+                if (
+                    wal.stat().st_size
+                    >= (max_wal_mb() if callable(max_wal_mb) else max_wal_mb) * 1024**2
+                ):
                     raise WALPressure(
                         "SQLite WAL budget exceeded; stop long read transactions and checkpoint after freeing storage"
                     )

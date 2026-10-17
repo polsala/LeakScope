@@ -28,8 +28,10 @@ def service_lease(data: Path, *, exclusive=False):
         os.close(fd)
 
 
-def check(path: Path):
+def check(path: Path, timeout=5):
     with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True, timeout=1) as db:
+        deadline = time.monotonic() + timeout
+        db.set_progress_handler(lambda: int(time.monotonic() > deadline), 10000)
         result = db.execute("PRAGMA quick_check").fetchall()
         if result != [("ok",)]:
             raise RuntimeError(

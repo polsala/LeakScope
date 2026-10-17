@@ -30,7 +30,7 @@ jobs:
   native-soak:
     if: github.ref == 'refs/heads/main'
     runs-on: [self-hosted, linux, x64, leakscope-kernel]
-    environment: kernel-tests
+    environment: kernel-validation
     timeout-minutes: 170
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683

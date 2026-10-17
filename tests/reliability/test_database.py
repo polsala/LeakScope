@@ -187,6 +187,7 @@ def test_api_database_full_never_acknowledges_session_completion(tmp_path):
                 else:
                     pytest.fail("A genuinely bounded filesystem is required")
             try:
+                assert client.get("/api/v1/health/ready").status_code == 503
                 response = client.post(
                     "/api/v1/sessions", json={"process_key": target["key"], "duration_seconds": 1}
                 )
@@ -211,4 +212,89 @@ def test_api_database_full_never_acknowledges_session_completion(tmp_path):
         filler.unlink(missing_ok=True)
         import shutil
 
+        shutil.rmtree(data)
+
+
+@pytest.mark.skipif(
+    not os.getenv("LEAKSCOPE_SQLITE_ENOSPC_PATH"), reason="Explicit bounded SQLite volume required"
+)
+def test_database_full_during_recording_preserves_prefix_and_recovers(tmp_path):
+    import time
+    import shutil
+    from fastapi.testclient import TestClient
+    from leakscope_api.app import create_app
+    from leakscope_api.config import Config
+    from leakscope_api.capture import Reader
+
+    data = Path(os.environ["LEAKSCOPE_SQLITE_ENOSPC_PATH"]) / uuid.uuid4().hex
+    captures = tmp_path / "durable-prefix"
+    cfg = Config(data_path=str(data), capture_path=str(captures))
+    filler = data / "pressure"
+    app = create_app(cfg)
+    try:
+        headers = {"Authorization": "Bearer " + (data / "admin.token").read_text()}
+        with TestClient(app, headers=headers) as client:
+            host = client.get("/api/v1/hosts").json()["items"][0]["id"]
+            process = next(
+                p
+                for p in client.get(f"/api/v1/hosts/{host}/processes?limit=2000").json()["items"]
+                if p["pid"] == os.getpid()
+            )
+            response = client.post(
+                "/api/v1/sessions",
+                json={
+                    "process_key": process["key"],
+                    "duration_seconds": 15,
+                    "sample_interval_ms": 100,
+                },
+            )
+            assert response.status_code == 201, response.text
+            sid = response.json()["id"]
+            for unused in range(100):
+                if client.get(f"/api/v1/sessions/{sid}").json()["last_sequence"] >= 3:
+                    break
+                time.sleep(0.05)
+            spool = captures / (sid + ".stream.partial")
+            assert spool.exists() and spool.stat().st_size > 0
+            with filler.open("wb", buffering=0) as stream:
+                try:
+                    for unused in range(8192):
+                        stream.write(b"x" * 4096)
+                except OSError as error:
+                    import errno
+
+                    assert error.errno == errno.ENOSPC
+                else:
+                    pytest.fail("Real volume limit not enforced")
+            time.sleep(0.5)
+            assert client.get(f"/api/v1/sessions/{sid}").json()["state"] != "ready"
+            assert app.state.collector.sensor.call("health")["native_traces"] == 0
+            filler.unlink()
+        # Startup reconciliation must downgrade a partial trace, never invent
+        # the unpersisted tail or duplicate acknowledged sample sequences.
+        restored = create_app(cfg)
+        with TestClient(restored, headers=headers) as client:
+            deadline = time.monotonic() + 30
+            while time.monotonic() < deadline:
+                final = client.get(f"/api/v1/sessions/{sid}").json()
+                if final["state"] in {"ready", "degraded", "failed"}:
+                    break
+                time.sleep(0.1)
+            assert final["state"] in {"degraded", "failed"}, final
+            assert final["quality"]["incomplete"], final
+            path = captures / (sid + ".lscap")
+            if path.exists():
+                events = [
+                    event
+                    for chunk in Reader(path).chunks()
+                    for event in chunk
+                    if event.get("kind") == "metric"
+                ]
+                assert len(events) >= 3
+                sequences = [event["sequence"] for event in events]
+                assert sequences == sorted(set(sequences))
+            else:
+                assert spool.exists(), "Durable prefix must remain recoverable"
+    finally:
+        filler.unlink(missing_ok=True)
         shutil.rmtree(data)
