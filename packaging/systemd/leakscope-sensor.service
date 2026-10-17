@@ -1,4 +1,6 @@
 [Unit]
+StartLimitIntervalSec=300
+StartLimitBurst=3
 Description=LeakScope bounded local process sensor
 After=local-fs.target
 Before=leakscope-api.service

@@ -43,14 +43,18 @@ def files(data: Path):
 
 
 def storage_ready(data: Path, captures: Path, max_wal_mb: int):
-    for directory in {data, captures}:
-        if (
-            shutil.disk_usage(directory).free < 1024**2
-            or os.statvfs(directory).f_flag & os.ST_RDONLY
-        ):
-            return False
-    database = data / "leakscope.sqlite3"
-    wal = Path(str(database) + "-wal")
-    return os.access(database, os.W_OK) and (
-        not wal.exists() or wal.stat().st_size < max_wal_mb * 1024**2
-    )
+    try:
+        for directory in {data, captures}:
+            if (
+                shutil.disk_usage(directory).free < 1024**2
+                or os.statvfs(directory).f_flag & os.ST_RDONLY
+            ):
+                return False
+        database = data / "leakscope.sqlite3"
+        try:
+            wal_size = Path(str(database) + "-wal").stat().st_size
+        except FileNotFoundError:
+            wal_size = 0
+        return os.access(database, os.W_OK) and wal_size < max_wal_mb * 1024**2
+    except OSError:
+        return False

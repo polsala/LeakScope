@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import time
 import uuid
+import weakref
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -60,26 +61,38 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
     private_directory(data / "captures")
     admin_token = credential(data / "admin.token")
     sensor_token = credential(data / "sensor.token")
-    engine, db_factory = database(data / "leakscope.sqlite3", lambda: cfg.sqlite_max_wal_mb)
-    with db_factory.begin() as db:
-        for name in LEVELS:
-            if not db.get(m.Role, name):
-                db.add(m.Role(name=name))
-        db.flush()
-        if not db.get(m.User, "local-admin"):
-            db.add(
-                m.User(
-                    id="local-admin",
-                    role="admin",
-                    token_hash=hashlib.sha256(admin_token.encode()).hexdigest(),
-                    enabled=True,
+    # Protect migrations/bootstrap too, before ASGI lifespan starts. Restore
+    # must not replace a database already opened by an application factory.
+    initial_lease = service_lease(data)
+    initial_lease.__enter__()
+    engine = None
+    try:
+        engine, db_factory = database(data / "leakscope.sqlite3", lambda: cfg.sqlite_max_wal_mb)
+        with db_factory.begin() as db:
+            for name in LEVELS:
+                if not db.get(m.Role, name):
+                    db.add(m.Role(name=name))
+            db.flush()
+            if not db.get(m.User, "local-admin"):
+                db.add(
+                    m.User(
+                        id="local-admin",
+                        role="admin",
+                        token_hash=hashlib.sha256(admin_token.encode()).hexdigest(),
+                        enabled=True,
+                    )
                 )
-            )
-        saved = db.get(m.SystemSetting, "config")
-        if saved:
-            cfg = Config.model_validate(
-                {**saved.value, "data_path": cfg.data_path, "listen": cfg.listen}
-            )
+            saved = db.get(m.SystemSetting, "config")
+            if saved:
+                cfg = Config.model_validate(
+                    {**saved.value, "data_path": cfg.data_path, "listen": cfg.listen}
+                )
+    except BaseException:
+        if engine is not None:
+            engine.dispose()
+        initial_lease.__exit__(None, None, None)
+        raise
+    assert engine is not None
     socket_path = Path(os.getenv("LEAKSCOPE_SENSOR_SOCKET", str(data / "sensor.sock"))).resolve()
     sensor = Sensor(socket_path, sensor_token)
     captures = Path(cfg.capture_path).resolve() if cfg.capture_path else data / "captures"
@@ -95,6 +108,8 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
     @asynccontextmanager
     async def lifespan(app):
         with service_lease(data):
+            # Acquire before releasing the factory lease: no restore race.
+            initial_lease.__exit__(None, None, None)
             child = None
             task = agent_task = observation_task = None
             try:
@@ -172,6 +187,10 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
         docs_url="/api/docs",
         openapi_url="/api/v1/openapi.json",
     )
+    # Contract generators may construct an app without entering its lifespan.
+    # Finalizers do not retain the app and close those unused database handles.
+    weakref.finalize(app, initial_lease.__exit__, None, None, None)
+    weakref.finalize(app, engine.dispose)
     app.state.db, app.state.collector, app.state.data = db_factory, collector, data
     app.add_middleware(BodyLimit)
     attempts: dict[str, deque] = defaultdict(deque)

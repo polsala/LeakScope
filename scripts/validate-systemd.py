@@ -59,12 +59,23 @@ with tempfile.TemporaryDirectory(prefix="ls-systemd-") as directory:
         ]:
             unit = identifier + "-" + kind
             units.append(unit)
+            post = (
+                [
+                    "--property=ExecStartPost="
+                    + str(prefix / "venv/bin/python")
+                    + " -I -m leakscope_api.healthcheck --timeout 30 --url http://127.0.0.1:"
+                    + str(port)
+                ]
+                if kind == "api"
+                else []
+            )
             subprocess.run(
                 [
                     "systemd-run",
                     "--user",
                     "--unit=" + unit,
                     "--property=Type=exec",
+                    *post,
                     "--property=NoNewPrivileges=yes",
                     "--property=UMask=0077",
                     "--property=TimeoutStopSec=15",

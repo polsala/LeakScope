@@ -33,6 +33,9 @@ jobs:
           path: |
             /tmp/leakscope-soak*
             artifacts/soak/**
+            !artifacts/soak/**/*.token
+            !artifacts/soak/**/leakscope.sqlite3*
+            !artifacts/soak/**/*.sock
   native-authorization:
     if: github.ref == 'refs/heads/main' && inputs.profile == 'native'
     runs-on: ubuntu-24.04
@@ -69,4 +72,8 @@ jobs:
         if: always()
         with:
           name: native-soak-evidence
-          path: artifacts/soak/**
+          path: |
+            artifacts/soak/**
+            !artifacts/soak/**/*.token
+            !artifacts/soak/**/leakscope.sqlite3*
+            !artifacts/soak/**/*.sock

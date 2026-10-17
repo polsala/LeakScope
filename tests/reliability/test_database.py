@@ -298,3 +298,32 @@ def test_database_full_during_recording_preserves_prefix_and_recovers(tmp_path):
     finally:
         filler.unlink(missing_ok=True)
         shutil.rmtree(data)
+
+
+def test_restore_excludes_factory_startup_and_active_api(tmp_path):
+    from fastapi.testclient import TestClient
+    from leakscope_api.app import create_app
+    from leakscope_api.config import Config
+
+    app = create_app(Config(data_path=str(tmp_path)), start_sensor=False)
+    path = tmp_path / "leakscope.sqlite3"
+    saved = tmp_path / "consistent-backup"
+    backup(path, saved)
+    with pytest.raises(RuntimeError, match="Stop the LeakScope API"):
+        restore(saved, path)
+    with TestClient(app):
+        with pytest.raises(RuntimeError, match="Stop the LeakScope API"):
+            restore(saved, path)
+    assert restore(saved, path)["integrity"] == "ok"
+
+
+def test_failed_bootstrap_releases_restore_lease(tmp_path):
+    from leakscope_api.app import create_app
+    from leakscope_api.config import Config
+
+    path = tmp_path / "leakscope.sqlite3"
+    path.write_bytes(b"corrupt metadata" * 100)
+    with pytest.raises(sqlite3.DatabaseError):
+        create_app(Config(data_path=str(tmp_path)), start_sensor=False)
+    with service_lease(tmp_path, exclusive=True):
+        assert path.read_bytes().startswith(b"corrupt metadata")

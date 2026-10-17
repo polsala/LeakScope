@@ -5,6 +5,8 @@ import json
 import tomllib
 from pathlib import Path
 import yaml
+from jsonschema import Draft7Validator
+from referencing import Registry, Resource
 
 components = []
 for filename, ecosystem in [("Cargo.lock", "cargo"), ("uv.lock", "pypi")]:
@@ -51,6 +53,16 @@ result = {
     "metadata": {"component": {"type": "application", "name": "LeakScope", "version": "0.1.0"}},
     "components": components,
 }
+schema_root = Path("schemas/json/cyclonedx")
+registry = Registry()
+for schema_file in schema_root.glob("*.json"):
+    schema = json.loads(schema_file.read_text())
+    registry = registry.with_resource(
+        "http://cyclonedx.org/schema/" + schema_file.name, Resource.from_contents(schema)
+    )
+Draft7Validator(
+    json.loads((schema_root / "bom-1.5.schema.json").read_text()), registry=registry
+).validate(result)
 Path("artifacts").mkdir(exist_ok=True)
 Path("artifacts/sbom.cdx.json").write_text(json.dumps(result, indent=2) + "\n")
 print("%d locked dependency components inventoried" % len(components))

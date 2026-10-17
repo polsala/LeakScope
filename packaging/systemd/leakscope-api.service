@@ -1,4 +1,6 @@
 [Unit]
+StartLimitIntervalSec=300
+StartLimitBurst=3
 Description=LeakScope unprivileged investigation API
 After=network.target leakscope-sensor.service
 Wants=leakscope-sensor.service
@@ -16,6 +18,7 @@ Environment=LEAKSCOPE_DATA=/var/lib/leakscope
 Environment=LEAKSCOPE_SENSOR_SOCKET=/run/leakscope/sensor.sock
 EnvironmentFile=-/etc/leakscope/environment
 ExecStart=/opt/leakscope/bin/leakscope serve --external-sensor --listen 127.0.0.1:7831
+ExecStartPost=/opt/leakscope/venv/bin/python -I -m leakscope_api.healthcheck --timeout 30
 Restart=on-failure
 RestartSec=5
 TimeoutStartSec=45
