@@ -34,6 +34,10 @@ for version in 20.04 22.04 24.04; do
         echo "Root API startup must be refused" >&2; exit 1
       fi
       grep -q "unprivileged service UID" /tmp/root-api.log
+      if setpriv --ruid=10001 --euid=0 --regid=10001 --egid=10001 --clear-groups /opt/leakscope/bin/leakscope serve > /tmp/effective-root-api.log 2>&1; then
+        echo "Effective-root API startup must be refused" >&2; exit 1
+      fi
+      grep -q "unprivileged service UID" /tmp/effective-root-api.log
       su -s /bin/sh qa -c "/opt/leakscope/venv/bin/python -I /qa/scripts/validate-package.py --prefix /opt/leakscope"
       bash /opt/leakscope-distribution/install.sh /opt/leakscope
       /opt/leakscope/bin/leakscope --version

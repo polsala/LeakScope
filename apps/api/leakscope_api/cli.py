@@ -195,7 +195,7 @@ def main():
             print(json.dumps(result, indent=2))
             return
         if args.command == "serve":
-            if os.getuid() == 0:
+            if os.getuid() == 0 or os.geteuid() == 0:
                 raise RuntimeError(
                     "The API must run under an unprivileged service UID. Install as administrator, then run serve as the monitored application UID; grant tracing privileges only to the separate sensor."
                 )

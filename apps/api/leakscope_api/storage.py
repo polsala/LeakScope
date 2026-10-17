@@ -73,7 +73,7 @@ def backup(source: Path, destination: Path, *, timeout=30):
 
 
 def restore(source: Path, destination: Path):
-    if destination.parent.stat().st_uid != os.getuid():
+    if destination.parent.stat().st_uid != os.geteuid():
         raise ValueError(
             "Restore must run as the data-directory owner; use the service UID to preserve database ownership"
         )
