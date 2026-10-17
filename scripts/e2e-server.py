@@ -17,7 +17,12 @@ interpreter = os.getenv("PYTHON27") or shutil.which("python2.7")
 if not interpreter:
     raise RuntimeError("E2E requires a genuine CPython 2.7 interpreter; run the legacy build first")
 child = subprocess.Popen(
-    [interpreter, str(root / "tests/fixtures/leak_global_list.py")], stdout=subprocess.DEVNULL
+    [
+        interpreter,
+        "-c",
+        "import time; held=[]\nfor i in range(3600):\n held.append(bytearray(65536))\n time.sleep(1)",
+    ],
+    stdout=subprocess.DEVNULL,
 )
 (data / "fixture.pid").write_text(str(child.pid))
 lab_child = None

@@ -250,6 +250,7 @@ hr {
   min-height: 100vh;
 }
 .sidebar {
+  overflow-y: auto;
   background: var(--sidebar);
   border-right: 1px solid var(--border);
   position: fixed;
@@ -1994,4 +1995,110 @@ kbd {
   gap: 10px;
   align-items: center;
   margin-top: 18px;
+}
+
+/* Observation and findings extend the established investigation design. */
+.observation-summary {
+  margin: 22px 0;
+  padding: 20px;
+}
+.observation-summary > p {
+  color: var(--muted);
+}
+.monitor-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+.monitor-cards > button {
+  text-align: left;
+  display: grid;
+  gap: 7px;
+  padding: 16px;
+}
+.monitor-layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 24px;
+  margin-top: 22px;
+  align-items: start;
+}
+.monitor-list {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  max-height: 650px;
+  overflow: auto;
+}
+.monitor-list > button {
+  display: grid;
+  gap: 6px;
+  text-align: left;
+  padding: 14px;
+  border: 0;
+  margin: 3px 0;
+}
+.monitor-list > button.selected {
+  background: var(--accent-soft);
+  outline: 1px solid var(--accent);
+}
+.monitor-list small {
+  color: var(--muted);
+}
+.finding-summary,
+.retained-finding {
+  padding: 24px;
+  margin: 20px 0;
+}
+.retained-finding ol {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.retained-finding > strong {
+  font-size: 26px;
+  margin-right: 16px;
+}
+.domain-tag {
+  font-size: 12px;
+  font-family: var(--mono);
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+}
+.monitor-layout .metrics-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+main > label {
+  display: grid;
+  gap: 8px;
+  max-width: 650px;
+  margin: 18px 0;
+}
+main details > pre {
+  white-space: pre-wrap;
+  max-height: 420px;
+  overflow: auto;
+  padding: 20px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+main fieldset {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+@media (max-width: 800px) {
+  .monitor-layout {
+    grid-template-columns: 1fr;
+  }
+  .monitor-list {
+    max-height: 200px;
+  }
 }

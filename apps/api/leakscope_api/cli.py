@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import time
+import re
 from pathlib import Path
 import httpx
 from . import __version__
@@ -24,6 +25,21 @@ def duration(value):
     if not 1 <= result <= 600:
         raise argparse.ArgumentTypeError("Duration must be between 1 and 600 seconds")
     return result
+
+
+def observation_duration(value):
+    try:
+        unit = {"s": 1, "m": 60, "h": 3600, "d": 86400}
+        result = int(value[:-1]) * unit[value[-1]] if value[-1] in unit else int(value)
+        if not 1 <= result <= 2592000:
+            raise ValueError()
+        return result
+    except (ValueError, IndexError):
+        raise argparse.ArgumentTypeError("Use a bounded observation duration, up to 30d")
+
+
+def session_reference(path):
+    return bool(re.fullmatch("[a-f0-9]{32}", str(path))) and not path.exists()
 
 
 def read_capture(path):
@@ -71,17 +87,26 @@ def main():
         "export",
         "import",
         "create-token",
+        "monitor",
+        "watch",
+        "investigate",
+        "findings",
+        "performance",
+        "release-readiness",
     ]:
         command = commands.add_parser(name)
         command.add_argument("--json", action="store_true")
-        if name in {"inspect", "capture"}:
+        if name in {"inspect", "capture", "monitor", "watch", "investigate"}:
             command.add_argument("--pid", required=True, type=int)
-        if name == "capture":
+        if name in {"capture", "investigate"}:
             command.add_argument("--mode", choices=["observe", "deep", "lab"], default="observe")
-            command.add_argument("--duration", type=duration, default=60)
+            command.add_argument(
+                "--duration", type=duration, default=15 if name == "investigate" else 60
+            )
             command.add_argument(
                 "--policy",
                 choices=["metrics", "native_light", "native_detailed", "python_deep", "lab_full"],
+                default="native_light" if name == "investigate" else None,
             )
             command.add_argument("--min-allocation-size", type=int, default=65536)
             command.add_argument(
@@ -93,12 +118,25 @@ def main():
                 help="Request real native allocator probes; fail if unsupported",
             )
             command.add_argument("--output", type=Path)
+        if name in {"monitor", "watch"}:
+            command.add_argument("--duration", type=observation_duration, default=86400)
+            command.add_argument("--interval", type=float, default=5)
+            command.add_argument("--growth-mb", type=float, default=50)
+            command.add_argument("--window", type=observation_duration, default=900)
+            command.add_argument("--auto-policy", choices=["native_light"])
+            command.add_argument("--capture-duration", type=duration, default=5)
         if name == "ps":
             command.add_argument("--tree", action="store_true")
         if name == "serve":
             command.add_argument("--listen", default="127.0.0.1:7831")
-        if name in {"stop", "export"}:
+        if name in {"stop", "export", "findings", "performance"}:
             command.add_argument("session_id")
+        if name == "stop":
+            command.add_argument(
+                "--monitor",
+                action="store_true",
+                help="Stop durable observation instead of a capture",
+            )
         if name == "export":
             command.add_argument("--format", choices=["json", "lscap"], default="json")
             command.add_argument("--output", type=Path)
@@ -122,6 +160,8 @@ def main():
             )
             command.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    if args.command == "investigate":
+        args.command = "capture"
     cfg = load_config()
     data = Path(cfg.data_path).resolve()
     try:
@@ -163,7 +203,15 @@ def main():
                 )
             print(json.dumps({"role": args.role, "credential_file": str(args.output)}))
             return
-        if args.command in {"analyze", "compare", "report"}:
+        online_compare = (
+            args.command == "compare"
+            and session_reference(args.before)
+            and session_reference(args.after)
+        )
+        online_report = args.command == "report" and session_reference(args.path)
+        if args.command in {"analyze", "compare", "report"} and not (
+            online_compare or online_report
+        ):
             if args.command == "compare":
                 a, aq, _ = read_capture(args.before)
                 b, bq, _ = read_capture(args.after)
@@ -243,7 +291,30 @@ def main():
                     }
             elif args.command in {"hosts", "sessions"}:
                 result = call("GET", "/" + args.command)
-            elif args.command in {"ps", "inspect", "capture"}:
+            elif args.command in {"findings", "performance"}:
+                result = call("GET", f"/sessions/{args.session_id}/{args.command}")
+            elif args.command == "release-readiness":
+                result = call("GET", "/release/readiness")
+            elif online_compare:
+                result = call(
+                    "POST",
+                    "/comparisons",
+                    json={
+                        "a": {"session_id": str(args.before)},
+                        "b": {"session_id": str(args.after)},
+                    },
+                )
+            elif online_report:
+                result = call(
+                    "POST",
+                    "/reports",
+                    json={"session_id": str(args.path), "title": "Memory investigation"},
+                )
+                download = client.get("/reports/" + result["id"] + "/download")
+                download.raise_for_status()
+                args.output.write_bytes(download.content)
+                result = {"id": result["id"], "output": str(args.output)}
+            elif args.command in {"ps", "inspect", "capture", "monitor", "watch"}:
                 hosts = call("GET", "/hosts")["items"]
                 processes = []
                 for host in hosts:
@@ -281,6 +352,26 @@ def main():
                                 "GET", f"/processes/{process['key']}/capabilities"
                             ),
                         }
+                    elif args.command in {"monitor", "watch"}:
+                        from .config import Detection
+
+                        detection = Detection(
+                            minimum_observation_seconds=args.window,
+                            window_seconds=max(0.1, args.window / 3),
+                            minimum_growth_bytes=int(args.growth_mb * 1024**2),
+                        )
+                        result = call(
+                            "POST",
+                            "/monitors",
+                            json={
+                                "process_key": process["key"],
+                                "interval_seconds": args.interval,
+                                "duration_seconds": args.duration,
+                                "detection": detection.model_dump(),
+                                "automatic_policy": args.auto_policy,
+                                "capture_seconds": args.capture_duration,
+                            },
+                        )
                     else:
                         result = call(
                             "POST",
@@ -325,7 +416,8 @@ def main():
                             response.raise_for_status()
                             args.output.write_bytes(response.content)
             elif args.command == "stop":
-                result = call("POST", f"/sessions/{args.session_id}/stop")
+                resource = "monitors" if args.monitor else "sessions"
+                result = call("POST", f"/{resource}/{args.session_id}/stop")
             elif args.command == "export":
                 response = client.get(
                     f"/sessions/{args.session_id}/export", params={"format": args.format}

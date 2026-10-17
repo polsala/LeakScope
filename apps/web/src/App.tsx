@@ -76,9 +76,19 @@ import {
   Modal,
 } from "./components";
 
+import {
+  Monitoring,
+  Findings,
+  ObservationSummary,
+  SafetyStatus,
+  ReleaseReadiness,
+} from "./Production";
+
 const nav = [
   { key: "overview", icon: LayoutDashboard },
   { key: "processes", icon: Layers },
+  { key: "monitoring", icon: Activity },
+  { key: "findings", icon: Search },
   { key: "sessions", icon: Radio },
   { key: "investigations", icon: Waypoints },
   { key: "comparisons", icon: GitCompareArrows },
@@ -348,23 +358,25 @@ function Shell({ role }: { role: string }) {
         </div>
         <p className="nav-label">{t("workspace")}</p>
         <nav aria-label={t("workspace")}>
-          {nav.slice(0, 6).map((n) => (
-            <a
-              key={n.key}
-              href={"#/" + n.key}
-              className={
-                current === n.key ||
-                (current === "session" && n.key === "sessions")
-                  ? "active"
-                  : ""
-              }
-              title={t(n.key)}
-            >
-              <n.icon size={18} />
-              <span>{t(n.key)}</span>
-              {n.key === "sessions" && active > 0 && <b>{active}</b>}
-            </a>
-          ))}
+          {nav
+            .filter((n) => n.key !== "settings")
+            .map((n) => (
+              <a
+                key={n.key}
+                href={"#/" + n.key}
+                className={
+                  current === n.key ||
+                  (current === "session" && n.key === "sessions")
+                    ? "active"
+                    : ""
+                }
+                title={t(n.key)}
+              >
+                <n.icon size={18} />
+                <span>{t(n.key)}</span>
+                {n.key === "sessions" && active > 0 && <b>{active}</b>}
+              </a>
+            ))}
         </nav>
         <div className="sidebar-bottom">
           <div className="safety-note">
@@ -486,6 +498,20 @@ function Shell({ role }: { role: string }) {
               latest={latest}
               diagnose={diagnose}
               canOperate={canOperate}
+            />
+          )}
+          {current === "monitoring" && (
+            <Monitoring
+              processes={processes.data?.items || []}
+              role={role}
+              id={route.split("/")[1]}
+            />
+          )}
+          {current === "findings" && (
+            <Findings
+              sessions={sessions.data?.items || []}
+              role={role}
+              id={route.split("/")[1]}
             />
           )}
           {current === "processes" && (
@@ -650,6 +676,7 @@ function Overview({
           </button>
         )}
       </PageHead>
+      <ObservationSummary />
       <div className="metrics-grid">
         <Metric
           label={t("hosts")}
@@ -1576,6 +1603,7 @@ function SessionDetail({ id, role }: { id: string; role: string }) {
             </pre>
           </div>
         )}
+      <SafetyStatus id={id} />
       <div className="session-metrics">
         <Metric
           label={t("rss")}
@@ -2391,6 +2419,7 @@ function Settings({ role }: { role: string }) {
   return (
     <>
       <PageHead title={t("settings")} description={t("uidPolicy")} />
+      <ReleaseReadiness />
       <div className="settings-grid">
         <section className="panel form-panel">
           <h2>{t("theme")}</h2>

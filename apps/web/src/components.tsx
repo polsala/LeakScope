@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X, Activity, AlertTriangle, Info, LoaderCircle } from "lucide-react";
 import {
@@ -9,6 +10,7 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  ReferenceArea,
 } from "recharts";
 import { bytes, type Sample } from "./api";
 import { useT } from "./store";
@@ -141,8 +143,17 @@ export function Capability({
     </div>
   );
 }
-export function Chart({ samples }: { samples: Sample[] }) {
+export function Chart({
+  samples,
+  onSelect,
+  windows = [],
+}: {
+  samples: Sample[];
+  onSelect?: (start: number, end: number) => void;
+  windows?: { start: number; end: number }[];
+}) {
   const t = useT();
+  const [drag, setDrag] = useState<[number, number] | null>(null);
   if (!samples.length)
     return <Empty title={t("noTimeline")} description={t("noTimelineSub")} />;
   return (
@@ -156,6 +167,19 @@ export function Chart({ samples }: { samples: Sample[] }) {
           <AreaChart
             data={samples}
             margin={{ top: 20, right: 18, bottom: 0, left: 4 }}
+            onMouseDown={(e) => {
+              const at = Number(e.activeLabel);
+              if (onSelect && Number.isFinite(at)) setDrag([at, at]);
+            }}
+            onMouseMove={(e) => {
+              const at = Number(e.activeLabel);
+              if (drag && Number.isFinite(at)) setDrag([drag[0], at]);
+            }}
+            onMouseUp={() => {
+              if (drag && onSelect && drag[0] !== drag[1])
+                onSelect(Math.min(...drag), Math.max(...drag));
+              setDrag(null);
+            }}
           >
             <defs>
               <linearGradient id="memory-fill" x1="0" y1="0" x2="0" y2="1">
@@ -170,6 +194,8 @@ export function Chart({ samples }: { samples: Sample[] }) {
             />
             <XAxis
               dataKey="timestamp"
+              type="number"
+              domain={["dataMin", "dataMax"]}
               tickFormatter={(v) => new Date(v * 1000).toLocaleTimeString()}
               minTickGap={60}
               tick={{ fill: "var(--muted)", fontSize: 11 }}
@@ -203,6 +229,25 @@ export function Chart({ samples }: { samples: Sample[] }) {
               fill="url(#memory-fill)"
               isAnimationActive={false}
             />
+            {windows.map((w, index) => (
+              <ReferenceArea
+                key={index}
+                x1={w.start}
+                x2={w.end}
+                fill="#efb44f"
+                fillOpacity={0.12}
+                stroke="#efb44f"
+                strokeDasharray="4 4"
+              />
+            ))}
+            {drag && (
+              <ReferenceArea
+                x1={Math.min(...drag)}
+                x2={Math.max(...drag)}
+                fill="#37cbbb"
+                fillOpacity={0.18}
+              />
+            )}
           </AreaChart>
         </ResponsiveContainer>
       </div>

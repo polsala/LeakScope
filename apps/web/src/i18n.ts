@@ -1,4 +1,6 @@
+import { production } from "./i18n-production";
 export const ca = {
+  ...production.ca,
   pythonBlocks: "Blocs Python observats",
   pythonAllocationSites: "Llocs d’assignació de blocs Python",
   pythonInvestigation: "Investigació de fuites de memòria Python",
@@ -263,6 +265,7 @@ export const ca = {
 export type Key = keyof typeof ca;
 export type Locale = "ca" | "es" | "en";
 const es: Record<Key, string> = {
+  ...production.es,
   pythonBlocks: "Bloques Python observados",
   pythonAllocationSites: "Sitios de asignación de bloques Python",
   pythonInvestigation: "Investigación de fugas de memoria Python",
@@ -525,6 +528,7 @@ const es: Record<Key, string> = {
   noNotifications: "No hay notificaciones nuevas",
 };
 const en: Record<Key, string> = {
+  ...production.en,
   pythonBlocks: "Observed Python blocks",
   pythonAllocationSites: "Python object-block allocation sites",
   pythonInvestigation: "Python Memory Leak Investigation",

@@ -76,7 +76,9 @@ test("verified Python Lab source → exact allocation frames → report", async 
     fullPage: true,
   });
   await page.getByRole("link", { name: "Informes", exact: true }).click();
-  await page.getByLabel("Sessió", { exact: true }).selectOption({ index: 1 });
+  await page
+    .getByRole("combobox", { name: "Sessió", exact: true })
+    .selectOption({ index: 1 });
   await page
     .getByLabel("Títol de l’informe")
     .fill("Verified Python Lab evidence");
