@@ -43,6 +43,10 @@ test-security:
 	$(PNPM) audit --prod
 benchmark:
 	.venv/bin/python tests/performance/benchmark.py
+test-soak-observation:
+	.venv/bin/python tests/soak/observation.py --duration 3600 --restart-interval 300
+release-readiness:
+	.venv/bin/python scripts/release-gates.py
 package:
 	bash packaging/release/package.sh
 doctor:

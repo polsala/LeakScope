@@ -285,3 +285,44 @@ def test_collector_feedback_timeout_detaches_even_with_slow_metrics(tmp_path, ta
         assert result["quality"]["coverage_gap_after_native"]
         assert "collector_lag" in str(result["quality"]["policy_transitions"])
         sensor.call("release", session=sid)
+
+
+def test_repeated_bursts_bound_sensor_memory_and_close_kernel_descriptors(tmp_path, target):
+    cfg = Config(
+        data_path=str(tmp_path / "collector"), profiling=Profiling(max_automatic_native_seconds=1)
+    )
+    app = create_app(cfg)
+    with TestClient(
+        app,
+        headers={"Authorization": "Bearer " + (Path(cfg.data_path) / "admin.token").read_text()},
+    ) as client:
+        p = process(client, target.pid)
+        response = client.post(
+            "/api/v1/monitors",
+            json={
+                "process_key": p["key"],
+                "duration_seconds": 120,
+                "interval_seconds": 1,
+                "capture_seconds": 1,
+            },
+        )
+        assert response.status_code == 201, response.text
+        mid = response.json()["id"]
+        measured = []
+        for unused in range(12):
+            sid = client.post(f"/api/v1/monitors/{mid}/capture").json()["session_id"]
+            assert command(target, "run 48 1")["bytes"] == 0
+            final = wait_session(client, sid)
+            assert final["state"] == "ready", final
+            health = app.state.collector.sensor.call("health")
+            assert health["kernel_probe_fds"] == health["native_traces"] == 0, health
+            measured.append(health["sample"]["rss"])
+        assert max(measured) < 128 * 1024**2, measured
+        assert measured[-1] - measured[4] < 32 * 1024**2, measured
+        output = ROOT / "artifacts/kernel/repeated-windows.json"
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(
+            json.dumps(
+                {"rss_bytes": measured, "windows": 12, "probe_fds_after_each": 0, "passed": True}
+            )
+        )

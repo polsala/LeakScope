@@ -12,14 +12,22 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: ./.github/actions/setup
+      - run: bash scripts/build-python27.sh ucs4 release
+      - run: cargo build --workspace --locked
+      - name: One-hour genuine Python 2 metrics, bounded cache and collector/sensor restarts
+        run: .venv/bin/python tests/soak/observation.py --duration 3600 --restart-interval 300 --output artifacts/soak/observation.json
+        env:
+          PYTHON27: ${{ github.workspace }}/.cache/python27/install-ucs4-release/bin/python2.7
       - run: |
           .venv/bin/leakscope serve > /tmp/leakscope-soak.log 2>&1 &
           collector_pid=$!
           trap 'kill -INT "$collector_pid"; wait "$collector_pid" || true' EXIT
           sleep 3
-          .venv/bin/python tests/soak/run.py --duration 3600 > /tmp/leakscope-soak-result.json
+          .venv/bin/python tests/soak/run.py --duration 300 > /tmp/leakscope-soak-result.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: soak-evidence
-          path: /tmp/leakscope-soak*
+          path: |
+            /tmp/leakscope-soak*
+            artifacts/soak/*.json

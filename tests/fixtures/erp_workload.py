@@ -9,12 +9,18 @@ import os
 import sys
 import time
 import gc
+import ctypes
 from contextlib import contextmanager
 
 held=[]
 cache={}
 completed=0
 agent=None
+library=ctypes.CDLL(sys.argv[1]) if len(sys.argv)>1 else None
+if library:
+    library.fixture_step.argtypes=[ctypes.c_uint,ctypes.c_size_t,ctypes.c_uint]
+    library.fixture_bytes.restype=ctypes.c_size_t
+work_units=int(os.getenv('LEAKSCOPE_FIXTURE_WORK_UNITS','0'))
 if os.getenv('LEAKSCOPE_FIXTURE_AGENT')=='1':
     import leakscope_agent as agent
     agent.initialize()
@@ -34,10 +40,16 @@ def execute(mode,count):
     start=time.time()
     cpu=time.clock()
     with operation():
+        if library:
+            if mode=='cooldown':library.fixture_release()
+            elif library.fixture_step(8,65536,0 if mode=='leak' else (4 if mode=='cache' else 1)):
+                raise RuntimeError('Native ground-truth allocation budget exceeded')
         # Generated query rows, ORM dictionaries, line items, and wizard results.
         rows=[{'id':i,'partner':'generated-%d'%i,'payload':('%d-'%i)+'x'*4096,
                'lines':[(j,j*.21) for j in range(4)]} for i in range(count)]
         result={'count':len(rows),'total':sum(sum(v[1] for v in r['lines']) for r in rows)}
+        if work_units:
+            result['tax_rounding_checksum']=sum((i*i)%997 for i in xrange(work_units))
         if mode=='leak':
             held.append(rows)
         elif mode=='cache':
@@ -56,6 +68,7 @@ def execute(mode,count):
 
 def truth():
     return {'pid':os.getpid(),'version':list(sys.version_info[:3]),'completed':completed,
+            'native_retained_bytes':library.fixture_bytes() if library else None,
             'retained_records':sum(len(batch) for batch in held),'cache_records':len(cache),
             'retained_payload_bytes':sum(len(row['payload']) for batch in held for row in batch)}
 

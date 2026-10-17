@@ -10,7 +10,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: [self-hosted, linux, x64, leakscope-performance]
     environment: performance
-    timeout-minutes: 40
+    timeout-minutes: 60
     env:
       LEAKSCOPE_SENSOR_CAPABILITIES: ${{ vars.LEAKSCOPE_SENSOR_CAPABILITIES }}
     steps:
@@ -40,6 +40,10 @@ jobs:
           for component in entry paired maps stack ring; do
             .venv/bin/python scripts/native-benchmark.py --component "$component" --rounds 3 --batches 64 --output "artifacts/kernel/component-$component.json"
           done
+          for strategy in metrics native_light native_detailed burst; do
+            .venv/bin/python scripts/qualify-bursts.py --strategy "$strategy" --rounds 5 --operations 128 --active-operations 2 --output "artifacts/performance/$strategy.json"
+          done
+          .venv/bin/python scripts/summarize-bursts.py --prefix '' --output artifacts/performance/summary.json
         env:
           PYTHON27: ${{ github.workspace }}/.cache/python27/install-ucs4-release/bin/python2.7
           LEAKSCOPE_SENSOR_BIN: ${{ github.workspace }}/target/release/leakscope-sensor
@@ -50,3 +54,4 @@ jobs:
           path: |
             artifacts/benchmark.json
             artifacts/kernel/*.json
+            artifacts/performance/*.json

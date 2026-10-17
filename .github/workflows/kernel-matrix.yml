@@ -19,7 +19,7 @@ jobs:
       - uses: ./.github/actions/setup
       - run: bash scripts/build-python27.sh ucs4 release
       - run: make test-native
-      - name: Real attachment, independent counters and durable native captures
+      - name: Real attachment, independent counters, physical burst detach and adaptive safety
         run: bash scripts/test-kernel.sh
         env:
           PYTHON27: ${{ github.workspace }}/.cache/python27/install-ucs4-release/bin/python2.7

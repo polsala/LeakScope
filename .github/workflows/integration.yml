@@ -20,3 +20,10 @@ jobs:
       - run: make test-integration
         env:
           PYTHON27: ${{ github.workspace }}/.cache/python27/install-ucs4-release/bin/python2.7
+      - name: Actual ENOSPC and durable-prefix recovery on isolated hosted runner
+        shell: bash
+        run: |
+          mkdir -p /tmp/leakscope-full
+          sudo mount -t tmpfs -o size=1M,uid=$(id -u),gid=$(id -g),mode=0700 tmpfs /tmp/leakscope-full
+          trap 'sudo umount /tmp/leakscope-full' EXIT
+          LEAKSCOPE_ENOSPC_PATH=/tmp/leakscope-full .venv/bin/pytest -q tests/reliability/test_storage.py
