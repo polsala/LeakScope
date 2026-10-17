@@ -13,7 +13,8 @@ import httpx
 from . import __version__
 from .analysis import summarize, compare
 from .capture import Reader, integrity, CaptureError
-from .config import load_config, credential
+from .config import load_config, credential, private_directory
+from .storage import service_lease
 from .reports import render
 
 
@@ -207,14 +208,18 @@ def main():
                     "Standalone server binds to loopback. Use an SSH tunnel for remote access."
                 )
             cfg.listen = args.listen
-            app = create_app(cfg, start_sensor=not args.external_sensor)
-            print(
-                f"LeakScope: http://{args.listen}\nRead your local credential from {data / 'admin.token'}",
-                file=sys.stderr,
-            )
-            uvicorn.run(
-                app, host=host, port=int(port), access_log=False, timeout_graceful_shutdown=3
-            )
+            private_directory(data)
+            # Retain exclusion until the server's executor threads have also
+            # stopped, beyond ASGI lifespan teardown and capture cancellation.
+            with service_lease(data):
+                app = create_app(cfg, start_sensor=not args.external_sensor)
+                print(
+                    f"LeakScope: http://{args.listen}\nRead your local credential from {data / 'admin.token'}",
+                    file=sys.stderr,
+                )
+                uvicorn.run(
+                    app, host=host, port=int(port), access_log=False, timeout_graceful_shutdown=3
+                )
             return
         if args.command == "create-token":
             import hashlib

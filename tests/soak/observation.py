@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import select
 import time
 from fastapi.testclient import TestClient
 from leakscope_api.app import create_app
@@ -16,7 +17,7 @@ parser.add_argument("--duration", type=int, default=3600)
 parser.add_argument("--restart-interval", type=int, default=300)
 parser.add_argument("--output", default="artifacts/soak/observation.json")
 args = parser.parse_args()
-if not 10 <= args.duration <= 86400:
+if not 10 <= args.duration <= 86400 or not 1 <= args.restart_interval <= 86400:
     parser.error("Use a bounded duration 10..86400 seconds")
 root = Path(__file__).resolve().parents[2]
 interpreter = os.getenv("PYTHON27") or shutil.which("python2.7")
@@ -31,6 +32,7 @@ fixture = subprocess.Popen(
     text=True,
     bufsize=1,
 )
+assert select.select([fixture.stdout], [], [], 10)[0], "Python fixture startup timed out"
 truth = json.loads(fixture.stdout.readline())
 assert truth["version"] == [2, 7, 18]
 cfg = Config(
@@ -85,6 +87,9 @@ try:
             ):
                 fixture.stdin.write("cache 128\n")
                 fixture.stdin.flush()
+                assert select.select([fixture.stdout], [], [], 10)[0], (
+                    "Python fixture response timed out"
+                )
                 truth = json.loads(fixture.stdout.readline())
                 assert truth["cache_records"] <= 256 and truth["retained_records"] == 0
                 result["operations"] += 1

@@ -11,17 +11,28 @@ import os
 from pathlib import Path
 import select
 import subprocess
+import sys
+import hashlib
 import tempfile
 import time
 
 from fastapi.testclient import TestClient
 from leakscope_api.app import create_app
 from leakscope_api.config import Config
+from leakscope_api.sensor import Sensor
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from support.services import Deployment  # noqa: E402
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--duration", type=int, default=7200)
 parser.add_argument("--window-seconds", type=int, default=5)
 parser.add_argument("--restart-every", type=int, default=20)
+parser.add_argument(
+    "--executable",
+    type=Path,
+    help="Profile a real installed API process rather than the ASGI driver",
+)
 parser.add_argument("--output", type=Path, default=Path("artifacts/soak/native.json"))
 args = parser.parse_args()
 if (
@@ -42,7 +53,9 @@ result = {
     "requested_seconds": args.duration,
     "window_seconds": args.window_seconds,
     "limitations": [
-        "Collector shares the driver process.",
+        "Collector is a separate installed process."
+        if args.executable
+        else "Collector shares the driver process.",
         "Independent bounded windows, with coverage gaps.",
         "Thresholds are regression smoke budgets, not multi-hour certification baselines.",
     ],
@@ -87,11 +100,33 @@ with tempfile.TemporaryDirectory(prefix="ls-native-soak-") as temporary:
             return json.loads(target.stdout.readline())
 
         while time.monotonic() - started < args.duration:
-            app = create_app(Config(data_path=str(data / "collector")))
-            with TestClient(
-                app,
-                headers={"Authorization": "Bearer " + (data / "collector/admin.token").read_text()},
-            ) as client:
+            if args.executable:
+                manager = Deployment(args.executable, data / "collector", env={"PYTHONPATH": ""})
+            else:
+                app = create_app(Config(data_path=str(data / "collector")))
+                manager = TestClient(
+                    app,
+                    headers={
+                        "Authorization": "Bearer " + (data / "collector/admin.token").read_text()
+                    },
+                )
+            with manager as opened:
+                if args.executable:
+                    client = opened.client
+                    client.timeout = 15
+                    collector_pid = opened.child.pid
+                    sensor = Sensor(
+                        data / "collector/sensor.sock",
+                        (data / "collector/sensor.token").read_text().strip(),
+                    )
+                else:
+                    client = opened
+                    collector_pid = os.getpid()
+                    sensor = app.state.collector.sensor
+                if os.getenv("LEAKSCOPE_SENSOR_BIN"):
+                    result["sensor_sha256"] = hashlib.sha256(
+                        Path(os.environ["LEAKSCOPE_SENSOR_BIN"]).read_bytes()
+                    ).hexdigest()
                 host = client.get("/api/v1/hosts").json()["items"][0]["id"]
                 process = next(
                     p
@@ -115,7 +150,7 @@ with tempfile.TemporaryDirectory(prefix="ls-native-soak-") as temporary:
                     )
                     assert response.status_code == 201, response.text
                     sid = response.json()["id"]
-                    health = app.state.collector.sensor.call("health")
+                    health = sensor.call("health")
                     assert health["kernel_probe_fds"] > 0
                     truth = command("run 48 " + ("1" if clean else "0"))
                     deadline = time.monotonic() + args.window_seconds + 30
@@ -135,25 +170,29 @@ with tempfile.TemporaryDirectory(prefix="ls-native-soak-") as temporary:
                         == truth["bytes"]
                         == (0 if clean else 3145728)
                     ), analysis
-                    health = app.state.collector.sensor.call("health")
+                    health = sensor.call("health")
                     assert health["native_traces"] == health["kernel_probe_fds"] == 0, health
                     result["completed_sessions"] += 1
                     result["measurements"].append(
                         {
                             "elapsed_seconds": time.monotonic() - started,
                             "sensor_rss": health["sample"]["rss"],
-                            "target_rss": app.state.collector.sensor.call(
-                                "sample", pid=target.pid, expensive=False
+                            "target_rss": sensor.call("sample", pid=target.pid, expensive=False)[
+                                "sample"
+                            ]["rss"],
+                            "collector_rss": sensor.call(
+                                "sample", pid=collector_pid, expensive=False
                             )["sample"]["rss"],
-                            "collector_rss": app.state.collector.sensor.call(
-                                "sample", pid=os.getpid(), expensive=False
-                            )["sample"]["rss"],
-                            "collector_fds": len(list(Path("/proc/self/fd").iterdir())),
+                            "collector_fds": len(list(Path(f"/proc/{collector_pid}/fd").iterdir())),
                             "probe_fds_after": health["kernel_probe_fds"],
                             "lost_native": session["quality"].get("lost_native"),
                             "analysis_seconds": time.monotonic() - analysis_start,
                             "wal_bytes": (data / "collector/leakscope.sqlite3-wal").stat().st_size,
-                            "storage_bytes": app.state.collector.disk_usage(),
+                            "storage_bytes": sum(
+                                path.stat().st_size
+                                for path in (data / "collector").rglob("*")
+                                if path.is_file()
+                            ),
                             "ground_truth_retained": truth["bytes"],
                         }
                     )
