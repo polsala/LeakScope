@@ -23,6 +23,12 @@ for version in 20.04 22.04 24.04; do
       test "$(stat -c %u /opt/leakscope/current/bin/leakscope-sensor)" = 0
       useradd --uid 10001 --create-home qa
       su -s /bin/sh qa -c "test ! -w /opt/leakscope/current/bin/leakscope-sensor && test ! -w /opt/leakscope/current/bin"
+      mkdir /tmp/qa-restore
+      chown qa /tmp/qa-restore
+      if LEAKSCOPE_DATA=/tmp/qa-restore /opt/leakscope/bin/leakscope restore /tmp/missing-backup > /tmp/restore-owner.log 2>&1; then
+        echo "Restore must refuse a different data owner" >&2; exit 1
+      fi
+      grep -q "data-directory owner" /tmp/restore-owner.log
       cd /tmp
       if /opt/leakscope/bin/leakscope serve > /tmp/root-api.log 2>&1; then
         echo "Root API startup must be refused" >&2; exit 1

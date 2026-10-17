@@ -34,7 +34,7 @@ if [[ ! -e "$release/.installed" ]]; then
   mkdir "$release"
   # System installations must be owned by the installing administrator, not
   # inherit the download directory's UID or writable/set-ID file modes.
-  cp -a --no-preserve=ownership "$source_root/." "$release/"
+  cp -a --no-preserve=ownership,mode,xattr,context "$source_root/." "$release/"
   find "$release" -type d -exec chmod go-w {} +
   find "$release" -type f -exec chmod u-s,g-s,go-w {} +
   "$release/runtime/bin/python3.12" -I -m venv "$release/venv"

@@ -73,6 +73,10 @@ def backup(source: Path, destination: Path, *, timeout=30):
 
 
 def restore(source: Path, destination: Path):
+    if destination.parent.stat().st_uid != os.getuid():
+        raise ValueError(
+            "Restore must run as the data-directory owner; use the service UID to preserve database ownership"
+        )
     expected = json.loads(source.with_suffix(source.suffix + ".json").read_text())
     with source.open("rb") as stream:
         if hashlib.file_digest(stream, "sha256").hexdigest() != expected["sha256"]:
