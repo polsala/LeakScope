@@ -20,7 +20,9 @@ for version in 20.04 22.04 24.04; do
       if bash /tmp/tampered-distribution/verify.sh /tmp/tampered-distribution; then
         echo "Unexpected symlinks must fail integrity validation" >&2; exit 1
       fi
+      test "$(stat -c %u /opt/leakscope/current/bin/leakscope-sensor)" = 0
       useradd --uid 10001 --create-home qa
+      su -s /bin/sh qa -c "test ! -w /opt/leakscope/current/bin/leakscope-sensor"
       cd /tmp
       if /opt/leakscope/bin/leakscope serve > /tmp/root-api.log 2>&1; then
         echo "Root API startup must be refused" >&2; exit 1

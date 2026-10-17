@@ -13,7 +13,11 @@ release="$prefix/releases/$release_id"
 if [[ ! -e "$release/.installed" ]]; then
   [[ ! -e "$release" ]] || { echo "Incomplete release exists: $release; preserve logs and remove it before retry" >&2; exit 2; }
   mkdir "$release"
-  cp -a "$source_root/." "$release/"
+  # System installations must be owned by the installing administrator, not
+  # inherit the download directory's UID or writable/set-ID file modes.
+  cp -a --no-preserve=ownership "$source_root/." "$release/"
+  find "$release" -type d -exec chmod go-w {} +
+  find "$release" -type f -exec chmod u-s,g-s,go-w {} +
   "$release/runtime/bin/python3.12" -I -m venv "$release/venv"
   "$release/venv/bin/python" -I -m pip install --no-index --find-links "$release/wheels" leakscope==0.1.0
   cp "$release/launcher" "$release/bin/leakscope"
