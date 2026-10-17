@@ -1,5 +1,11 @@
 export const production = {
   ca: {
+    available: "Disponible",
+    deploymentHealth: "Salut del desplegament",
+    databaseHealth: "Estat de la base de dades",
+    sensorHealth: "Mètriques de salut del sensor",
+    deploymentHealthHelp:
+      "La connectivitat operativa no certifica el rendiment, la recuperació ni la compatibilitat de tots els nuclis.",
     windowBoundsHelp:
       "Franges amb vora discontínua: límits de la sessió nativa, inclosa la connexió i la finalització. La cobertura exacta consta a les metadades de captura.",
     profilingSafety: "Seguretat del perfilat",
@@ -93,6 +99,12 @@ export const production = {
     fragmentationFinding: "Possible fragmentació de l’assignador",
   },
   es: {
+    available: "Disponible",
+    deploymentHealth: "Estado del despliegue",
+    databaseHealth: "Estado de la base de datos",
+    sensorHealth: "Estado del sensor",
+    deploymentHealthHelp:
+      "La conectividad operativa no certifica el rendimiento, la recuperación ni la compatibilidad de todos los núcleos.",
     windowBoundsHelp:
       "Franjas con borde discontinuo: límites de la sesión nativa, incluida la conexión y la finalización. La cobertura exacta consta en los metadatos de captura.",
     profilingSafety: "Seguridad del perfilado",
@@ -186,6 +198,12 @@ export const production = {
     fragmentationFinding: "Posible fragmentación del asignador",
   },
   en: {
+    available: "Available",
+    deploymentHealth: "Deployment health",
+    databaseHealth: "Database health",
+    sensorHealth: "Sensor health",
+    deploymentHealthHelp:
+      "Operational connectivity does not certify performance, recovery or compatibility across kernels.",
     windowBoundsHelp:
       "Dashed bands: native session bounds, including attachment and finalization. Precise coverage bounds are recorded in capture metadata.",
     profilingSafety: "Profiling safety",

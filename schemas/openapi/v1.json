@@ -527,6 +527,52 @@
         }
       }
     },
+    "/api/v1/deployment/health": {
+      "get": {
+        "summary": "Deployment Health",
+        "operationId": "deployment_health_api_v1_deployment_health_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentHealth"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/version": {
       "get": {
         "summary": "Version",
@@ -4088,6 +4134,13 @@
             "title": "Listen",
             "default": "127.0.0.1:7831"
           },
+          "sqlite_max_wal_mb": {
+            "type": "integer",
+            "maximum": 256.0,
+            "minimum": 8.0,
+            "title": "Sqlite Max Wal Mb",
+            "default": 64
+          },
           "max_storage_mb": {
             "type": "integer",
             "maximum": 1048576.0,
@@ -4158,6 +4211,63 @@
         "additionalProperties": false,
         "type": "object",
         "title": "Config"
+      },
+      "DeploymentHealth": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/HealthItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "active_captures": {
+            "type": "integer",
+            "title": "Active Captures"
+          },
+          "kernel": {
+            "type": "string",
+            "title": "Kernel"
+          },
+          "runtime": {
+            "type": "string",
+            "title": "Runtime"
+          },
+          "free_storage_bytes": {
+            "type": "integer",
+            "title": "Free Storage Bytes"
+          },
+          "database_bytes": {
+            "type": "integer",
+            "title": "Database Bytes"
+          },
+          "wal_bytes": {
+            "type": "integer",
+            "title": "Wal Bytes"
+          },
+          "production_ready": {
+            "type": "boolean",
+            "title": "Production Ready"
+          },
+          "capabilities": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Capabilities"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "active_captures",
+          "kernel",
+          "runtime",
+          "free_storage_bytes",
+          "database_bytes",
+          "wal_bytes",
+          "production_ready",
+          "capabilities"
+        ],
+        "title": "DeploymentHealth"
       },
       "Detection": {
         "properties": {
@@ -4376,6 +4486,29 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "HealthItem": {
+        "properties": {
+          "component": {
+            "type": "string",
+            "title": "Component"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "component",
+          "status",
+          "detail"
+        ],
+        "title": "HealthItem"
       },
       "HypothesisView": {
         "properties": {

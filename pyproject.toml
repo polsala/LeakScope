@@ -46,7 +46,7 @@ line-length = 100
 exclude = ["legacy", ".venv"]
 
 [tool.pytest.ini_options]
-testpaths = ["apps/api/tests", "tests/integration", "tests/security"]
+testpaths = ["apps/api/tests", "tests/integration", "tests/security", "tests/reliability"]
 
 [tool.mypy]
 plugins = ["pydantic.mypy"]

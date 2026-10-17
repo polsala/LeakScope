@@ -3,6 +3,7 @@ import json
 import os
 import platform
 import shutil
+import sqlite3
 import subprocess
 import sys
 import time
@@ -14,6 +15,13 @@ from .analysis import summarize, compare
 from .capture import Reader, integrity, CaptureError
 from .config import load_config, credential
 from .reports import render
+
+
+def security_policy():
+    try:
+        return Path("/proc/self/attr/current").read_text().strip()
+    except OSError:
+        return "not_observable"
 
 
 def duration(value):
@@ -73,6 +81,8 @@ def main():
     parser.add_argument("--url", default=os.getenv("LEAKSCOPE_URL", "http://127.0.0.1:7831"))
     commands = parser.add_subparsers(dest="command", required=True)
     for name in [
+        "backup",
+        "restore",
         "doctor",
         "hosts",
         "sessions",
@@ -127,7 +137,14 @@ def main():
             command.add_argument("--capture-duration", type=duration, default=5)
         if name == "ps":
             command.add_argument("--tree", action="store_true")
+        if name in {"backup", "restore"}:
+            command.add_argument("path", type=Path)
         if name == "serve":
+            command.add_argument(
+                "--external-sensor",
+                action="store_true",
+                help="Require a separately managed sensor; never spawn one",
+            )
             command.add_argument("--listen", default="127.0.0.1:7831")
         if name in {"stop", "export", "findings", "performance"}:
             command.add_argument("session_id")
@@ -165,6 +182,17 @@ def main():
     cfg = load_config()
     data = Path(cfg.data_path).resolve()
     try:
+        if args.command in {"backup", "restore"}:
+            from .storage import backup, restore
+
+            database_path = data / "leakscope.sqlite3"
+            result = (
+                backup(database_path, args.path)
+                if args.command == "backup"
+                else restore(args.path, database_path)
+            )
+            print(json.dumps(result, indent=2))
+            return
         if args.command == "serve":
             import uvicorn
             from .app import create_app
@@ -175,7 +203,7 @@ def main():
                     "Standalone server binds to loopback. Use an SSH tunnel for remote access."
                 )
             cfg.listen = args.listen
-            app = create_app(cfg)
+            app = create_app(cfg, start_sensor=not args.external_sensor)
             print(
                 f"LeakScope: http://{args.listen}\nRead your local credential from {data / 'admin.token'}",
                 file=sys.stderr,
@@ -268,6 +296,12 @@ def main():
                     "architecture": platform.machine(),
                     "python": sys.version.split()[0],
                     "python27_path": shutil.which("python2.7"),
+                    "process_uid": os.getuid(),
+                    "pid_namespace": os.readlink("/proc/self/ns/pid"),
+                    "security_policy": security_policy(),
+                    "release_readiness": __import__(
+                        "leakscope_api.readiness", fromlist=["evaluate"]
+                    ).evaluate(),
                     "free_storage_bytes": shutil.disk_usage(
                         data if data.exists() else Path.cwd()
                     ).free,
@@ -282,6 +316,7 @@ def main():
                     )
                 try:
                     result["collector"] = call("GET", "/health/ready")
+                    result["deployment"] = call("GET", "/deployment/health")
                     result["host"] = call("GET", "/capabilities")
                 except (httpx.HTTPError, RuntimeError) as error:
                     result["collector"] = {
@@ -442,7 +477,14 @@ def main():
             else:
                 raise RuntimeError("Unsupported command")
             print(json.dumps(result, indent=2))
-    except (OSError, RuntimeError, httpx.HTTPError, CaptureError, ValueError) as error:
+    except (
+        OSError,
+        RuntimeError,
+        sqlite3.Error,
+        httpx.HTTPError,
+        CaptureError,
+        ValueError,
+    ) as error:
         print(json.dumps({"error": str(error)}), file=sys.stderr)
         sys.exit(2)
 

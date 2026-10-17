@@ -17,6 +17,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, StreamingResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select, func
+from sqlalchemy.exc import SQLAlchemyError
+from .storage import service_lease
 
 from . import __version__, models as m
 from .analysis import summarize, compare
@@ -33,6 +35,7 @@ from .contracts import (
     ReportCreate,
     transition,
 )
+from .deployment import DeploymentHealth, files as deployment_files
 from .db import database
 from .reports import render, redact_paths
 from .context_capture import expand
@@ -57,7 +60,7 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
     private_directory(data / "captures")
     admin_token = credential(data / "admin.token")
     sensor_token = credential(data / "sensor.token")
-    engine, db_factory = database(data / "leakscope.sqlite3")
+    engine, db_factory = database(data / "leakscope.sqlite3", cfg.sqlite_max_wal_mb)
     with db_factory.begin() as db:
         for name in LEVELS:
             if not db.get(m.Role, name):
@@ -91,62 +94,76 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
 
     @asynccontextmanager
     async def lifespan(app):
-        child = None
-        if start_sensor:
+        with service_lease(data):
+            child = None
+            task = agent_task = observation_task = None
             try:
-                await collector.call("doctor")
-            except SensorError:
-                candidates = [
-                    os.getenv("LEAKSCOPE_SENSOR_BIN", ""),
-                    str(ROOT / "target/debug/leakscope-sensor"),
-                    str(ROOT / "target/release/leakscope-sensor"),
-                    shutil.which("leakscope-sensor"),
-                ]
-                binary = next((p for p in candidates if p and Path(p).is_file()), None)
-                if binary:
-                    env = {
-                        **os.environ,
-                        "LEAKSCOPE_SENSOR_SOCKET": str(socket_path),
-                        "LEAKSCOPE_SENSOR_TOKEN_FILE": str(data / "sensor.token"),
-                    }
-                    child = subprocess.Popen(
-                        [binary], env=env, stdin=subprocess.DEVNULL, start_new_session=True
-                    )
-                    for _ in range(40):
-                        try:
-                            await collector.call("doctor")
-                            break
-                        except SensorError:
-                            await asyncio.sleep(0.05)
-        with contextlib.suppress(SensorError):
-            await collector.discover()
-        await collector.reconcile()
-        task = asyncio.create_task(maintenance())
-        agent_task = asyncio.create_task(receive_agents(collector, data / "agent.sock"))
-        observation_task = asyncio.create_task(observer.run())
-        yield
-        observation_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await observation_task
-        task.cancel()
-        agent_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await agent_task
-        await collector.close()
-        if child:
-            import signal
+                if start_sensor:
+                    try:
+                        await collector.call("doctor")
+                    except SensorError:
+                        candidates = [
+                            os.getenv("LEAKSCOPE_SENSOR_BIN", ""),
+                            str(ROOT / "target/debug/leakscope-sensor"),
+                            str(ROOT / "target/release/leakscope-sensor"),
+                            shutil.which("leakscope-sensor"),
+                        ]
+                        binary = next((p for p in candidates if p and Path(p).is_file()), None)
+                        if binary:
+                            env = {
+                                **os.environ,
+                                "LEAKSCOPE_SENSOR_SOCKET": str(socket_path),
+                                "LEAKSCOPE_SENSOR_TOKEN_FILE": str(data / "sensor.token"),
+                            }
+                            child = subprocess.Popen(
+                                [binary], env=env, stdin=subprocess.DEVNULL, start_new_session=True
+                            )
+                            for _ in range(40):
+                                if child.poll() is not None:
+                                    raise RuntimeError(
+                                        "Sensor exited during startup; inspect sensor logs"
+                                    )
+                                try:
+                                    await collector.call("doctor")
+                                    break
+                                except SensorError:
+                                    await asyncio.sleep(0.05)
+                with contextlib.suppress(SensorError):
+                    await collector.discover()
+                await collector.reconcile()
+                task = asyncio.create_task(maintenance())
+                agent_task = asyncio.create_task(receive_agents(collector, data / "agent.sock"))
+                observation_task = asyncio.create_task(observer.run())
+                yield
+            finally:
+                pending_tasks = [p for p in [observation_task, task, agent_task] if p]
+                for pending in pending_tasks:
+                    pending.cancel()
+                results = await asyncio.gather(*pending_tasks, return_exceptions=True)
+                for result in results:
+                    if isinstance(result, Exception):
+                        import logging
 
-            child.send_signal(signal.SIGINT)
-            try:
-                child.wait(timeout=3)
-            except subprocess.TimeoutExpired:
-                child.terminate()
+                        logging.getLogger("leakscope").error(
+                            "Background task failed: %s", type(result).__name__
+                        )
                 try:
-                    child.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    child.kill()
-                    child.wait(timeout=2)
-        engine.dispose()
+                    await collector.close()
+                finally:
+                    if child and child.poll() is None:
+                        import signal
+
+                        child.send_signal(signal.SIGINT)
+                        try:
+                            child.wait(timeout=3)
+                        except subprocess.TimeoutExpired:
+                            child.terminate()
+                            try:
+                                child.wait(timeout=2)
+                            except subprocess.TimeoutExpired:
+                                child.kill()
+                                child.wait(timeout=2)
+                    engine.dispose()
 
     app = FastAPI(
         title="LeakScope",
@@ -212,6 +229,19 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
             }
         )
         return response
+
+    @app.exception_handler(SQLAlchemyError)
+    async def database_error(_, error):
+        # Do not expose SQL text, parameters or credentials in HTTP responses.
+        return JSONResponse(
+            {
+                "error": {
+                    "code": "database_unavailable",
+                    "message": "Database persistence failed. Free storage, inspect SQLite health and retry; no completion was acknowledged.",
+                }
+            },
+            status_code=507,
+        )
 
     @app.exception_handler(HTTPException)
     async def http_error(_, error):
@@ -312,10 +342,69 @@ def create_app(config: Config | None = None, start_sensor: bool = True):
 
     @app.get("/api/v1/health/ready", dependencies=[Depends(read)])
     async def ready():
+        try:
+            with db_factory() as db:
+                db.execute(select(1))
+            await collector.call("doctor")
+        except (SQLAlchemyError, SensorError) as error:
+            raise HTTPException(
+                503, "Database or sensor unavailable; inspect service logs and run leakscope doctor"
+            ) from error
+        return {"status": "ready", "database": "ok", "sensor": "connected"}
+
+    @app.get(
+        "/api/v1/deployment/health", response_model=DeploymentHealth, dependencies=[Depends(read)]
+    )
+    async def deployment_health():
+        items = []
         with db_factory() as db:
             db.execute(select(1))
-        await collector.call("doctor")
-        return {"status": "ready", "database": "ok", "sensor": "connected"}
+            active = db.scalar(
+                select(func.count()).select_from(m.Session).where(m.Session.state.in_(ACTIVE))
+            )
+        items.append(
+            {
+                "component": "database",
+                "status": "available",
+                "detail": "Database responds; online queries do not certify disk recovery or every database page.",
+            }
+        )
+        capabilities = {}
+        try:
+            doctor = await collector.call("doctor")
+            capabilities = doctor.get("capabilities", {})
+            items.append(
+                {
+                    "component": "sensor",
+                    "status": "available",
+                    "detail": "Authenticated local sensor connection.",
+                }
+            )
+        except SensorError:
+            items.append(
+                {
+                    "component": "sensor",
+                    "status": "unavailable",
+                    "detail": "Start leakscope-sensor.service and verify UID, socket and token permissions.",
+                }
+            )
+        native = capabilities.get("external_allocations", False)
+        items.append(
+            {
+                "component": "native",
+                "status": "available" if native else "unavailable",
+                "detail": capabilities.get("reason")
+                or "Use process capability preflight; Python attribution requires prepared instrumentation.",
+            }
+        )
+        readiness = release_readiness()
+        return {
+            "items": items,
+            "active_captures": active,
+            "capabilities": capabilities,
+            "production_ready": readiness["production_ready"],
+            **deployment_files(data),
+        }
 
     @app.get("/api/v1/version", dependencies=[Depends(read)])
     def version():

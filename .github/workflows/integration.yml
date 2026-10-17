@@ -27,3 +27,6 @@ jobs:
           sudo mount -t tmpfs -o size=1M,uid=$(id -u),gid=$(id -g),mode=0700 tmpfs /tmp/leakscope-full
           trap 'sudo umount /tmp/leakscope-full' EXIT
           LEAKSCOPE_ENOSPC_PATH=/tmp/leakscope-full .venv/bin/pytest -q tests/reliability/test_storage.py
+          sudo umount /tmp/leakscope-full
+          sudo mount -t tmpfs -o size=4M,uid=$(id -u),gid=$(id -g),mode=0700 tmpfs /tmp/leakscope-full
+          LEAKSCOPE_SQLITE_ENOSPC_PATH=/tmp/leakscope-full .venv/bin/pytest -q tests/reliability/test_database.py

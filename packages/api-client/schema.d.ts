@@ -141,6 +141,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/deployment/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Deployment Health */
+        get: operations["deployment_health_api_v1_deployment_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/version": {
         parameters: {
             query?: never;
@@ -905,6 +922,11 @@ export interface components {
              */
             listen: string;
             /**
+             * Sqlite Max Wal Mb
+             * @default 64
+             */
+            sqlite_max_wal_mb: number;
+            /**
              * Max Storage Mb
              * @default 1024
              */
@@ -958,6 +980,29 @@ export interface components {
              * @default false
              */
             allow_remote_access: boolean;
+        };
+        /** DeploymentHealth */
+        DeploymentHealth: {
+            /** Items */
+            items: components["schemas"]["HealthItem"][];
+            /** Active Captures */
+            active_captures: number;
+            /** Kernel */
+            kernel: string;
+            /** Runtime */
+            runtime: string;
+            /** Free Storage Bytes */
+            free_storage_bytes: number;
+            /** Database Bytes */
+            database_bytes: number;
+            /** Wal Bytes */
+            wal_bytes: number;
+            /** Production Ready */
+            production_ready: boolean;
+            /** Capabilities */
+            capabilities: {
+                [key: string]: unknown;
+            };
         };
         /** Detection */
         Detection: {
@@ -1053,6 +1098,15 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** HealthItem */
+        HealthItem: {
+            /** Component */
+            component: string;
+            /** Status */
+            status: string;
+            /** Detail */
+            detail: string;
         };
         /** HypothesisView */
         HypothesisView: {
@@ -2046,6 +2100,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deployment_health_api_v1_deployment_health_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentHealth"];
                 };
             };
             /** @description Validation Error */

@@ -845,3 +845,65 @@ export function ReleaseReadiness() {
     </section>
   );
 }
+
+export function DeploymentHealth() {
+  const t = useT();
+  const query = useQuery({
+    queryKey: ["deploymentHealth"],
+    queryFn: () =>
+      api<components["schemas"]["DeploymentHealth"]>("/deployment/health"),
+    refetchInterval: 30000,
+  });
+  const labels: Record<string, Key> = {
+    database: "databaseHealth",
+    sensor: "sensorHealth",
+    native: "nativeAttribution",
+  };
+  return (
+    <section className="panel form-panel" aria-labelledby="deployment-heading">
+      <h2 id="deployment-heading">{t("deploymentHealth")}</h2>
+      {query.isLoading ? (
+        <Loading />
+      ) : query.error ? (
+        <Failure error={query.error} />
+      ) : (
+        query.data && (
+          <>
+            <p>{t("deploymentHealthHelp")}</p>
+            <div className="metric-grid">
+              <Metric
+                label={t("storage")}
+                value={bytes(query.data.free_storage_bytes)}
+              />
+              <Metric
+                label={t("activeSessions")}
+                value={String(query.data.active_captures)}
+              />
+            </div>
+            <p>
+              Linux {query.data.kernel} · Python {query.data.runtime} · SQLite{" "}
+              {bytes(query.data.database_bytes)} · WAL{" "}
+              {bytes(query.data.wal_bytes)}
+            </p>
+            <ul>
+              {query.data.items.map((item) => (
+                <li key={item.component}>
+                  <strong>
+                    {t(labels[item.component] || "deploymentHealth")}:{" "}
+                    {t(
+                      item.status === "available" ? "available" : "unavailable",
+                    )}
+                  </strong>
+                  <p>{item.detail}</p>
+                </li>
+              ))}
+            </ul>
+            {!query.data.production_ready && (
+              <p className="warning">{t("gatePreview")}</p>
+            )}
+          </>
+        )
+      )}
+    </section>
+  );
+}

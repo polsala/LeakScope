@@ -57,6 +57,7 @@ class Config(Strict):
     data_path: str = ".data"
     capture_path: str | None = None
     listen: str = "127.0.0.1:7831"
+    sqlite_max_wal_mb: int = Field(64, ge=8, le=256)
     max_storage_mb: int = Field(1024, ge=10, le=1048576)
     retention: Retention = Retention()
     profiling: Profiling = Profiling()

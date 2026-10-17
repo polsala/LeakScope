@@ -77,6 +77,7 @@ import {
 } from "./components";
 
 import {
+  DeploymentHealth,
   Monitoring,
   Findings,
   ObservationSummary,
@@ -2419,6 +2420,7 @@ function Settings({ role }: { role: string }) {
   return (
     <>
       <PageHead title={t("settings")} description={t("uidPolicy")} />
+      <DeploymentHealth />
       <ReleaseReadiness />
       <div className="settings-grid">
         <section className="panel form-panel">
@@ -2512,7 +2514,11 @@ function Settings({ role }: { role: string }) {
           ) : diagnostics.error ? (
             <Failure error={diagnostics.error} />
           ) : (
-            <pre className="diagnostics">
+            <pre
+              className="diagnostics"
+              tabIndex={0}
+              aria-label={t("diagnosticEvidence")}
+            >
               {JSON.stringify(diagnostics.data, null, 2)}
             </pre>
           )}
