@@ -15,6 +15,12 @@ from leakscope_api.readiness import fingerprint, evaluate, GATES
 parser = argparse.ArgumentParser()
 parser.add_argument("--file", default="artifacts/release-evidence.json")
 parser.add_argument("--require-production", action="store_true")
+parser.add_argument(
+    "--scope",
+    action="append",
+    default=[],
+    help="Executed production coverage item; repeat for each independently verified scope",
+)
 parser.add_argument("--gate", choices=list(GATES))
 parser.add_argument(
     "--status",
@@ -41,6 +47,7 @@ if args.gate:
     saved["source_fingerprint"] = after
     saved["gates"][args.gate] = {
         "status": args.status,
+        "scope": args.scope,
         "passed": result.returncode == 0 and before == after,
         "exit_code": result.returncode,
         "started_at": started,

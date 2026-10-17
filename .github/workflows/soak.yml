@@ -27,3 +27,28 @@ jobs:
           path: |
             /tmp/leakscope-soak*
             artifacts/soak/**
+  native-soak:
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, linux, x64, leakscope-kernel]
+    environment: kernel-tests
+    timeout-minutes: 170
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: ./.github/actions/setup
+      - run: bash scripts/build-python27.sh ucs4 release
+      - run: cargo build --workspace --locked
+      - name: Explicit operator-managed tracing privileges
+        run: |
+          if [ "${{ vars.LEAKSCOPE_ALLOW_SETCAP }}" = 1 ]; then
+            sudo setcap cap_bpf,cap_perfmon,cap_sys_ptrace+ep target/debug/leakscope-sensor
+          fi
+      - name: Two-hour real native windows and restart qualification
+        run: .venv/bin/python tests/soak/native.py --duration 7200 --window-seconds 15 --restart-every 20 --output artifacts/soak/native-two-hours.json
+        env:
+          LEAKSCOPE_KERNEL_TEST: '1'
+          PYTHON27: ${{ github.workspace }}/.cache/python27/install-ucs4-release/bin/python2.7
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: native-soak-evidence
+          path: artifacts/soak/**

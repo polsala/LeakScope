@@ -3,7 +3,7 @@ Version: 0.1.0
 Section: devel
 Priority: optional
 Architecture: amd64
-Depends: python3.12, python3.12-venv, libc6 (>= 2.35), libgcc-s1
+Depends: libc6 (>= 2.31), libgcc-s1, bash, coreutils, util-linux
 Maintainer: LeakScope maintainers <maintainers@example.invalid>
 Description: Local process memory investigations with explicit evidence quality
  Offline installer, native sensor, collector, CLI and browser interface.

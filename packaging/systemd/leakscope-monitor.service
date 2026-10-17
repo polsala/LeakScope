@@ -1,0 +1,21 @@
+[Unit]
+Description=LeakScope explicitly configured metrics monitor
+After=leakscope-api.service
+Requires=leakscope-api.service
+
+[Service]
+Type=oneshot
+User=leakscope
+Group=leakscope
+Environment=LEAKSCOPE_DATA=/var/lib/leakscope
+EnvironmentFile=/etc/leakscope/monitor
+ExecStart=/opt/leakscope/bin/leakscope monitor --pid ${LEAKSCOPE_TARGET_PID} --duration 24h --json
+UMask=0077
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

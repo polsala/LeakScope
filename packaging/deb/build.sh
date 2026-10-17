@@ -2,6 +2,7 @@
 set -euo pipefail
 stage="$(realpath "$1")"
 out="$(pwd)/artifacts/deb-root"
+python3 -c 'import shutil,sys;shutil.rmtree(sys.argv[1], ignore_errors=True)' "$out"
 mkdir -p "$out/DEBIAN" "$out/opt/leakscope-distribution"
 cp -R "$stage/." "$out/opt/leakscope-distribution/"
 cp packaging/deb/control packaging/deb/postinst "$out/DEBIAN/"

@@ -30,3 +30,17 @@ jobs:
         with:
           name: native-ubuntu-abi
           path: artifacts/compatibility
+
+  installed-package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: ./.github/actions/setup
+      - run: bash packaging/release/package.sh
+      - run: bash scripts/test-installed-ubuntu.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: installed-package-evidence
+          path: artifacts/deployment/**

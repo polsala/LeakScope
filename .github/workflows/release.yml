@@ -56,8 +56,15 @@ jobs:
           PYTHON=python bash artifacts/leakscope-0.1.0-linux-x86_64/install.sh /tmp/leakscope-install
           /tmp/leakscope-install/bin/leakscope --version
           /tmp/leakscope-install/bin/leakscope doctor --json
+      - run: bash scripts/test-installed-ubuntu.sh
       - name: Build modern-runtime OCI image
         run: docker build -f packaging/docker/Dockerfile -t leakscope:${GITHUB_REF_NAME} .
+      - name: Attest distribution artifacts in the trusted release environment
+        uses: actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45
+        with:
+          subject-path: |
+            artifacts/*.tar.gz
+            artifacts/*.deb
       - name: Optional detached signatures
         env:
           RELEASE_GPG_KEY: ${{ secrets.RELEASE_GPG_KEY }}

@@ -23,6 +23,55 @@ GATES = {
     "packaging": "Offline installation and package integrity",
     "provenance": "Release source/build provenance and signatures",
 }
+# A successful smoke command cannot certify a broader production matrix.
+REQUIRED_SCOPE = {
+    "portable": {"rust", "backend", "frontend", "contracts", "browser"},
+    "kernel": {"linux_5_15", "linux_6_8", "positive_control", "cleanup_control", "detach", "loss"},
+    "python_abi": {
+        "ucs2_release",
+        "ucs2_debug",
+        "ucs4_release",
+        "ucs4_debug",
+        "ucs2_lab",
+        "ucs4_lab",
+    },
+    "binary_compatibility": {"ubuntu_20_04", "ubuntu_22_04", "ubuntu_24_04"},
+    "performance": {
+        "approved_baseline",
+        "controlled_hardware",
+        "active_cost",
+        "amortized_cost",
+        "erp",
+        "uwsgi",
+        "rq",
+    },
+    "soak": {
+        "metrics_1h",
+        "native_windows_2h",
+        "native_sustained_2h",
+        "deep_2h",
+        "lab_2h",
+        "collector_restart",
+        "sensor_restart",
+    },
+    "security": {"dependency_audit", "secret_scan", "service_isolation", "manual_review"},
+    "storage_recovery": {
+        "capture_enospc",
+        "sqlite_enospc",
+        "wal_enospc",
+        "backup_restore",
+        "migration_failure",
+    },
+    "accessibility": {"axe", "manual_keyboard", "manual_screen_reader", "manual_contrast"},
+    "packaging": {"offline_deb", "offline_tarball", "upgrade", "rollback", "root_systemd"},
+    "provenance": {
+        "checksums",
+        "sbom",
+        "source_archive",
+        "trusted_attestation",
+        "offline_verification",
+    },
+}
 STATUSES = {"verified", "partially_verified", "experimental", "unsupported", "blocked"}
 
 
@@ -48,26 +97,29 @@ def fingerprint(root):
         for path in (root / directory).rglob("*"):
             if (
                 path.is_file()
-                and path.suffix
-                in {
-                    ".py",
-                    ".rs",
-                    ".c",
-                    ".h",
-                    ".ts",
-                    ".tsx",
-                    ".json",
-                    ".toml",
-                    ".yaml",
-                    ".yml",
-                    ".sh",
-                    ".patch",
-                    ".css",
-                    ".html",
-                    ".proto",
-                    ".lscap",
-                    ".svg",
-                }
+                and (
+                    directory == "packaging"
+                    or path.suffix
+                    in {
+                        ".py",
+                        ".rs",
+                        ".c",
+                        ".h",
+                        ".ts",
+                        ".tsx",
+                        ".json",
+                        ".toml",
+                        ".yaml",
+                        ".yml",
+                        ".sh",
+                        ".patch",
+                        ".css",
+                        ".html",
+                        ".proto",
+                        ".lscap",
+                        ".svg",
+                    }
+                )
                 and not any(
                     p
                     in {
@@ -148,12 +200,22 @@ def evaluate(path=None, expected_fingerprint=None):
         status = record.get("status", "blocked") if valid else "blocked"
         if not isinstance(status, str) or status not in STATUSES:
             status = "blocked"
+        scopes = record.get("scope", [])
+        missing_scope = (
+            sorted(REQUIRED_SCOPE[key] - set(scopes))
+            if isinstance(scopes, list) and all(isinstance(v, str) for v in scopes)
+            else sorted(REQUIRED_SCOPE[key])
+        )
+        scope_blocked = record.get("status") == "verified" and bool(missing_scope)
         gates.append(
             {
                 "key": key,
                 "title": title,
-                "status": status,
-                "reason": record.get(
+                "status": "blocked" if scope_blocked else status,
+                "missing_scope": missing_scope,
+                "reason": "Missing mandatory production scope: " + ", ".join(missing_scope)
+                if scope_blocked
+                else record.get(
                     "reason", "No successful current-source execution receipt available"
                 )
                 if valid

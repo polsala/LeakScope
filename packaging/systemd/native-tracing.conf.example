@@ -1,0 +1,6 @@
+# Install as leakscope-sensor.service.d/native.conf only after capability
+# preflight on Linux >=5.8. Linux 5.4 remains metrics-only. Older systemd/libcap
+# may not recognize CAP_BPF or CAP_PERFMON; do not replace with CAP_SYS_ADMIN.
+[Service]
+CapabilityBoundingSet=CAP_BPF CAP_PERFMON CAP_SYS_PTRACE
+AmbientCapabilities=CAP_BPF CAP_PERFMON CAP_SYS_PTRACE

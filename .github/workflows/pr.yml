@@ -1,5 +1,9 @@
 name: Pull request quality gates
-on: [pull_request]
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

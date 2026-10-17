@@ -3,7 +3,7 @@
 import json
 import os
 import time
-from leakscope_api.readiness import evaluate, GATES
+from leakscope_api.readiness import evaluate, GATES, REQUIRED_SCOPE
 from conftest import start_session, finish
 
 
@@ -20,7 +20,10 @@ def test_readiness_rejects_missing_failed_stale_and_mismatched_evidence(tmp_path
         "source_fingerprint": "source",
         "status": "verified",
     }
-    evidence = {"source_fingerprint": "source", "gates": {k: dict(receipt) for k in GATES}}
+    evidence = {
+        "source_fingerprint": "source",
+        "gates": {k: {**receipt, "scope": sorted(REQUIRED_SCOPE[k])} for k in GATES},
+    }
     path.write_text(json.dumps(evidence))
     assert evaluate(path, "source")["production_ready"]
     assert not evaluate(path, "other")["production_ready"]
@@ -106,3 +109,27 @@ def test_orphan_cleanup_preserves_active_spool_and_recent_recovery(client):
     collector.cleanup()
     assert not orphan.exists() and active.exists() and recent.exists()
     finish(client, sid)
+
+
+def test_readiness_rejects_successful_but_unqualified_matrix(tmp_path):
+    path = tmp_path / "scope.json"
+    evidence = {
+        "source_fingerprint": "source",
+        "gates": {
+            "kernel": {
+                "status": "verified",
+                "passed": True,
+                "exit_code": 0,
+                "completed_at": time.time(),
+                "source_fingerprint": "source",
+                "scope": ["positive_control", "cleanup_control"],
+            }
+        },
+    }
+    path.write_text(json.dumps(evidence))
+    result = evaluate(path, "source")
+    kernel = next(g for g in result["gates"] if g["key"] == "kernel")
+    assert kernel["status"] == "blocked"
+    assert "linux_5_15" in kernel["missing_scope"]
+    assert "scope" in kernel["reason"]
+    assert not result["production_ready"]

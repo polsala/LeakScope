@@ -1,18 +1,7 @@
-FROM rust:1.94.1-bookworm AS native
-WORKDIR /build
-COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
-COPY crates ./crates
-COPY bpf ./bpf
-RUN apt-get update && apt-get install -y --no-install-recommends clang && rm -rf /var/lib/apt/lists/*
-RUN cargo build --workspace --release --locked
-
-FROM python:3.12.11-slim-bookworm AS runtime
-WORKDIR /app
+# The same auditable offline runtime/native distribution as the tarball.
+FROM ubuntu:20.04@sha256:8feb4d8ca5354def3d8fce243717141ce31e2c428701f6682bd2fafe15388214
 COPY artifacts/leakscope-0.1.0-linux-x86_64 /distribution
-COPY --from=native /build/target/release/leakscope-sensor /distribution/bin/leakscope-sensor
-COPY --from=native /build/target/release/leakscope-analyzer /distribution/bin/leakscope-analyzer
 RUN bash /distribution/install.sh /opt/leakscope && useradd --create-home --uid 10001 leakscope && mkdir /data && chown leakscope /data
-RUN /opt/leakscope/bin/leakscope-sensor --version
 USER 10001:10001
 ENV LEAKSCOPE_DATA=/data
 WORKDIR /data

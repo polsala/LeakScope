@@ -1,28 +1,12 @@
 [Unit]
-Description=LeakScope local memory investigation
-After=local-fs.target
+Description=LeakScope services (compatibility target)
+Wants=leakscope-api.service leakscope-sensor.service
+After=leakscope-api.service
 
 [Service]
-Type=simple
-# Install as the ERP's UID, or change this user to the monitored service account.
-User=leakscope
-Group=leakscope
-WorkingDirectory=/var/lib/leakscope
-Environment=LEAKSCOPE_DATA=/var/lib/leakscope
-Environment=LEAKSCOPE_WEB_DIST=/opt/leakscope/web-dist
-ExecStart=/opt/leakscope/bin/leakscope serve --listen 127.0.0.1:7831
-Restart=on-failure
-RestartSec=5
-UMask=0077
-NoNewPrivileges=true
-ProtectSystem=strict
-ProtectHome=read-only
-ReadWritePaths=/var/lib/leakscope
-PrivateTmp=true
-RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
-CapabilityBoundingSet=
-MemoryMax=512M
-TasksMax=128
+Type=oneshot
+ExecStart=/bin/true
+RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target

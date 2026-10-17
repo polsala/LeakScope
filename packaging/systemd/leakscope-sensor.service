@@ -1,0 +1,38 @@
+[Unit]
+Description=LeakScope bounded local process sensor
+After=local-fs.target
+Before=leakscope-api.service
+
+[Service]
+Type=simple
+User=leakscope
+Group=leakscope
+StateDirectory=leakscope
+StateDirectoryMode=0700
+RuntimeDirectory=leakscope
+RuntimeDirectoryMode=0700
+WorkingDirectory=/var/lib/leakscope
+Environment=LEAKSCOPE_SENSOR_SOCKET=/run/leakscope/sensor.sock
+Environment=LEAKSCOPE_SENSOR_TOKEN_FILE=/var/lib/leakscope/sensor.token
+ExecStartPre=/opt/leakscope/venv/bin/python -I -c "from pathlib import Path; from leakscope_api.config import credential; credential(Path('/var/lib/leakscope/sensor.token'))"
+ExecStart=/opt/leakscope/bin/leakscope-sensor
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=15
+TimeoutStopSec=15
+UMask=0077
+NoNewPrivileges=yes
+# Default deployment is metrics-only. Grant tracing in an explicit reviewed
+# drop-in on qualified kernels; never grant generic CAP_SYS_ADMIN here.
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+ReadWritePaths=/var/lib/leakscope /run/leakscope
+RestrictAddressFamilies=AF_UNIX
+LimitNOFILE=4096
+MemoryMax=192M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

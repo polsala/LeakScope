@@ -52,8 +52,22 @@ def test_unacknowledged_samples_are_bounded_and_loss_is_visible(tmp_path):
         assert response["events"][0]["sequence"] > 1
         assert all(e["process_key"] == current["key"] for e in response["events"])
         final = sensor.call("stop", session="real-queue-test", ack=response["last_sequence"])
-        assert final["stopped"] and not final["events"]
-        assert final["lost_samples"] == response["lost_samples"]
+        assert final["stopped"]
+        # Sampling may append events between poll and stop. Stop freezes the
+        # producer; drain/ACK its durable tail instead of discarding it or
+        # assuming a scheduler cannot run between the two socket requests.
+        tail = final["events"]
+        assert all(e["sequence"] > response["last_sequence"] for e in tail)
+        assert [e["sequence"] for e in tail] == sorted({e["sequence"] for e in tail})
+        replay = sensor.call("poll", session="real-queue-test", ack=response["last_sequence"])
+        assert replay["stopped"] and replay["events"] == tail
+        drained = sensor.call("poll", session="real-queue-test", ack=final["last_sequence"])
+        assert drained["stopped"] and not drained["events"]
+        assert drained["lost_samples"] == final["lost_samples"]
+        assert final["lost_samples"] >= response["lost_samples"]
+        # Independent accounting: produced metrics = ACKed prefix + pending
+        # queue + reported evictions. Before the first ACK, nothing is freed.
+        assert response["samples"] == len(response["events"]) + response["lost_samples"]
         sensor.call("release", session="real-queue-test")
     finally:
         child.send_signal(signal.SIGINT)

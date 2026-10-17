@@ -28,6 +28,22 @@ for key in yaml.safe_load(Path("pnpm-lock.yaml").read_text())["packages"]:
             "purl": "pkg:npm/%s@%s" % (name.replace("@", "%40"), version),
         }
     )
+runtime = json.loads(Path("packaging/runtime/python.json").read_text())
+components.append(
+    {
+        "type": "platform",
+        "name": "CPython standalone runtime",
+        "version": runtime["version"],
+        "hashes": [{"alg": "SHA-256", "content": runtime["sha256"]}],
+        "externalReferences": [{"type": "distribution", "url": runtime["url"]}],
+        "properties": [
+            {
+                "name": "leakscope:runtime-inventory-scope",
+                "value": "Runtime archive inventory; bundled OpenSSL/SQLite/other C libraries require upstream build metadata audit. This is not a complete transitive native SBOM.",
+            }
+        ],
+    }
+)
 result = {
     "bomFormat": "CycloneDX",
     "specVersion": "1.5",

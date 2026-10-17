@@ -1,0 +1,36 @@
+[Unit]
+Description=LeakScope unprivileged investigation API
+After=network.target leakscope-sensor.service
+Wants=leakscope-sensor.service
+
+[Service]
+Type=simple
+User=leakscope
+Group=leakscope
+StateDirectory=leakscope
+StateDirectoryMode=0700
+RuntimeDirectory=leakscope-api
+RuntimeDirectoryMode=0700
+WorkingDirectory=/var/lib/leakscope
+Environment=LEAKSCOPE_DATA=/var/lib/leakscope
+Environment=LEAKSCOPE_SENSOR_SOCKET=/run/leakscope/sensor.sock
+EnvironmentFile=-/etc/leakscope/environment
+ExecStart=/opt/leakscope/bin/leakscope serve --external-sensor --listen 127.0.0.1:7831
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=45
+TimeoutStopSec=20
+UMask=0077
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+ReadWritePaths=/var/lib/leakscope
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LimitNOFILE=4096
+MemoryMax=768M
+TasksMax=128
+
+[Install]
+WantedBy=multi-user.target
