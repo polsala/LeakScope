@@ -31,8 +31,15 @@ if [[ "$mode" == lab ]]; then
 fi
 flags=()
 if [[ "$mode" == debug ]]; then flags+=(--with-pydebug); fi
+linkage="${LEAKSCOPE_PYTHON27_LINKAGE:-static}"
+linker_flags=""
+case "$linkage" in
+  static) ;;
+  shared) flags+=(--enable-shared); linker_flags="-Wl,-rpath,$prefix/lib" ;;
+  *) echo 'Use static or shared linkage' >&2; exit 2 ;;
+esac
 cd "$source_dir"
-./configure --prefix="$prefix" --enable-unicode="$unicode" --without-ensurepip "${flags[@]}" CFLAGS='-O2 -std=gnu99 -fno-omit-frame-pointer'
+./configure --prefix="$prefix" --enable-unicode="$unicode" --without-ensurepip "${flags[@]}" CFLAGS="${LEAKSCOPE_PYTHON27_CFLAGS:--O2 -std=gnu99 -fno-omit-frame-pointer}" LDFLAGS="$linker_flags"
 make -j"${LEAKSCOPE_BUILD_JOBS:-4}"
 make install
 cd "$root/legacy/py27-agent"
@@ -44,3 +51,6 @@ lab_test=0
 if [[ "$mode" == lab ]]; then lab_test=1; fi
 LEAKSCOPE_LAB_TEST="$lab_test" PYTHONPATH="$agent_dir" "$prefix/bin/python2.7" -m unittest discover -s tests -v
 printf 'Verified interpreter: %s\n' "$prefix/bin/python2.7"
+
+mkdir -p "$root/artifacts/legacy"
+PYTHONPATH="$agent_dir" "$prefix/bin/python2.7" -c 'import json,sys,sysconfig,platform,_leakscope_native as n;print(json.dumps({"version":list(sys.version_info[:3]),"maxunicode":sys.maxunicode,"abi":n.abi(),"shared":bool(sysconfig.get_config_var("Py_ENABLE_SHARED")),"compiler":platform.python_compiler(),"cflags":sysconfig.get_config_var("CFLAGS"),"lab":bool(n.lab_available())}))' > "$root/artifacts/legacy/$variant-$mode-$linkage.json"

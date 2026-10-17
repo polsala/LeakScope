@@ -617,15 +617,27 @@ class Collector:
         # Reports are retained; deleting investigations is an explicit user operation.
 
     async def close(self):
-        for session_id, task in self.tasks.items():
-            if task.done():
-                continue
-            with self.db.begin() as db:
-                s = db.get(m.Session, session_id)
-                if s and s.state == "recording":
-                    transition(s, "stopping")
-        pending = [t for t in self.tasks.values() if not t.done()]
+        # External systemd sensors outlive the API. Stop probes independently
+        # of SQLite writability, then allow bounded durable finalization.
+        sessions = [(sid, task) for sid, task in list(self.tasks.items()) if not task.done()]
+        for session_id, task in sessions:
+            with contextlib.suppress(SQLAlchemyError, OSError):
+                with self.db.begin() as db:
+                    s = db.get(m.Session, session_id)
+                    if s and s.state == "recording":
+                        transition(s, "stopping")
+
+        async def control(action, session_id):
+            with contextlib.suppress(SensorError, asyncio.TimeoutError):
+                await asyncio.wait_for(self.call(action, session=session_id), timeout=2)
+
+        if sessions:
+            await asyncio.gather(*(control("stop", sid) for sid, _ in sessions))
+        pending = [task for _, task in sessions]
         if pending:
             _, running = await asyncio.wait(pending, timeout=8)
-            for t in running:
-                t.cancel()
+            for task in running:
+                task.cancel()
+            if running:
+                await asyncio.wait(running, timeout=2)
+            await asyncio.gather(*(control("release", sid) for sid, _ in sessions))

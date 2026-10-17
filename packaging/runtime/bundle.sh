@@ -14,4 +14,4 @@ fi
 printf '%s  %s\n' "${spec[1]}" "$archive" | sha256sum --check --status
 tar -xzf "$archive" --strip-components=1 -C "$stage/runtime"
 cp "$root/packaging/runtime/python.json" "$stage/runtime-build.json"
-"$stage/runtime/bin/python3.12" -I -c 'import ssl,sqlite3,sys; assert sys.version_info[:3]==(3,12,15); print(sys.version,ssl.OPENSSL_VERSION,sqlite3.sqlite_version)'
+"$stage/runtime/bin/python3.12" -B -I -c 'import ssl,sqlite3,sys; assert sys.version_info[:3]==(3,12,15); print(sys.version,ssl.OPENSSL_VERSION,sqlite3.sqlite_version)'

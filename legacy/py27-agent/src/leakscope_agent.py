@@ -26,6 +26,8 @@ _lab_active = False
 
 
 def initialize(socket_path=None, expected_abi=None):
+    if not hasattr(native, 'note_drop') or 'total_dropped' not in native.health():
+        raise RuntimeError('Agent shim/native transport mismatch; rebuild and install the matching extension before initializing')
     if sys.version_info[:3] != (2, 7, 18):
         raise RuntimeError('CPython 2.7.18 required')
     fingerprint = native.abi()

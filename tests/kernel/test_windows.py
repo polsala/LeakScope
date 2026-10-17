@@ -335,3 +335,57 @@ def test_repeated_bursts_bound_sensor_memory_and_close_kernel_descriptors(tmp_pa
                 {"rss_bytes": measured, "windows": 12, "probe_fds_after_each": 0, "passed": True}
             )
         )
+
+
+def test_external_sensor_detaches_when_api_stops(tmp_path, target):
+    from leakscope_api.sensor import Sensor, SensorError
+    import signal
+
+    data = tmp_path / "external"
+    app = create_app(Config(data_path=str(data)), start_sensor=False)
+    token = (data / "sensor.token").read_text().strip()
+    sensor = Sensor(data / "sensor.sock", token)
+    binary = os.getenv("LEAKSCOPE_SENSOR_BIN") or str(ROOT / "target/release/leakscope-sensor")
+    child = subprocess.Popen(
+        [binary],
+        env={
+            **os.environ,
+            "LEAKSCOPE_SENSOR_SOCKET": str(data / "sensor.sock"),
+            "LEAKSCOPE_SENSOR_TOKEN_FILE": str(data / "sensor.token"),
+        },
+    )
+    try:
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            try:
+                sensor.call("doctor")
+                break
+            except SensorError:
+                assert child.poll() is None
+                time.sleep(0.05)
+        with TestClient(
+            app, headers={"Authorization": "Bearer " + (data / "admin.token").read_text()}
+        ) as client:
+            p = process(client, target.pid)
+            response = client.post(
+                "/api/v1/sessions",
+                json={
+                    "process_key": p["key"],
+                    "duration_seconds": 60,
+                    "profiling_policy": "native_detailed",
+                    "allow_downgrade": False,
+                },
+            )
+            assert response.status_code == 201, response.text
+            assert sensor.call("health")["native_traces"] == 1
+            assert command(target, "run 48 0")["bytes"] == 3145728
+        assert child.poll() is None, "The independently managed sensor must remain available"
+        health = sensor.call("health")
+        assert (
+            health["kernel_probe_fds"] == health["native_traces"] == health["active_leases"] == 0
+        ), health
+        assert target.poll() is None
+        assert command(target, "release")["bytes"] == 0
+    finally:
+        child.send_signal(signal.SIGINT)
+        child.wait(timeout=5)

@@ -5,7 +5,20 @@ on:
 permissions:
   contents: read
 jobs:
+  authorization:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      deployments: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: |
+          python3 scripts/check-trusted-environment.py kernel-validation
+          python3 scripts/check-trusted-environment.py release
+        env:
+          GH_TOKEN: ${{ github.token }}
   kernel-release-gate:
+    needs: authorization
     env:
       LEAKSCOPE_SENSOR_CAPABILITIES: ${{ vars.LEAKSCOPE_SENSOR_CAPABILITIES }}
     runs-on: [self-hosted, linux, x64, leakscope-kernel]
@@ -36,6 +49,7 @@ jobs:
           name: release-kernel-evidence
           path: artifacts/kernel
   distribution:
+    environment: release
     needs: kernel-release-gate
     runs-on: ubuntu-24.04
     timeout-minutes: 45

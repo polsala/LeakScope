@@ -37,6 +37,17 @@ class AgentTest(unittest.TestCase):
         self.assertEqual(event['pid'], os.getpid())
         self.assertEqual(event['payload']['stack'][0]['function'], 'test_abi_and_metadata')
 
+    def test_transport_version_mismatch_rejected_before_activation(self):
+        original = native.note_drop
+        del native.note_drop
+        try:
+            with self.assertRaises(RuntimeError):
+                agent.initialize(self.path)
+        finally:
+            native.note_drop = original
+        self.assertTrue(agent.mark('still_operational'))
+        self.assertEqual(self.packet()['payload']['name'], 'still_operational')
+
     def test_gc_no_strong_references_and_budgets(self):
         gc.disable()
         try:

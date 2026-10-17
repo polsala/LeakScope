@@ -31,7 +31,7 @@ for key in yaml.safe_load(Path("pnpm-lock.yaml").read_text())["packages"]:
 runtime = json.loads(Path("packaging/runtime/python.json").read_text())
 components.append(
     {
-        "type": "platform",
+        "type": "application",
         "name": "CPython standalone runtime",
         "version": runtime["version"],
         "hashes": [{"alg": "SHA-256", "content": runtime["sha256"]}],

@@ -35,3 +35,25 @@ jobs:
         with:
           name: agent-${{ matrix.unicode }}-${{ matrix.mode }}
           path: artifacts/legacy
+
+  shared-custom-flags:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: sudo apt-get update && sudo apt-get install -y build-essential zlib1g-dev libffi-dev libbz2-dev
+      - name: Genuine shared libpython and explicit custom compiler flags
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/legacy
+          bash scripts/build-python27.sh ucs4 release 2>&1 | tee artifacts/legacy/shared-build.log
+        env:
+          LEAKSCOPE_BUILD_ROOT: ${{ github.workspace }}/.cache/python27-shared
+          LEAKSCOPE_PYTHON27_LINKAGE: shared
+          LEAKSCOPE_PYTHON27_CFLAGS: '-O1 -std=gnu99 -fno-omit-frame-pointer -fno-strict-aliasing'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: python27-shared-compatibility
+          path: artifacts/legacy/**

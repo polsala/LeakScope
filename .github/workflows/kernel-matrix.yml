@@ -6,7 +6,19 @@ on:
 permissions:
   contents: read
 jobs:
+  authorization:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      deployments: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: python3 scripts/check-trusted-environment.py kernel-validation
+        env:
+          GH_TOKEN: ${{ github.token }}
   kernel:
+    needs: authorization
     env:
       LEAKSCOPE_SENSOR_CAPABILITIES: ${{ vars.LEAKSCOPE_SENSOR_CAPABILITIES }}
     # Never run untrusted PR code on a host with tracing capabilities.

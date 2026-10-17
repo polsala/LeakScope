@@ -3,7 +3,7 @@
 set -euo pipefail
 source_root="$(cd "$(dirname "$0")" && pwd)"
 prefix="$(realpath -m "${1:-$HOME/.local/lib/leakscope}")"
-(cd "$source_root" && sha256sum --check --quiet FILES.sha256)
+bash "$source_root/verify.sh" "$source_root"
 release_id="$(cat "$source_root/source-fingerprint")"
 [[ "$release_id" =~ ^[a-f0-9]{64}$ ]] || { echo 'Invalid build identity' >&2; exit 2; }
 mkdir -p "$prefix/releases" "$prefix/bin"
