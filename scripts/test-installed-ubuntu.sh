@@ -38,12 +38,13 @@ for version in 20.04 22.04 24.04; do
         echo "Effective-root API startup must be refused" >&2; exit 1
       fi
       grep -q "unprivileged service UID" /tmp/effective-root-api.log
-      su -s /bin/sh qa -c "/opt/leakscope/venv/bin/python -I /qa/scripts/validate-package.py --prefix /opt/leakscope"
+      su -s /bin/sh qa -c "/opt/leakscope/venv/bin/python -I /qa/scripts/validate-package.py --prefix /opt/leakscope --data /tmp/leakscope-preserved"
       bash /opt/leakscope-distribution/install.sh /opt/leakscope
       /opt/leakscope/bin/leakscope --version
       # Debian uninstall removes the distribution, never application/data.
       dpkg -r leakscope
       /opt/leakscope/bin/leakscope --version
+      su -s /bin/sh qa -c "/opt/leakscope/venv/bin/python -I /qa/scripts/validate-package.py --prefix /opt/leakscope --data /tmp/leakscope-preserved"
       tar -xzf /artifacts/leakscope-0.1.0-linux-x86_64.tar.gz -C /tmp
       bash /tmp/leakscope-0.1.0-linux-x86_64/install.sh /opt/leakscope-tar
       su -s /bin/sh qa -c "/opt/leakscope-tar/venv/bin/python -I /qa/scripts/validate-package.py --prefix /opt/leakscope-tar"

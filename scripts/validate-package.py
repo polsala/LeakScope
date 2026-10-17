@@ -2,6 +2,9 @@
 """Exercise an offline-installed server outside the source tree."""
 
 import argparse
+from contextlib import nullcontext
+import hashlib
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -9,9 +12,19 @@ import time
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--prefix", type=Path, required=True)
+parser.add_argument(
+    "--data",
+    type=Path,
+    help="Keep real metadata, captures and reports to qualify install lifecycle preservation",
+)
 args = parser.parse_args()
 assert len((args.prefix / "source-fingerprint").read_text().strip()) == 64
-with tempfile.TemporaryDirectory(prefix="leakscope-package-qa-") as temporary:
+context = (
+    nullcontext(args.data)
+    if args.data
+    else tempfile.TemporaryDirectory(prefix="leakscope-package-qa-")
+)
+with context as temporary:
     data = Path(temporary)
     import sys
 
@@ -20,6 +33,16 @@ with tempfile.TemporaryDirectory(prefix="leakscope-package-qa-") as temporary:
 
     with Deployment(args.prefix / "bin/leakscope", data, env={"PYTHONPATH": ""}) as deployment:
         client = deployment.client
+        previous = data / "installed-validation.json"
+        if previous.exists():
+            saved = json.loads(previous.read_text())
+            assert client.get(f"/api/v1/sessions/{saved['session']}").json()["state"] == "ready"
+            capture = client.get(f"/api/v1/sessions/{saved['session']}/export?format=lscap")
+            capture.raise_for_status()
+            assert hashlib.sha256(capture.content).hexdigest() == saved["capture_sha256"]
+            old_report = client.get(f"/api/v1/reports/{saved['report']}/download")
+            old_report.raise_for_status()
+            assert hashlib.sha256(old_report.content).hexdigest() == saved["report_sha256"]
         page = client.get("/")
         assert page.is_success and "LeakScope" in page.text
         host = client.get("/api/v1/hosts").json()["items"][0]["id"]
@@ -75,7 +98,18 @@ with tempfile.TemporaryDirectory(prefix="leakscope-package-qa-") as temporary:
             "/api/v1/reports", json={"session_id": sid, "title": "Installed real capture"}
         )
         report.raise_for_status()
-        assert client.get(f"/api/v1/reports/{report.json()['id']}/download").is_success
+        document = client.get(f"/api/v1/reports/{report.json()['id']}/download")
+        assert document.is_success
+        previous.write_text(
+            json.dumps(
+                {
+                    "session": sid,
+                    "report": report.json()["id"],
+                    "capture_sha256": hashlib.sha256(exported.content).hexdigest(),
+                    "report_sha256": hashlib.sha256(document.content).hexdigest(),
+                }
+            )
+        )
         print(
             "Offline package: API, web assets, all migrations, native sensor/analyzer, real capture, monitor, findings, experiment and report passed"
         )

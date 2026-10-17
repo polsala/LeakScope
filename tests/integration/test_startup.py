@@ -62,3 +62,26 @@ http.server.HTTPServer(('127.0.0.1', port), Handler).serve_forever()
             pytest.fail("Unauthenticated readiness cannot succeed")
     assert time.monotonic() - started < 4
     assert deployment.child.poll() is not None
+
+
+def test_real_api_sensor_startup_failure_is_bounded_and_logged(tmp_path):
+    sensor = executable(
+        tmp_path, 'print("sensor deliberately unavailable", flush=True)\nraise SystemExit(4)\n'
+    )
+    deployment = services.Deployment(
+        Path(__file__).resolve().parents[2] / ".venv/bin/leakscope",
+        tmp_path / "api-data",
+        timeout=10,
+        env={"LEAKSCOPE_SENSOR_BIN": str(sensor)},
+    )
+    started = time.monotonic()
+    with pytest.raises(RuntimeError, match="sensor deliberately unavailable"):
+        with deployment:
+            pytest.fail("A failed required sensor cannot satisfy operational readiness")
+    assert time.monotonic() - started < 10
+    assert deployment.child.poll() is not None
+    # A failed bootstrap must not strand the process-wide restoration lease.
+    from leakscope_api.storage import service_lease
+
+    with service_lease(deployment.data, exclusive=True):
+        pass
