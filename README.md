@@ -135,3 +135,15 @@ and [release gates](docs/quality-gates.md) before using this preview operational
 
 RSS, native heap blocks, Python arenas, Python blocks and GC object estimates are
 separate domains. **They are never added together. RSS growth alone is not proof of a leak.**
+
+## Automated releases
+
+Prepare and review a version with `.venv/bin/python scripts/release.py prepare 0.2.0-rc.1`,
+then push the matching annotated tag. GitHub Actions validates and publishes
+crates.io, the Python component, GHCR and complete standalone/Debian assets using
+the already configured registry tokens and automatic GITHUB_TOKEN. No manual
+first publication, GPG or registry Trusted Publishing is required.
+
+[Release quickstart](docs/releasing/quickstart.md) explains the protected environment,
+manual nonpublishing dry run, first prerelease and safe recovery. Prereleases
+remain engineering previews; stable promotion retains all production gates.

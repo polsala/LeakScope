@@ -75,3 +75,18 @@ Ubuntu userlands. Kernel matrix jobs require distinct protected runner labels fo
 5.15, 6.8 and 6.19 and verify `uname` before execution. Containers do not count as
 separate kernels. The native soak job uses the existing `kernel-validation`
 environment and never runs untrusted PR code. API-root startup is refused.
+
+## Release channels
+
+An engineering prerelease must pass source/version consistency, genuine ABI,
+portable correctness/security, independently packaged Cargo sources, clean wheel
+installation/migrations, offline Ubuntu installations, unprivileged OCI runtime
+and exact artifact integrity/authorization checks. It may publish with an honest
+blocked production-readiness report and never updates latest.
+
+Stable publication requires every existing current-source/fresh production scope
+to pass through the unchanged readiness evaluator. It additionally executes
+protected genuine kernel qualification. PRODUCTION_EVIDENCE_RUN_ID identifies
+successful same-commit evidence; missing, stale or ambiguous receipts fail closed.
+An optional GPG key is not required by either channel. Registry token publishing
+is independent of optional GitHub-native artifact attestations.

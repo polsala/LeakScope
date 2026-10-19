@@ -27,3 +27,18 @@ partial ABI/kernel/storage/soak evidence cannot be promoted by editing a workflo
 Published engineering previews use `--prerelease`. Physical burst duty cycle and
 active-window cost must both be disclosed; separate windows never supply exact
 cross-gap lifetimes. See phase4-checklist.md for executed and still-open scope.
+
+## Automated registry publication
+
+- Prepare/review all versions and lockfiles with release.py; never move a published tag.
+- Confirm protected release environment and existing PYPI_TOKEN/CRATES_IO_TOKEN.
+- Run the manual nonpublishing dry run and inspect exact bundle installation evidence.
+- Check registry names/owners, wheel scope, OCI labels and immutable checksums.
+- Choose an explicit prerelease when production certification is incomplete.
+- For stable only: current complete production receipts and real protected kernel gate.
+- Trigger the reviewed tag or confirmed manual workflow; inspect each registry receipt.
+- Confirm GitHub draft is cleared only after crates, PyPI, GHCR and assets verify.
+- If interrupted, rerun failed jobs; inspect hashes rather than using skip/clobber.
+- Record actual registry publication only after a real authorized workflow succeeds.
+
+The implementation and dry-run tests do not publish to any public registry.

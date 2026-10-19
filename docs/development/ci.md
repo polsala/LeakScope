@@ -83,3 +83,18 @@ repository code and never register public PR runners with tracing privileges.
 The release workflow pins the provenance action, attests distribution artifacts
 when trusted GitHub OIDC infrastructure executes it, and preserves optional GPG
 signing. Merely configuring this action does not create local provenance.
+
+## Token-based registry release layers
+
+The existing release workflow now separates reviewed request validation, hosted
+ABI/package/browser/security checks, production-only protected kernel validation,
+immutable artifact creation and narrowly scoped publication jobs. Prerelease
+publication does not allocate privileged runners. All six ABI configurations
+still execute actual CPython builds. Portable native CI also packages and
+performs Cargo's real workspace publication dry-run before anything is published.
+
+Registry credentials exist only on the appropriate publishing steps. Optional
+GitHub-native attestation uses a separate job; Rust/Python jobs have no id-token
+permission. Manual dry runs expose no registry credentials and skip every public
+write job. GitHub draft state remains incomplete until registries and assets
+verify. See [release operations](../releasing/quickstart.md).
