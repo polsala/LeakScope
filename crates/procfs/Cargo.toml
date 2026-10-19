@@ -11,6 +11,6 @@ readme = "README.md"
 keywords = ["memory", "profiling", "linux"]
 publish = ["crates-io"]
 [dependencies]
-leakscope-common = { path = "../common", version = "=0.1.0" }
+leakscope-common = { path = "../common", version = "=0.2.0-rc.1" }
 serde.workspace = true
 serde_json.workspace = true

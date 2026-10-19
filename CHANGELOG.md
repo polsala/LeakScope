@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0-rc.1
+
+Prepared for review; release notes are generated from reviewed commits.
+
 ## 0.1.0 — engineering preview
 
 - Real same-UID process discovery, stable identities and leased procfs sampling.
