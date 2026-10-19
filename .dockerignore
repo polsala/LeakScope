@@ -9,9 +9,10 @@ apps/web/node_modules
 apps/web/test-results
 apps/web/playwright-report
 artifacts/*
-!artifacts/leakscope-*-linux-x86_64
-!artifacts/leakscope-*-linux-x86_64/**
 **/__pycache__
 **/*.pyc
 !artifacts/native-baseline
 !artifacts/native-baseline/**
+# Preserve every byte covered by the standalone integrity manifest.
+!artifacts/leakscope-*-linux-x86_64
+!artifacts/leakscope-*-linux-x86_64/**

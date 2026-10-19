@@ -206,6 +206,7 @@ def create_manifest(directory, image_id):
 
 def build(directory):
     v = check()
+    build_commit, build_fingerprint = git_sha(), fingerprint(ROOT)
     assert not subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT), (
         "Commit reviewed source changes before building a release"
     )
@@ -297,6 +298,12 @@ def build(directory):
         + git_sha()
         + "`.\nSee release-readiness.json and compatibility.json for precise qualification limits.\n\n## Recent reviewed commits\n\n"
         + history
+    )
+    assert git_sha() == build_commit and fingerprint(ROOT) == build_fingerprint, (
+        "Sources changed during the build"
+    )
+    assert not subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT), (
+        "Worktree changed during the build"
     )
     return create_manifest(directory, image_id)
 

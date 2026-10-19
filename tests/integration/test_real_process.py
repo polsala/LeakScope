@@ -51,7 +51,8 @@ def test_actual_python27_growth_and_process_exit(tmp_path):
             child.wait(timeout=3)
             for _ in range(60):
                 result = client.get("/api/v1/sessions/" + sid).json()
-                if result["ended_at"]:
+                # ended_at marks capture stop; processing may still be persisting.
+                if result["state"] in {"ready", "degraded", "failed", "cancelled", "expired"}:
                     break
                 time.sleep(0.1)
             assert result["reason"] == "process_exited_or_replaced"

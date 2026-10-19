@@ -224,6 +224,7 @@ jobs:
     permissions:
       contents: write
       deployments: read
+      actions: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -257,6 +258,7 @@ jobs:
     permissions:
       contents: read
       deployments: read
+      actions: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -292,6 +294,7 @@ jobs:
     permissions:
       contents: read
       deployments: read
+      actions: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -330,6 +333,7 @@ jobs:
       contents: read
       packages: write
       deployments: read
+      actions: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -367,6 +371,7 @@ jobs:
       contents: write
       packages: write
       deployments: read
+      actions: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:

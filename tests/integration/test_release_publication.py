@@ -372,3 +372,8 @@ def test_failed_github_finalization_cannot_claim_completion(authority, tmp_path,
     assert "github_release" not in json.loads(
         (tmp_path.parent / "publication-state.json").read_text()
     )
+
+
+def test_docker_context_preserves_manifested_runtime_bytecode():
+    lines = (bundle.ROOT / ".dockerignore").read_text().splitlines()
+    assert lines.index("!artifacts/leakscope-*-linux-x86_64/**") > lines.index("**/*.pyc")
