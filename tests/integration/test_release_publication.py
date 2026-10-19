@@ -302,3 +302,73 @@ def test_workflow_secrets_only_exist_in_authorized_publication_jobs():
             assert "id-token" not in job["permissions"]
     assert "RELEASE_GPG_KEY" not in json.dumps(workflow)
     assert workflow["concurrency"]["cancel-in-progress"] == "false"
+
+
+def test_sbom_uses_release_version_without_loop_shadowing():
+    import subprocess
+
+    subprocess.run(
+        [sys.executable, "scripts/sbom.py"], cwd=bundle.ROOT, check=True, capture_output=True
+    )
+    sbom = json.loads((bundle.ROOT / "artifacts/sbom.cdx.json").read_text())
+    assert sbom["metadata"]["component"]["version"] == version().semver
+
+
+def test_prerelease_finalization_does_not_promote_latest(authority, tmp_path, monkeypatch):
+    manifest = {
+        "tag": "v0.2.0-rc.1",
+        "version": "0.2.0-rc.1",
+        "channel": "prerelease",
+        "commit": "fixture",
+        "image_config_digest": "sha256:config",
+    }
+    (tmp_path / "cargo-publish.json").write_text("[]")
+    monkeypatch.setattr(pub, "pypi_status", lambda *a: (["wheel"], {"wheel": "hash"}))
+    monkeypatch.setattr(
+        pub,
+        "ghcr_manifest",
+        lambda *a: ({"config": {"digest": "sha256:config"}}, "sha256:manifest"),
+    )
+    monkeypatch.setattr(pub, "draft", lambda *a: {})
+    releases = iter([{"assets": [], "draft": True}, {"draft": False, "prerelease": True}])
+    monkeypatch.setattr(pub, "github_release", lambda: next(releases))
+    calls = []
+    monkeypatch.setattr(pub, "gh", lambda *a, **kw: calls.append(a))
+    monkeypatch.setattr(pub, "state", lambda *a: None)
+    result = pub.finalize(tmp_path, manifest)
+    assert result["github_release"] == "complete"
+    assert result["production_ready"] is False
+    assert "--latest=false" in calls[-1]
+    uploaded = json.loads((tmp_path.parent / "publication-state.json").read_text())
+    assert "github_release" not in uploaded
+    assert uploaded["registry_verification"] == "complete"
+
+
+def test_failed_github_finalization_cannot_claim_completion(authority, tmp_path, monkeypatch):
+    manifest = {
+        "tag": "v0.2.0-rc.1",
+        "version": "0.2.0-rc.1",
+        "channel": "prerelease",
+        "commit": "fixture",
+        "image_config_digest": "sha256:config",
+    }
+    (tmp_path / "cargo-publish.json").write_text("[]")
+    monkeypatch.setattr(pub, "pypi_status", lambda *a: (["wheel"], {"wheel": "hash"}))
+    monkeypatch.setattr(
+        pub,
+        "ghcr_manifest",
+        lambda *a: ({"config": {"digest": "sha256:config"}}, "sha256:manifest"),
+    )
+    monkeypatch.setattr(pub, "draft", lambda *a: {})
+    monkeypatch.setattr(
+        pub, "github_release", lambda: {"assets": [], "draft": True, "prerelease": True}
+    )
+    monkeypatch.setattr(pub, "gh", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        pub, "state", lambda *a: pytest.fail("Failed finalization recorded success")
+    )
+    with pytest.raises(AssertionError, match="did not complete"):
+        pub.finalize(tmp_path, manifest)
+    assert "github_release" not in json.loads(
+        (tmp_path.parent / "publication-state.json").read_text()
+    )

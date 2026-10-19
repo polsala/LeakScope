@@ -73,6 +73,7 @@ def run(command, *, root=ROOT, **kwargs):
             "RELEASE_GPG_KEY",
             "GH_TOKEN",
             "GITHUB_TOKEN",
+            "PYTHONPATH",
         }
     }
     env.setdefault("UV_CACHE_DIR", str(root / ".cache/uv"))

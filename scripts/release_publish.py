@@ -574,7 +574,8 @@ def finalize(directory, manifest):
     result = {
         "commit": manifest["commit"],
         "version": manifest["version"],
-        "github_release": "complete",
+        "registry_verification": "complete",
+        "github_release_status": "The GitHub API draft flag is authoritative",
         "crates": [p["name"] for p in metadata],
         "pypi": files,
         "ghcr_digest": image[1],
@@ -612,6 +613,11 @@ def finalize(directory, manifest):
         "--prerelease=" + str(manifest["channel"] == "prerelease").lower(),
         "--latest=" + str(manifest["channel"] == "stable").lower(),
     )
+    published = github_release()
+    assert published["draft"] is False and published["prerelease"] == (
+        manifest["channel"] == "prerelease"
+    ), "GitHub finalization did not complete"
+    result["github_release"] = "complete"
     state(directory, "finalize", result)
     return result
 

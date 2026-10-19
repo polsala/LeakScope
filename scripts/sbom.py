@@ -4,7 +4,7 @@
 import json
 import tomllib
 from pathlib import Path
-from release_support import version
+from release_support import version as release_version
 import yaml
 from jsonschema import Draft7Validator
 from referencing import Registry, Resource
@@ -52,7 +52,11 @@ result = {
     "specVersion": "1.5",
     "version": 1,
     "metadata": {
-        "component": {"type": "application", "name": "LeakScope", "version": version().semver}
+        "component": {
+            "type": "application",
+            "name": "LeakScope",
+            "version": release_version().semver,
+        }
     },
     "components": components,
 }
