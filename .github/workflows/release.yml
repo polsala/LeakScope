@@ -26,6 +26,9 @@ concurrency:
   cancel-in-progress: false
 jobs:
   request:
+    permissions:
+      contents: read
+      actions: read
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
@@ -49,6 +52,11 @@ jobs:
           INPUT_CHANNEL: ${{ inputs.channel }}
           INPUT_DRY_RUN: ${{ inputs.dry_run }}
           INPUT_CONFIRMATION: ${{ inputs.confirmation }}
+      - name: Rehearse publication environment authorization without registry credentials
+        if: steps.validate.outputs.dry_run == 'true'
+        run: python scripts/release_request.py environment
+        env:
+          GH_TOKEN: ${{ github.token }}
   authorization:
     needs: request
     if: needs.request.outputs.publish == 'true'

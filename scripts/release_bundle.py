@@ -261,7 +261,7 @@ def build(directory):
     wheel_check(directory)
     image_id = image_check(v.metadata()["image"], v.metadata())
     run(["docker", "save", "--output", str(directory / "image.tar"), v.metadata()["image"]])
-    from leakscope_api.readiness import evaluate, fingerprint
+    from leakscope_api.readiness import evaluate
 
     receipts = ROOT / "artifacts/release-evidence.json"
     (directory / "release-evidence.json").write_text(
