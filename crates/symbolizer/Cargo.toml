@@ -2,6 +2,14 @@
 name = "leakscope-symbolizer"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "ELF and DWARF native stack attribution for Linux processes"
+readme = "README.md"
+keywords = ["memory", "profiling", "linux"]
+publish = ["crates-io"]
 [dependencies]
 addr2line = { version = "=0.25.1", default-features = false, features = ["std", "rustc-demangle", "cpp_demangle"] }
 gimli = { version = "=0.32.3", default-features = false, features = ["read", "std", "endian-reader"] }

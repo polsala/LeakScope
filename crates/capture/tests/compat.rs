@@ -1,6 +1,6 @@
 #[test]
 fn python_written_golden_is_readable() {
-    let bytes = include_bytes!("../../../tests/fixtures/golden/metrics-v1.lscap");
+    let bytes = include_bytes!("fixtures/metrics-v1.lscap");
     let mut reader = leakscope_capture::Reader::new(bytes.as_slice()).unwrap();
     assert_eq!(reader.metadata["format"], 1);
     let events: serde_json::Value =
@@ -11,7 +11,7 @@ fn python_written_golden_is_readable() {
 }
 #[test]
 fn native_tables_and_events_share_v1_chunks() {
-    let bytes = include_bytes!("../../../tests/fixtures/golden/native-v1.lscap");
+    let bytes = include_bytes!("fixtures/native-v1.lscap");
     let mut reader = leakscope_capture::Reader::new(bytes.as_slice()).unwrap();
     let events: serde_json::Value =
         serde_json::from_slice(&reader.next_chunk().unwrap().unwrap()).unwrap();

@@ -2,7 +2,15 @@
 name = "leakscope-procfs"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Linux procfs discovery and process memory measurements"
+readme = "README.md"
+keywords = ["memory", "profiling", "linux"]
+publish = ["crates-io"]
 [dependencies]
-leakscope-common = { path = "../common" }
+leakscope-common = { path = "../common", version = "=0.1.0" }
 serde.workspace = true
 serde_json.workspace = true

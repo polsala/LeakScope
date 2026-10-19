@@ -1,3 +1,4 @@
+from . import __version__
 import asyncio
 import contextlib
 import json
@@ -409,7 +410,7 @@ class Collector:
                 "process": p.metadata_json,
                 "config": s.config,
                 "quality": s.quality,
-                "version": "0.1.0",
+                "version": __version__,
             }
         final = self.capture_dir / (session_id + ".lscap")
         temporary = final.with_suffix(".partial")

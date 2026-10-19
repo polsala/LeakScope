@@ -2,6 +2,14 @@
 name = "leakscope-capture"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Streaming checksummed compressed LeakScope capture reader and writer"
+readme = "README.md"
+keywords = ["memory", "profiling", "linux"]
+publish = ["crates-io"]
 [dependencies]
 serde_json.workspace = true
 sha2.workspace = true

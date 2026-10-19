@@ -1,7 +1,10 @@
 [project]
 name = "leakscope"
 version = "0.1.0"
-description = "Local memory investigations with explicit evidence quality"
+description = "LeakScope Python collector and CLI; native executables and web assets are installed separately"
+readme = "apps/api/PYPI.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = [
   "fastapi==0.143.1",
@@ -16,6 +19,10 @@ dependencies = [
   "starlette==1.8.0",
 ]
 
+[project.urls]
+Repository = "https://github.com/polsala/LeakScope"
+Documentation = "https://github.com/polsala/LeakScope/tree/main/docs"
+
 [project.scripts]
 leakscope = "leakscope_api.cli:main"
 
@@ -28,6 +35,7 @@ dev = [
     "pip-audit==2.9.0",
     "uv==0.11.15",
     "jsonschema==4.25.1",
+    "twine==6.2.0",
 ]
 
 [build-system]

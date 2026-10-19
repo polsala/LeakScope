@@ -335,7 +335,7 @@ async fn handle(req: Value, state: &Arc<Mutex<State>>) -> Value {
 async fn main() -> io::Result<()> {
     let args: Vec<_> = std::env::args().collect();
     if args.iter().any(|s| s == "--version") {
-        println!("leakscope-sensor 0.1.0");
+        println!("leakscope-sensor {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
     let uid = fs::metadata("/proc/self")?.uid();

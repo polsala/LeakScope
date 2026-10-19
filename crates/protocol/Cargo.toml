@@ -2,6 +2,14 @@
 name = "leakscope-protocol"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Bounded versioned local sensor framing for LeakScope"
+readme = "README.md"
+keywords = ["memory", "profiling", "linux"]
+publish = ["crates-io"]
 [dependencies]
 serde.workspace = true
 prost.workspace = true

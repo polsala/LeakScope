@@ -2,6 +2,14 @@
 name = "leakscope-common"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Stable Linux process identities shared by LeakScope components"
+readme = "README.md"
+keywords = ["memory", "profiling", "linux"]
+publish = ["crates-io"]
 [dependencies]
 serde.workspace = true
 sha2.workspace = true
