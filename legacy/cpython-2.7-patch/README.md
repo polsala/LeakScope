@@ -1,27 +1,24 @@
-# Isolated Lab object-block hooks
+# Experimental CPython object-block instrumentation
 
-Build with `bash scripts/build-python27.sh ucs4 lab`. The script verifies the
-official CPython 2.7.18 source SHA256, applies cpython-2.7.18.patch and includes
-leakscope_lab.h. Build directories and installation prefixes never replace the
-system/application interpreter.
+`bash scripts/build-python27.sh ucs4 lab` verifies the official CPython 2.7.18
+source checksum, applies the exact patch and builds an isolated interpreter. It
+does not replace the system or application interpreter.
 
-The patch wraps the original PyObject_Malloc, PyObject_Realloc and PyObject_Free
-functions in both allocator branches. A thread-local recursion guard records
-outermost object-block calls only. The original allocator functions and return
-values are preserved. A preallocated 16,384-event process-local ring uses a
-nonblocking try-lock; failed reservation/contention increments a loss counter.
-Hot paths perform no heap allocation, network/filesystem I/O or Python callbacks.
+The patch wraps selected `PyObject_Malloc/Realloc/Free` paths while preserving
+allocator behavior. Bounded preallocated native buffers, recursion guards and
+nonblocking reservations avoid Python callbacks, hot-path allocation and
+blocking I/O. Loss invalidates exact accounting. Verified GIL/thread state
+permits copying executing Python frames; unsafe state remains unknown.
 
-`_leakscope_native.lab_drain()` is an explicit safe-point operation returning
-bounded little-endian x86_64 records and cumulative loss. The record layout is
-six u64 values (sequence, pointer, old pointer, size, monotonic ns, native thread)
-and two u32 values (kind 1/2/3, PID). These raw pointer-bearing laboratory records
-are sensitive and are not a supported portable capture interchange format.
+The current Lab v2 native event is 88 bytes, declared in
+[lab_protocol.h](../py27-agent/include/lab_protocol.h). It is not a portable
+interchange format; the collector expands records into LSCAP evidence. Selected
+object blocks do not provide complete heap, arena, PyMem or free-list
+visibility.
 
-Only object-block paths are observed. PyMem APIs, libc heap/arenas, interpreter
-free lists, reliable Python stacks and complete heap coverage are not implemented.
-No production SLO or binary compatibility with unpatched vendor builds is claimed.
-
-Rollback means stop the experiment and restart with the original interpreter
-and matching extension. Do not hot-patch an existing process. The unmodified
-source archive and application interpreter remain untouched.
+See
+[Lab safety and attribution](../../docs/architecture/python-agent.md#experimental-lab-hooks)
+and the
+[usage guide](../../docs/guides/python-attribution.md#experimental-lab-capture).
+Roll back by stopping the experiment and restarting the original interpreter
+with its matching extension. Never hot-patch a running application.

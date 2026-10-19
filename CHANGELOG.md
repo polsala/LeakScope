@@ -1,24 +1,46 @@
 # Changelog
 
-## 0.2.0-rc.1
+Notable user-facing changes are recorded here. Versions follow Semantic
+Versioning; prereleases remain engineering previews until production
+qualification passes.
 
-Prepared for review; release notes are generated from reviewed commits.
+## Unreleased
 
-## 0.1.0 — engineering preview
+### Fixed
 
-- Real same-UID process discovery, stable identities and leased procfs sampling.
-- Authenticated local collector, SQLite WAL persistence and operational CLI.
-- Portable compressed captures, resistant RSS trends, interval comparisons and offline reports.
-- Catalan-first React interface with Spanish/English, keyboard commands and responsive layouts.
-- Native CPython 2.7.18 cooperative diagnostics and isolated experimental object-block hooks.
-- Portable correctness, real process integration, browser and malformed-input tests.
-- Explicit missing external-probe loader and incomplete advanced analysis capabilities.
+- Verify GitHub-normalized Debian asset names without weakening checksum checks.
+- Recover prerelease finalization from validated original artifacts without
+  republishing registry packages or moving release tags.
 
+### Changed
 
-## Phase 2 engineering preview — 2026-10-16
+- Consolidate user, operator and contributor documentation; preserve
+  qualification evidence separately from product guides.
 
-- Connected Aya libc uprobes to the existing collector, LSCAP, Rust analyzer and UI.
-- Added native stacks/DWARF, quality-aware survivor views, comparisons and reports.
-- Verified genuine CPython 2.7.18 leaks, cleanup, calloc/realloc, loss and recycling.
-- Built glibc 2.31 native artifacts and checked Ubuntu 20.04/22.04/24.04 loading.
-- Kept production qualification open: allocator-heavy latency overhead exceeds target.
+## 0.2.0-rc.1 - 2026-10-19
+
+### Added
+
+- Continuous same-UID Linux process monitoring, persistent growth detection and
+  recommendations for bounded investigations.
+- Native allocator tracing, physical capture windows, adaptive safety controls,
+  quality-aware lifecycle analysis, flamegraphs and call trees.
+- CPython 2.7.18 cooperative operation/function attribution and experimental Lab
+  allocation-time source lines, with independent retention and cleanup controls.
+- Capture import/export, comparisons, repeated-operation experiments and offline
+  HTML/JSON reports.
+- Catalan, Spanish and English web workflows, CLI diagnostics and deployment
+  health.
+- Offline bundled-runtime distributions, Debian packages, unprivileged OCI
+  image, SQLite backup/restore and token-based registry release automation.
+
+### Known limitations
+
+- Native tracing can impose substantial workload-dependent overhead.
+- Production kernel, controlled performance, sustained/Deep/Lab soak,
+  root-service recovery and manual security/accessibility qualification remain
+  incomplete.
+- GC snapshots cover generation zero; complete heap ownership is unavailable.
+
+[Release assets](https://github.com/polsala/LeakScope/releases/tag/v0.2.0-rc.1)
+include exact source identity, checksums and readiness metadata.

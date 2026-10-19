@@ -1,18 +1,31 @@
 # Contributing
 
-Start with `make setup`, then `make dev`. Use supported Python for modern code;
-only `legacy/` and explicitly marked fixtures may use Python 2.
+Use the [build guide](docs/development/building.md) to set up the locked
+toolchains. Keep changes focused and include meaningful tests for behavior and
+failure states. [Tests and CI](docs/development/testing.md) describes portable,
+genuine Python, trusted-kernel, browser, storage and qualification profiles.
 
-Changes must include meaningful behavior tests and update the implementation
-status when capability or evidence changes. Run `make test lint typecheck` and
-the relevant integration/native/browser checks. Keep generated OpenAPI and
-TypeScript contracts synchronized with `make contracts`.
+Before submitting:
 
-Do not collect application arguments, object representations or business values.
-Do not introduce allocator injection, target code execution or kernel security
-changes into Observe. Explain every native memory ownership invariant. Review
-lost-event handling before publishing any retained-memory metric.
+```sh
+make fmt lint typecheck test
+make docs-check
+make contracts
+```
 
-Use English in source and documentation and add all three UI translations.
-Kernel tests run only on trusted isolated hosts. Never enable a privileged
-self-hosted runner for untrusted pull requests.
+Review and commit generated API contract changes with their source. Keep English
+technical identifiers and documentation; maintain complete Catalan, Spanish and
+English UI catalogs. Use concise user-facing changelog entries for notable
+changes.
+
+Preserve the
+[accounting and safety invariants](docs/architecture/overview.md#accounting-and-safety-invariants).
+Document native ownership/GIL assumptions. Never hide event loss, invent Python
+lines, sum overlapping memory domains or collect business arguments/object
+values. Python 2 modules must remain compatible with genuine CPython 2.7.18 and
+the target ABI; modern code must use supported runtimes.
+
+Privileged kernel tests belong on isolated trusted runners, never untrusted pull
+requests. Report sensitive findings using [SECURITY.md](SECURITY.md). Release
+preparation and publication are separate; follow the
+[release guide](docs/development/releasing.md) and never publish during tests.

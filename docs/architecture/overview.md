@@ -1,33 +1,56 @@
-# Architecture
+# System architecture
 
-Phase 4 separates continuous observation (bounded procfs metrics and prepared
-markers, no allocation probes) from separately authorized native windows. The
-existing sensor/collector/capture/analyzer path is reused. See
-[capture windows](capture-windows.md), [adaptive safety](adaptive-profiling.md)
-and [deterministic hypotheses](leak-hypotheses.md).
+LeakScope separates continuous observation from bounded investigation. Both use
+the same local collector and authenticated API.
 
-The Rust sensor owns procfs sampling and opt-in native probe attachment. The
-collector owns authorization, metadata, durable sessions, captures and reports.
-UI and CLI share the versioned FastAPI API. Bounded Protobuf envelopes carry
-JSON contracts over an authenticated private Unix socket. Allocation Event is
-shared between the Rust protocol, sensor and analyzer; derived API responses
-have generated OpenAPI/TypeScript types. Agent diagnostics use peer credentials.
+```text
+Linux procfs ──────────┐
+Native eBPF uprobes ───┴─ Rust sensor ── private Unix socket ──┐
+Prepared Python agent ─── credential-checked datagrams ───────┤
+                                                            v
+                                                    FastAPI collector
+                                                     /             \
+                                             SQLite metadata    LSCAP captures
+                                                     \             /
+                                                Rust lifecycle analyzer
+                                                          |
+                                               API → React / CLI / reports
+```
 
-Observe defaults to metrics. When explicitly requested and permitted, Aya loads
-the embedded C object and attaches native allocator probes without injecting
-Python code or replacing an application allocator. Real ring events flow through
-the existing ACK transport into streaming LSCAP chunks. Rust reconstructs native
-lifecycles and native stacks; the UI displays allocation/retained flamegraphs,
-icicles, call trees, comparisons and offline reports with trace quality.
+The [sensor](sensor.md) owns process discovery, metric leases and optional Aya
+probe links. The [collector](collector.md) owns authorization, coordination,
+persistence and reports. The [analyzer](analyzer.md) reconstructs observed
+lifetimes and ranks hypotheses. The [Python agent](python-agent.md) contributes
+opt-in application context and experimental Lab blocks.
 
-Deep accepts diagnostics from an agent initialized by the application. Lab needs
-a separate experimental patched interpreter and is offered only for a verified
-prepared target. Native heap requests, Python blocks, arenas, GC objects and OS process
-memory remain distinct non-additive domains. Native C stacks are not Python
-source stacks. Incomplete traces cannot establish exact surviving allocations.
+Continuous monitors attach no allocation probes. A targeted capture creates an
+ordinary bounded session with fresh maps and links. The collector is one process
+per database; multiple Uvicorn workers are unsupported. UI/CLI share `/api/v1`.
+Pydantic contracts generate OpenAPI and TypeScript types. Sensor envelopes use
+Protobuf with bounded JSON payloads; the allocation event model is shared by the
+Rust protocol, sensor and analyzer.
 
-The collector is single-process for SQLite coordination and task ownership; do
-not run multiple Uvicorn workers. Raw allocations stay in compressed capture
-files, metadata/metrics in SQLite, and bounded derived summaries in integrity-bound
-caches. Remote sensors, PostgreSQL and Parquet remain future work. Production
-qualification is governed by quality-gates.md, not by the existence of a workflow.
+## Accounting and safety invariants
+
+1. A process identity includes host, boot, PID namespace, PID and start ticks.
+   PID reuse, exec and replacement must not transfer allocation state.
+2. The sensor independently enforces same-UID access. Only it receives tracing
+   privileges; the API remains unprivileged and binds to loopback.
+3. Application diagnostics never wait for collector or disk availability.
+   Bounded buffers may drop data, and quality must reflect that loss.
+4. Allocation/free matching uses process, domain and pointer generations.
+   Unknown pre-attach allocations are never presented as observed allocations.
+5. Independent capture epochs have independent lifetimes. Gaps, loss and
+   uncertain stop boundaries invalidate unsupported exact-survivor claims.
+6. OS memory, native requested heap bytes, Python blocks, arenas and GC objects
+   are distinct overlapping domains. Their totals are not additive.
+7. Operation/function timing is association, not object ownership. Exact Python
+   lines require verified allocation-time Lab frame evidence. Native DWARF lines
+   refer to native code.
+8. Capability errors and policy reductions remain visible. A detector's score is
+   a hypothesis ranking, never proof of a leak or a calibrated probability.
+
+These invariants apply to live views, imports, comparisons and reports. Product
+limitations and tested scope live in
+[compatibility](../reference/compatibility.md); release qualification uses the
+separate [gates](../development/release-gates.md).

@@ -8,9 +8,7 @@ from pathlib import Path
 parser = argparse.ArgumentParser()
 parser.add_argument("--directory", type=Path, default=Path("artifacts/performance"))
 parser.add_argument("--prefix", default="phase4-final-")
-parser.add_argument(
-    "--output", type=Path, default=Path("docs/development/phase4-performance-evidence.json")
-)
+parser.add_argument("--output", type=Path, default=Path("artifacts/performance/summary.json"))
 args = parser.parse_args()
 document = {
     "schema_version": 1,

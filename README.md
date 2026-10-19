@@ -1,149 +1,95 @@
-> Phase 5 engineering preview: offline bundled-runtime packages, reliable startup,
-> genuine six-way Python 2 ABI tests and SQLite recovery are available. Production
-> promotion remains blocked pending the documented kernel, performance, deployment,
-> long-duration and security gates. See [installation](docs/installation/release-candidate.md)
-> and [executed evidence](docs/development/phase5-validation.md).
-
 # LeakScope
 
-Local memory investigations for long-running Linux processes, with a cooperative
-CPython 2.7.18 agent. The interface defaults to Catalan and includes Spanish and English.
+LeakScope is a Linux memory investigation tool for long-running processes. It
+combines process monitoring, native allocation tracing and optional CPython 2.7
+instrumentation to help investigate persistent memory growth.
 
-**0.1.0 is an engineering preview, not a complete Memray replacement or a production-certified release.**
-Observe metrics work without tracing privileges. Optional native profiling now records
-actual malloc/calloc/realloc/free events through Aya, streams LSCAP captures,
-reconstructs allocations, and displays native flamegraphs, call trees and reports.
-The real Python 2.7/kernel/browser path has been exercised. Cooperative operation/function boundaries now correlate native allocations with Python
-context, while a separately instrumented Lab interpreter can record verified executing
-Python allocation lines. Standard Deep evidence remains temporal. Lab remains experimental. See the [evidence matrix](docs/implementation-status.md).
+## What it does
 
-## Start locally
+- Monitor RSS, PSS, CPU and worker lifecycles without allocator probes.
+- Detect sustained growth and recommend bounded investigations.
+- Trace native allocations and frees, then explore allocation sites through
+  flamegraphs, call trees, interval comparisons and survivor cohorts.
+- Associate allocations with prepared Python operation and function boundaries.
+- Export captures and self-contained HTML reports with evidence and limitations.
 
-Requires Linux x86_64, Python 3.11+ (commands default to 3.12), Rust 1.94.1,
-Node 24.13.0 with Corepack, Clang with its BPF target, a C compiler and network access for the initial setup.
-Python 2 is needed only for the compatibility agent and target fixtures.
+The web interface defaults to Catalan, with Spanish and English translations.
+CLI workflows use the same authenticated local API. No external service is
+required.
 
-```bash
-make setup
-make build
-.venv/bin/leakscope serve --listen 127.0.0.1:7831
-# In a separate terminal, read the generated local credential:
-cat .data/admin.token
+## Requirements
+
+LeakScope targets Linux x86_64. Standalone packages include a modern Python
+runtime and have been installation-tested in Ubuntu 20.04, 22.04 and 24.04
+userlands. Native tracing requires Linux 5.8 or newer, suitable symbols and
+separately provisioned sensor permissions. Metrics monitoring remains available
+without BPF. The API runs unprivileged and observes processes authorized by the
+sensor's UID.
+
+This is an engineering preview. Detailed tracing can impose substantial
+overhead; use short captures after testing the workload. Python attribution
+requires an agent loaded at application startup. Exact Python allocation lines
+require the experimental Lab interpreter. See
+[compatibility](docs/reference/compatibility.md) and
+[performance](docs/operations/performance.md) for tested scope and limits.
+
+## Install
+
+Download the standalone archive and checksum files from
+[GitHub Releases](https://github.com/polsala/LeakScope/releases). Verify them
+using the [installation guide](docs/getting-started/installation.md), extract
+the archive, then run these commands inside the extracted distribution:
+
+```sh
+bash verify.sh .
+bash install.sh "$HOME/.local/lib/leakscope"
+export PATH="$HOME/.local/lib/leakscope/bin:$PATH"
+export LEAKSCOPE_DATA="$HOME/.local/share/leakscope"
+leakscope serve
 ```
 
-Open **http://127.0.0.1:7831** and paste the credential. Run as the same UID as
-the monitored application. Select **Diagnostica un procés**, choose a process,
-configure a bounded capture, add markers, stop, compare its two halves, then
-create an offline HTML or JSON report. Captures contain real measurements.
+Open <http://127.0.0.1:7831> and enter the credential stored in
+`$LEAKSCOPE_DATA/admin.token`. Keep it private; never put it in a URL. The
+installer works offline and requires neither Docker nor a system Python 3.12.
+Debian, Python-component and OCI installation options are documented in the
+guide.
 
-For development, `make dev` starts the sensor, API on 7831 and Vite on 5173.
-For an offline distribution, run `make package` on a connected build host and
-follow [offline installation](docs/installation/offline.md).
+## First investigation
 
-## Implemented architecture
+In a second terminal with the same `PATH` and `LEAKSCOPE_DATA`:
 
-```text
-React 19 / TypeScript / TanStack Query
-          │ authenticated HTTP + fetch/SSE
-FastAPI / Pydantic / SQLAlchemy / SQLite WAL
-          │ private Unix socket / framed Protobuf envelope
-Rust sensor ── procfs + optional Aya uprobes ── same-UID target processes
-          │
-          └── bounded leases, acknowledged sample queues, explicit loss
-
-Application-initialized Python 2 agent ── credential-checked Unix datagrams
-         nested operations / C function boundaries / bounded generation-zero GC counts
-         optional Lab object blocks + verified allocation-time frames
-
-Metrics + actual native events ── streaming Zstandard .lscap + SHA256
-          └── Rust lifecycle + native stacks ── flamegraphs / offline reports
+```sh
+leakscope doctor --json
+leakscope ps --tree
+# Replace 1234 with an authorized process PID from discovery.
+leakscope monitor --pid 1234 --duration 30m --json
 ```
 
-`crates/` contains identity, procfs, protocol, capture, analysis, symbol inspection
-and sensor packages. `apps/api` contains the collector and CLI; `apps/web` contains
-the browser UI. `legacy/` contains the genuine Python 2 extension and audited Lab
-patch. `bpf/` contains the C allocation probes embedded in the Aya sensor loader.
-`schemas/`, `tests/`, `packaging/`, `.github/` and `docs/` carry the shared
-contracts, executable validation, installers, CI and operator guidance.
+Monitoring records metrics and returns immediately. Inspect the timeline and
+recommendations in the web interface. When native tracing is available and its
+cost is acceptable, start a separate bounded capture:
 
-## Native investigations
-
-Phase 4 adds [continuous metrics observation and bounded investigations](docs/usage/production-investigation.md),
-[automatic growth detection](docs/usage/automatic-detection.md), physical native
-capture windows, adaptive safety, deterministic findings and repeated-operation
-experiments. Monitoring keeps no allocator probes attached. Separate windows
-never become one exact lifetime trace. Readiness stays fail-closed until independent
-release gates qualify; releases remain engineering previews.
-
-Actual local results, scoped readiness and remaining blockers are recorded in
-the [Phase 4 validation report](docs/development/phase4-validation.md).
-
-See the [complete native leak tutorial](docs/usage/native-allocation-leak.md).
-A controlled 48-block leak was attributed to its actual C caller with exactly
-3,145,728 retained bytes and zero loss; the cleanup control retained zero.
-Native binaries are built against glibc 2.31 and load on Ubuntu 20.04/22.04/24.04.
-Kernel attachment is verified on 6.19.14+kali-amd64; the Ubuntu kernel matrix
-and production overhead target remain unqualified. Historical Phase 3 allocation-heavy target CPU costs range +289–633% for Native Light and
-+605–687% for Detailed on shared hardware. Keep metrics-only as default; no
-production CPU target is qualified. See [measured performance](docs/development/production-performance.md).
-
-## Python investigations
-
-[Python Memory Leak Investigation](docs/usage/python-memory-investigation.md)
-covers initialization, nested operations, opt-in function profiling, exact Lab
-lines, positive/cleanup fixtures, CLI and reports. Eight controlled retained tuples
-match 9,152 object-block bytes on the verified UCS4 build; cleanup gives zero.
-Python blocks, native allocations, GC counts and RSS are separate overlapping
-domains. See [attribution evidence](docs/architecture/python-attribution.md).
-
-## CLI
-
-```bash
-.venv/bin/leakscope doctor --json
-.venv/bin/leakscope ps --tree
-.venv/bin/leakscope inspect --pid 1234
-.venv/bin/leakscope capture --pid 1234 --duration 30s --output investigation.lscap
-.venv/bin/leakscope capture --pid 1234 --native --duration 30s --output native.lscap
-.venv/bin/leakscope analyze investigation.lscap
-.venv/bin/leakscope report investigation.lscap --output report.html
-.venv/bin/leakscope monitor --pid 1234 --duration 24h --json
-.venv/bin/leakscope watch --pid 1234 --growth-mb 100 --window 30m --json
-.venv/bin/leakscope investigate --pid 1234 --policy native_light --duration 5s --json
-.venv/bin/leakscope findings SESSION_ID --json
-.venv/bin/leakscope performance SESSION_ID --json
-.venv/bin/leakscope report SESSION_ID --output investigation.html
-.venv/bin/leakscope release-readiness --json
+```sh
+leakscope investigate --pid 1234 --policy native_light --duration 15s --json
+# Replace SESSION_ID with the ID returned by the capture.
+leakscope findings SESSION_ID --json
+leakscope report SESSION_ID --output investigation.html
 ```
 
-The CLI reads `.data/admin.token`, or `LEAKSCOPE_TOKEN`, and uses the same role
-checks as the UI. `analyze`, file `compare` and file `report` work offline.
+RSS growth alone is not proof of a leak. Review coverage and lost events before
+interpreting retained allocations. See the
+[first investigation tutorial](docs/getting-started/first-investigation.md).
 
-## Validation
+## Documentation and development
 
-```bash
-make test lint typecheck
-make test-native
-make test-legacy
-make test-integration
-make test-e2e
-```
+Start with the [documentation index](docs/README.md) for investigation guides,
+operations, architecture and reference material.
 
-Test commands that create sockets, processes or browsers require an environment
-that permits those operations. Kernel probe attachment is not part of portable tests.
-See [testing](docs/development/testing.md), [limitations](docs/compatibility/limitations.md)
-and [release gates](docs/quality-gates.md) before using this preview operationally.
+To work from source, follow the [build guide](docs/development/building.md).
+[CONTRIBUTING.md](CONTRIBUTING.md) explains checks and contribution
+requirements; [SECURITY.md](SECURITY.md) describes reporting and security
+boundaries.
 
-RSS, native heap blocks, Python arenas, Python blocks and GC object estimates are
-separate domains. **They are never added together. RSS growth alone is not proof of a leak.**
+## License
 
-## Automated releases
-
-Prepare and review a version with `.venv/bin/python scripts/release.py prepare 0.2.0-rc.1`,
-then push the matching annotated tag. GitHub Actions validates and publishes
-crates.io, the Python component, GHCR and complete standalone/Debian assets using
-the already configured registry tokens and automatic GITHUB_TOKEN. No manual
-first publication, GPG or registry Trusted Publishing is required.
-
-[Release quickstart](docs/releasing/quickstart.md) explains the protected environment,
-manual nonpublishing dry run, first prerelease and safe recovery. Prereleases
-remain engineering previews; stable promotion retains all production gates.
+LeakScope is distributed under the [MIT license](LICENSE).

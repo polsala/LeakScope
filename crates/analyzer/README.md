@@ -1,8 +1,9 @@
 # leakscope-analyzer
 
-Quality-aware observed allocation lifecycle and memory growth analysis.
+Streaming observed allocation lifecycles, quality-aware survivor trees and
+deterministic growth hypotheses. Incomplete traces cannot establish exact
+survivors. The package includes the `leakscope-analyzer` executable.
 
-Part of [LeakScope](https://github.com/polsala/LeakScope). Engineering preview.
-Memory domains overlap and must not be added. Incomplete traces do not establish exact survivors.
-
-Build with Rust 1.94 or newer. 
+Part of [LeakScope](https://github.com/polsala/LeakScope), an engineering
+preview. Build with Rust 1.94 or newer. See the project documentation for
+compatibility and accounting constraints.

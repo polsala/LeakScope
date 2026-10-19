@@ -3,7 +3,7 @@ PNPM = corepack pnpm
 UV = .venv/bin/uv
 export UV_CACHE_DIR ?= $(CURDIR)/.cache/uv
 
-.PHONY: setup dev build test lint fmt typecheck test-native test-legacy test-integration test-e2e test-security benchmark package doctor contracts
+.PHONY: setup dev build test lint fmt typecheck test-native test-legacy test-integration test-e2e test-security benchmark package doctor contracts docs-check docs-fmt
 setup:
 	bash scripts/setup.sh
 dev:
@@ -54,3 +54,7 @@ doctor:
 contracts:
 	.venv/bin/python scripts/generate-contracts.py
 	$(PNPM) --dir apps/web exec openapi-typescript ../../schemas/openapi/v1.json -o ../../packages/api-client/schema.d.ts
+docs-check:
+	.venv/bin/python scripts/check_docs.py --cli --format
+docs-fmt:
+	.venv/bin/python scripts/check_docs.py --format --write

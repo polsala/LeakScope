@@ -1,8 +1,8 @@
 # leakscope-procfs
 
-Linux procfs discovery and process memory measurements.
+Linux process discovery and OS memory/CPU measurements from procfs. Unavailable
+fields remain optional; RSS growth is not allocation-site evidence.
 
-Part of [LeakScope](https://github.com/polsala/LeakScope). Engineering preview.
-Memory domains overlap and must not be added. Incomplete traces do not establish exact survivors.
-
-Build with Rust 1.94 or newer. 
+Part of [LeakScope](https://github.com/polsala/LeakScope), an engineering
+preview. Build with Rust 1.94 or newer. See the project documentation for
+compatibility and accounting constraints.

@@ -1,12 +1,14 @@
 # ADR 0005: Connect C uprobes with Aya and stream through LSCAP v1
 
-Status: implemented; kernel evidence is recorded separately from ABI compatibility.
+Status: implemented; kernel evidence is recorded separately from ABI
+compatibility.
 
-Aya 0.14.0 loads the existing C object embedded in the sensor. It avoids a libbpf
-runtime dependency and preserves a reproducible Clang-built probe. The loader
-uses ELF file offsets from actual executable mappings, not ASLR virtual addresses.
-It selects one complete allocator provider, preferring mapped libc, rather than
-adding interposed layers. Python block/arena probes remain unavailable.
+Aya 0.14.0 loads the existing C object embedded in the sensor. It avoids a
+libbpf runtime dependency and preserves a reproducible Clang-built probe. The
+loader uses ELF file offsets from actual executable mappings, not ASLR virtual
+addresses. It selects one complete allocator provider, preferring mapped libc,
+rather than adding interposed layers. Python block/arena probes remain
+unavailable.
 
 The existing allocation Event now lives in the protocol crate and is re-exported
 by the analyzer. The kernel wire record is an internal fixed-width v1 encoding,
@@ -16,8 +18,8 @@ alongside existing metrics. No raw allocation rows are inserted into SQLite.
 
 Capture sequence orders every stored record. Allocation sequence orders only
 allocation events. Kernel losses have separate cumulative counters and do not
-invent missing kernel sequence numbers. ACK follows fsync; resumed spools discard
-an interrupted tail and deduplicate replay by sequence.
+invent missing kernel sequence numbers. ACK follows fsync; resumed spools
+discard an interrupted tail and deduplicate replay by sequence.
 
 Stacks are collected on entry. On x86_64, the caller's actual return PC at SP is
 also read: before the allocator prologue, a frame-pointer walk can skip that

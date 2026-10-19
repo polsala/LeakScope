@@ -1,71 +1,67 @@
-# Native analysis
+# Analysis and hypotheses
 
-Phase 4 reuses this binary for bounded process-growth diagnosis and ranked,
-deterministic hypotheses. See [leak hypotheses](leak-hypotheses.md). Continuous
-RSS evidence and independently observed retained allocations remain distinct.
-Loss, missing intervals and multiple activation epochs suppress exact survivors;
-no pointer history is combined between independent native windows.
+The Rust analyzer reads LSCAP incrementally and reuses the protocol allocation
+model. SQLite holds coordination and metrics, not raw pointer history.
 
-The analyzer reuses Lifecycle and the allocation Event exported from the protocol
-crate. It reads LSCAP chunks incrementally. SQLite contains coordination and
-metrics; raw allocations remain in capture files.
+## Allocation lifecycles
 
-Pointers are keyed by stable process and allocation domain. A global monotonic
-allocation generation prevents pointer reuse from inheriting prior lifetimes.
-There is no freed-pointer history: memory grows with live pointers, not the
-number of events. Live pointers are capped at 250,000, stack tables at 8192/16 MiB,
-sites at 8192 and tree nodes at 32,768. Limits fail or flag truncation explicitly.
+Live pointers are keyed by stable process and allocation domain. New generations
+prevent pointer reuse from inheriting a prior lifetime. Freed-pointer history is
+not retained. Processing is bounded at 250,000 live pointers, 8,192 stacks/16
+MiB, 8,192 sites and 32,768 tree nodes; exhaustion fails or reports truncation.
 
-Successful allocation and realloc results create observed allocations. Failed
-allocations create none. Failed nonzero realloc preserves the old block. In-place
-realloc records a release and a new allocation generation. realloc(NULL,n) creates
-a block. realloc(p,0) returning NULL is ambiguous across allocators and marks
-survivors unreliable rather than assuming a universal free. Unknown frees are
-counted separately as possible pre-attach allocations. Null frees are ignored.
-Pointer collisions, out-of-order events and sequence gaps never become leak proof.
-Exit retires a process address space; fork does not copy observed state.
+Successful allocations create observed blocks. Failed nonzero realloc preserves
+the old block; successful in-place realloc retires the prior generation and
+creates a new one. `realloc(NULL,n)` creates a block. Null-return `realloc(p,0)`
+is allocator-dependent and makes survivors uncertain. Null free is ignored;
+unknown frees are counted as possible pre-attach blocks. Pointer collisions,
+sequence gaps and out-of-order records do not become leak evidence.
 
-Outputs include observed allocated/freed bytes, counts, unknown frees, known live
-bytes per domain, allocation and surviving allocation trees, top sites and time
-cohorts. A selected interval means allocations CREATED in that interval, surviving
-at its end; reconstruction still processes earlier allocations to match frees.
-Filters cover TID, domain, symbol, library, size and time. Process/worker isolation
-is the session boundary. Pointer lifetimes are reconstructed before filtering.
+Realloc entry/return times protect an address reused by another thread before
+return. The analyzer preserves that later generation and downgrades precision.
+Legacy moving realloc records without entry time are conservatively inexact.
+Exit retires an address space; fork does not copy observed state.
 
-Kernel and transport losses are separate cumulative counters. Derived quality
-also accounts for lifecycle anomalies, truncation and capture recovery. Exact
-survivor totals and per-site known_live_bytes become null when invalidated.
-Observed values remain labeled as incomplete evidence. Domains are never added
-together or treated as RSS. Missing frees are not evidence of a leak.
+## Attribution and filters
 
-The backend invokes the Rust binary with fixed executable selection, argument
-arrays and a 30-second timeout. At most two analysis subprocesses run per backend
-process; excess requests receive an actionable retry error. Final summaries up to 4 MiB can be cached with the
-capture SHA256; cache reuse verifies integrity. Filtered queries reconstruct from
-raw chunks. Reports include native trees and limitations. RSS heuristic scores
-remain process-growth hypotheses; a surviving site alone does not prove a leak
-or distinguish a legitimate cache without workload/cooldown evidence.
+Outputs include allocated/freed bytes, counts, unknown frees, per-domain known
+live bytes, sites, trees and creation-time survivor cohorts. Requested sizes
+exclude allocator bookkeeping and size-class slack. Loss, incomplete boundaries,
+activation gaps or lifecycle ambiguity make exact survivor values null.
 
+Lifetimes reconstruct before time, size, TID, symbol or library filtering. An
+interval selects allocations created in it and surviving at its endpoint.
+Process and worker isolation is session-based. Native and Python-block analyses
+select one domain; they are never summed or presented as RSS.
 
-Realloc events preserve entry and return times. If another thread reuses the old
-address before realloc returns, the analyzer preserves the new pointer generation
-and downgrades survivor precision. It never frees that later allocation. Legacy
-moving-realloc records lacking entry time are conservatively inexact. This race is
-covered by a lifecycle test with a pre-attach old allocation. Requested payload
-sizes exclude allocator bookkeeping and size-class slack.
+A bounded first pass indexes Python metadata and completed operations. A second
+pass joins compatible process/TID/monotonic intervals. Deep function context is
+temporal, with allocation line null. Verified Lab records preserve actual
+allocation-time frames. Missing metadata or ambiguous intervals suppress
+context.
 
-## Python context and object blocks
+The backend runs at most two analysis subprocesses with a 30-second timeout.
+Final summaries up to 4 MiB may be cached against verified capture SHA256.
+Filtered queries reconstruct from raw chunks; large queries can take seconds.
 
-The existing Event/Lifecycle model also handles `python_block` records. Stream
-ordering is keyed by process/domain/source (Lab activation epoch); pointers stay
-keyed by process/domain. A capture with activation gaps is inexact. Aggregate
-outputs select one domain and never sum overlapping native and Python blocks.
-A bounded first pass indexes code metadata and completed operation intervals; a
-second streaming pass reconstructs lifetimes and temporal context. Function
-association requires process, TID and monotonic interval agreement. Gaps, missing
-metadata, ambiguous peers and stale activations suppress context. Standard Deep
-allocation `line` stays null; Lab frames carry their actual allocation-time
-source line and evidence flag. Trees, top sites, operation summaries and reports
-reuse the same filters and lifecycle results. Live analysis supplies durable
-cooperative rows as a bounded private overlay, not simulated allocations.
-Formal repeated-action Python leak scoring remains unfinished.
+## Growth and leak hypotheses
+
+`--diagnose` accepts at most 4,096 ordered metric points and 1 MiB input/output.
+After warm-up exclusion, resistant Theil–Sen slopes across multiple windows gate
+sustained-growth anomalies. Recent plateaus, recovered spikes, sample gaps and
+insufficient span produce different explanations. Early/recent slope changes are
+a heuristic, not a calibrated change-point detector. Workload normalization
+requires consistent increasing counters.
+
+RSS alone yields a growth/cache hypothesis. Strong native/Python retention
+classifications require compatible complete survivors, repeated operations and
+observed cooldown. A manual marker cannot establish survival: tracing must cover
+comparison B. Lab coverage needs a verified allocation record at or beyond B,
+not merely delayed packet delivery. Generation-zero GC deltas remain partial.
+
+Hypotheses include supporting/contradictory evidence, limitations, attribution
+quality, relevant verified locations and validation recommendations with
+expected visibility, overhead and risk. Scores rank suspicion, not calibrated
+probabilities. Loss/gaps suppress unsupported precise claims. Positive leaks,
+cleanup, bounded caches, warm-up, spikes and fragmentation-like controls test
+both classifications and explanations.

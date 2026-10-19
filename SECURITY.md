@@ -1,18 +1,24 @@
-# Security policy
+# Security
 
-This engineering preview has no production support guarantee. Report security
-issues privately to repository maintainers through the repository's private
-security advisory facility when available; do not publish tokens or captures.
+Report vulnerabilities privately through
+[GitHub Security Advisories](https://github.com/polsala/LeakScope/security/advisories/new).
+Include the affected version, impact and a minimal reproduction without
+production credentials, records or captures. Do not open a public issue
+containing secrets.
 
-The API binds to loopback, requires Bearer credentials, enforces backend roles,
-rejects untrusted browser origins and uses restrictive data/socket permissions.
-The native sensor permits only targets owned by its own UID. It never injects
-code or changes kernel protections. Do not run it as root to widen access.
+LeakScope is an engineering preview without a production security certification.
+Use an unprivileged API on loopback and a separately authorized same-UID sensor.
+Do not run the API as root, grant it tracing capabilities or weaken kernel
+policy to enable profiling. A hostile process under the same UID is outside the
+isolation boundary; separate unrelated tenants by operating-system identity.
 
-Anyone who controls the monitored UID can already control that user's
-application; LeakScope does not isolate hostile programs running under that UID.
-Path names, executable names, symbols and operation labels can reveal sensitive
-context even without object contents. Raw captures are sensitive local files.
+Credentials and data are private to their owner. Paths, symbols, addresses and
+operation labels can reveal software or business details even when object values
+are absent. Review raw captures, reports, backups and browser traces before
+sharing.
 
-Remote hub/TLS/mTLS and federated identity are unimplemented. Use an SSH tunnel
-for remote access and read [the threat model](docs/security/threat-model.md).
+See [permissions, privacy and threat model](docs/operations/security.md),
+[deployment](docs/operations/deployment.md) and
+[compatibility limits](docs/reference/compatibility.md) for current boundaries.
+Remote hub transport and multi-tenant isolation are not implemented; use SSH
+forwarding for remote access.

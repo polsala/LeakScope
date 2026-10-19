@@ -1,8 +1,9 @@
 # leakscope-symbolizer
 
-ELF and DWARF native stack attribution for Linux processes.
+ELF/DWARF attribution for actual mapped native addresses, with build IDs,
+matching debug files and source-prefix remapping. Native lines are not Python
+lines.
 
-Part of [LeakScope](https://github.com/polsala/LeakScope). Engineering preview.
-Memory domains overlap and must not be added. Incomplete traces do not establish exact survivors.
-
-Build with Rust 1.94 or newer. 
+Part of [LeakScope](https://github.com/polsala/LeakScope), an engineering
+preview. Build with Rust 1.94 or newer. See the project documentation for
+compatibility and accounting constraints.

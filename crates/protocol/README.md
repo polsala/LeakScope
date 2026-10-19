@@ -1,8 +1,8 @@
 # leakscope-protocol
 
-Bounded versioned local sensor framing for LeakScope.
+Versioned bounded sensor envelopes and the shared allocation event model. Kernel
+wire records and portable capture records have distinct encodings.
 
-Part of [LeakScope](https://github.com/polsala/LeakScope). Engineering preview.
-Memory domains overlap and must not be added. Incomplete traces do not establish exact survivors.
-
-Build with Rust 1.94 or newer. 
+Part of [LeakScope](https://github.com/polsala/LeakScope), an engineering
+preview. Build with Rust 1.94 or newer. See the project documentation for
+compatibility and accounting constraints.
