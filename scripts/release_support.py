@@ -150,6 +150,9 @@ def check(root=ROOT, tag=None):
         for key in ["description", "readme", "keywords"]:
             assert p["package"].get(key), name + " missing " + key
         assert (root / item["path"] / "README.md").is_file()
+    assert (
+        json.loads((root / "schemas/openapi/v1.json").read_text())["info"]["version"] == v.python
+    ), "Generated API version mismatch"
     publication_order(root)
     if tag is not None:
         assert tag == "v" + v.semver, "Tag and release manifests do not match"
@@ -180,6 +183,10 @@ def prepare(value, root=ROOT, runner=run):
         re.sub(r'__version__ = "[^"]+"', '__version__ = "' + v.python + '"', p.read_text())
     )
     (root / "legacy/py27-agent/VERSION").write_text(v.python + "\n")
+    schema_path = root / "schemas/openapi/v1.json"
+    schema = json.loads(schema_path.read_text())
+    schema["info"]["version"] = v.python
+    schema_path.write_text(json.dumps(schema, indent=2) + "\n")
     for item in crates(root).values():
         p = root / item["path"] / "Cargo.toml"
         p.write_text(

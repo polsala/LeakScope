@@ -250,6 +250,13 @@ def build(directory):
         "sbom.cdx.json",
     ]:
         shutil.copyfile(ROOT / "artifacts" / name, directory / name)
+    assert (
+        subprocess.check_output(
+            ["dpkg-deb", "-f", str(directory / f"leakscope_{v.debian}_amd64.deb"), "Version"],
+            text=True,
+        ).strip()
+        == v.debian
+    ), "Debian package metadata mismatch"
     wheel_check(directory)
     image_id = image_check(v.metadata()["image"], v.metadata())
     run(["docker", "save", "--output", str(directory / "image.tar"), v.metadata()["image"]])

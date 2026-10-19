@@ -54,6 +54,7 @@ def test_current_versions_and_dependency_order():
 def test_prepare_updates_manifests_and_locks(tmp_path):
     for name in [
         "release-version.json",
+        "schemas/openapi/v1.json",
         "Cargo.toml",
         "Cargo.lock",
         "pyproject.toml",
