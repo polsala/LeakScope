@@ -442,9 +442,12 @@ jobs:
   recovery-verify:
     needs: recovery-request
     runs-on: ubuntu-24.04
+    # GitHub hides draft releases from read-only installation tokens. This is a
+    # protected release job, running read-only checks without publication authority.
+    environment: release
     timeout-minutes: 15
     permissions:
-      contents: read
+      contents: write
       actions: read
       packages: read
     steps:

@@ -505,7 +505,11 @@ def github_asset_index(release, paths):
 def verify_release_assets(directory, manifest):
     paths = release_assets(directory)
     release = github_release()
-    assert release and release["target_commitish"] == manifest["commit"], (
+    if release is None:
+        raise ReleaseError(
+            "Existing release/draft is not visible. GitHub requires contents:write to read drafts; use the protected release recovery job."
+        )
+    assert release["target_commitish"] == manifest["commit"], (
         "Existing GitHub Release source differs; manual reconciliation required"
     )
     index = github_asset_index(release, paths)

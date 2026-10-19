@@ -288,3 +288,8 @@ def test_recovery_jobs_have_no_registry_publication_secrets():
         assert jobs[name]["permissions"].get("packages") != "write"
     assert jobs["recovery-finalize"]["environment"] == "release"
     assert "publish" in jobs["recovery-finalize"]["if"]
+    verifier = jobs["recovery-verify"]
+    assert verifier["environment"] == "release"
+    assert verifier["permissions"]["contents"] == "write"
+    assert "verify-existing" in json.dumps(verifier)
+    assert "RELEASE_PUBLICATION_AUTHORIZED" not in json.dumps(verifier)

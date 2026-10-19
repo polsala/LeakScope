@@ -70,8 +70,11 @@ source commit. Separate checkouts keep current reviewed tooling apart from the
 untouched historical source. The original validated Actions artifact must still
 be available; every byte, source fingerprint, registry version/image digest and
 GitHub asset is reverified. No package is rebuilt, no registry upload runs and no
-tag is moved. Only the protected finalization job receives contents:write;
-neither job has PyPI/crates.io secrets or GHCR write permission. The receipt
+tag is moved. Both verification and finalization use the protected release
+environment: GitHub requires contents:write even to **read** draft releases with
+an installation token. The verification command only reads remote data and has
+no publication-authorization flag. Neither job has PyPI/crates.io secrets or GHCR
+write permission. The receipt
 records the original commit and the recovery tooling commit separately.
 
 Stable releases cannot use this shortcut and retain their full certification
