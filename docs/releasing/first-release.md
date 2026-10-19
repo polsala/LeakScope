@@ -5,8 +5,9 @@ PyPI `leakscope` absent on 2026-10-19. Availability can change and is checked ag
 by the real workflow. The existing PYPI_TOKEN/CRATES_IO_TOKEN secrets are already
 configured; no manual first publication, Trusted Publisher or GPG setup is needed.
 
-1. Configure/protect the GitHub `release` environment (main branch and v* tags, or
-   reviewers) and permit repository Actions package/release writes.
+1. The repository's `release` environment is already configured for main and v*
+   tags and was verified by Actions. For a fork, configure equivalent protection
+   and permit repository Actions package/release writes.
 2. Prepare and review `0.2.0-rc.1` using the version command and merge to main.
 3. Run the manual workflow with dry_run=true. Inspect the validated bundle and
    readiness/compatibility reports. A green dry run does not certify production.

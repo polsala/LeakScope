@@ -31,12 +31,40 @@ The two final metadata guards in `e24827b` were included in the local complete
 test run: a registry project with a null repository is an explicit naming
 conflict, and prerelease manifests cannot claim production certification.
 
+Final review found and corrected two GitHub draft assumptions in `f87285b`:
+the published-release REST lookup does not reliably resolve pending drafts, and
+creating a draft does not guarantee its tag exists yet. Draft recovery now uses
+a read-only GraphQL lookup and fetches assets by release ID. An authorized manual
+draft anchors its assets, creates only a missing tag at the reviewed source SHA,
+and verifies it before registry jobs run. Eight added tests cover pending drafts,
+lookup errors, tag conflicts and repeat execution. A real read-only query against
+this repository returned the expected absence; no draft/tag was created.
+
+The complete Python suite at `f87285b` passed with 101 tests and six expected
+skips, including 47 release regressions. Its six main hosted workflows also passed:
+[portable](https://github.com/polsala/LeakScope/actions/runs/39239812944),
+[browser](https://github.com/polsala/LeakScope/actions/runs/39239812924),
+[integration](https://github.com/polsala/LeakScope/actions/runs/39239812958),
+[security](https://github.com/polsala/LeakScope/actions/runs/39239813055),
+[native/package](https://github.com/polsala/LeakScope/actions/runs/39239812933) and
+[ABI](https://github.com/polsala/LeakScope/actions/runs/39239812993).
+
+[Final release dry run 39239874125](https://github.com/polsala/LeakScope/actions/runs/39239874125)
+also completed successfully at `f87285bd750a25445b4b46d7908361d80f9e5729`.
+All six ABI builds and the entire hosted release build passed, including the
+corrected draft lookup using the automatic Actions token. The immutable bundle
+was built, installation-tested, verified and uploaded. Draft creation, registry
+publication, finalization and production-only kernel qualification remained
+skipped. This is the final nonpublishing pipeline execution for the implemented
+code; subsequent evidence-only documentation does not assert a new build.
+
 ## Local execution
 
 | Check | Observed result |
 | --- | --- |
 | `make lint typecheck test` with both final guards | Passed: 31 Rust tests, 93 Python tests, 6 Vitest tests; 6 expected environment-specific Python skips |
-| Release version/publication regression tests | 39 passed; mocked registry failures and write authorization included |
+| Complete Python suite after draft-recovery correction | 101 passed; six expected environment-specific skips |
+| Release version/publication regression tests after final review | 47 passed; mocked registry failures and write authorization included |
 | Genuine CPython 2.7 ABI matrix | UCS2/UCS4 × release/debug/Lab passed; 20 tests per interpreter, four Lab-only tests skipped on each stock build |
 | Native kernel regression suite after packaging BPF sources inside the sensor crate | 22 passed in 152.82 seconds on Linux `6.19.14+kali-amd64` |
 | Actionlint 1.7.7 | All workflows passed |

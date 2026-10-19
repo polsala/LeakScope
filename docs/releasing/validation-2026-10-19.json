@@ -6,8 +6,8 @@
   "public_release_created": false,
   "release_tag_pushed": false,
   "hosted_dry_run": {
-    "run_id": 39232000227,
-    "source_commit": "ee33b6a5b2795ea78aed2bb6ec3afb7c5535a8de",
+    "run_id": 39239874125,
+    "source_commit": "f87285bd750a25445b4b46d7908361d80f9e5729",
     "conclusion": "success",
     "abi_jobs_passed": 6,
     "build_passed": true,
@@ -15,11 +15,11 @@
   },
   "local_portable": {
     "rust_passed": 31,
-    "python_passed": 93,
+    "python_passed": 101,
     "python_expected_skips": 6,
     "frontend_passed": 6,
-    "release_regression_passed": 39,
-    "includes_final_guards_commit": "e24827b"
+    "release_regression_passed": 47,
+    "includes_final_guards_commit": "f87285b"
   },
   "native_regression": {
     "kernel": "6.19.14+kali-amd64",
