@@ -36,3 +36,7 @@ are not weakened. The initial development version is not evidence of readiness.
 See [versions](../releasing/versioning.md), [first publication](../releasing/first-release.md),
 [crates](../releasing/crates.md), [PyPI](../releasing/pypi.md), [GHCR](../releasing/ghcr.md)
 and [recovery](../releasing/recovery.md).
+
+See the [executed automation validation](../releasing/validation-2026-10-19.md)
+for actual package, ABI, kernel regression and hosted dry-run results. These
+results do not assert that any public registry upload has occurred.

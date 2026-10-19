@@ -1,0 +1,48 @@
+{
+  "date": "2026-10-19",
+  "purpose": "Release automation implementation validation; not production certification",
+  "source_version": "0.1.0",
+  "registry_writes": false,
+  "public_release_created": false,
+  "release_tag_pushed": false,
+  "hosted_dry_run": {
+    "run_id": 39232000227,
+    "source_commit": "ee33b6a5b2795ea78aed2bb6ec3afb7c5535a8de",
+    "conclusion": "success",
+    "abi_jobs_passed": 6,
+    "build_passed": true,
+    "publication_jobs": "skipped"
+  },
+  "local_portable": {
+    "rust_passed": 31,
+    "python_passed": 93,
+    "python_expected_skips": 6,
+    "frontend_passed": 6,
+    "release_regression_passed": 39,
+    "includes_final_guards_commit": "e24827b"
+  },
+  "native_regression": {
+    "kernel": "6.19.14+kali-amd64",
+    "passed": 22,
+    "seconds": 152.82,
+    "qualifies_other_kernels": false
+  },
+  "isolated_prerelease_fixture": {
+    "reviewed_source": "ee33b6a",
+    "fixture_commit": "30c33b73046df9100f1ca53184d2b6ccf85d81e2",
+    "version": "0.2.0-rc.1",
+    "python": "0.2.0rc1",
+    "debian": "0.2.0~rc1",
+    "cargo_packages_verified": 7,
+    "wheel_clean_install": true,
+    "ubuntu_userlands": ["20.04", "22.04", "24.04"],
+    "oci_runtime": "passed; no network, no capabilities, UID 10001",
+    "required_assets": 20,
+    "production_certified": false,
+    "public_writes": false
+  },
+  "release_environment": "configured; main branch and v* tags only",
+  "live_token_authority": "unverified until explicitly authorized publication",
+  "registry_name_availability": "no conflicting names observed on this date; not a reservation",
+  "stable_production_promotion": "blocked by existing certification gates"
+}

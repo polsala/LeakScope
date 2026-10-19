@@ -5,7 +5,9 @@ Run `make setup` first. The repository already has `PYPI_TOKEN` and
 `CRATES_IO_TOKEN`; do not recreate them. Registry publication has never been
 performed by the implementation tests.
 
-One-time GitHub policy: the `release` environment must exist and restrict
+The repository's `release` environment was configured and read back during the
+2026-10-19 validation; no additional registry secrets are needed. For forks,
+one-time GitHub policy: the `release` environment must exist and restrict
 branches/tags exclusively to branch `main` and tag `v*`, or require reviewers.
 Repository Actions must be allowed to create GitHub Releases and GHCR packages.
 Stable publication additionally needs the protected `kernel-validation`
