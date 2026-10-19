@@ -43,7 +43,8 @@ if [[ ! -e "$release/.installed" ]]; then
     chmod a+x "$release/$executable"
   done < <(find "$source_root" -type f -perm /111 -printf '%P\0')
   "$release/runtime/bin/python3.12" -I -m venv "$release/venv"
-  "$release/venv/bin/python" -I -m pip install --no-index --find-links "$release/wheels" leakscope==0.1.0
+  package_version="$("$release/runtime/bin/python3.12" -B -I -c 'import json,sys;print(json.load(open(sys.argv[1]))["python"])' "$release/release.json")"
+  "$release/venv/bin/python" -I -m pip install --no-index --find-links "$release/wheels" "leakscope==$package_version"
   cp "$release/launcher" "$release/bin/leakscope"
   chmod 755 "$release/bin/leakscope"
   "$release/bin/leakscope" --version

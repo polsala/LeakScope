@@ -4,6 +4,7 @@
 import json
 import tomllib
 from pathlib import Path
+from release_support import version
 import yaml
 from jsonschema import Draft7Validator
 from referencing import Registry, Resource
@@ -50,7 +51,9 @@ result = {
     "bomFormat": "CycloneDX",
     "specVersion": "1.5",
     "version": 1,
-    "metadata": {"component": {"type": "application", "name": "LeakScope", "version": "0.1.0"}},
+    "metadata": {
+        "component": {"type": "application", "name": "LeakScope", "version": version().semver}
+    },
     "components": components,
 }
 schema_root = Path("schemas/json/cyclonedx")

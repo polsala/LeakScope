@@ -1,5 +1,5 @@
 Package: leakscope
-Version: 0.1.0
+Version: @VERSION@
 Section: devel
 Priority: optional
 Architecture: amd64

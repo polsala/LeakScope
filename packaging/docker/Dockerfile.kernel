@@ -1,6 +1,7 @@
 # Isolated trusted-runner validation only; never use this image for public API hosting.
 FROM python:2.7 AS legacy
-FROM leakscope:0.1.0
+ARG LEAKSCOPE_BASE_IMAGE=leakscope:local
+FROM ${LEAKSCOPE_BASE_IMAGE}
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev binutils libcap2-bin && rm -rf /var/lib/apt/lists/*
 COPY --from=legacy /usr/local/include/python2.7 /usr/local/include/python2.7

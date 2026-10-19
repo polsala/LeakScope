@@ -4,11 +4,14 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 mkdir -p artifacts/deployment
+release_stage="$(.venv/bin/python scripts/release.py metadata --field stage)"
+debian_version="$(.venv/bin/python scripts/release.py metadata --field debian)"
 for version in 20.04 22.04 24.04; do
   docker run --rm --network none --entrypoint /bin/bash \
+    -e RELEASE_STAGE="$release_stage" -e DEBIAN_VERSION="$debian_version" \
     -v "$PWD/artifacts:/artifacts:ro" -v "$PWD/scripts:/qa/scripts:ro" -v "$PWD/tests/support:/qa/tests/support:ro" \
     "ubuntu:$version" -ec '
-      dpkg -i /artifacts/leakscope_0.1.0_amd64.deb
+      dpkg -i "/artifacts/leakscope_${DEBIAN_VERSION}_amd64.deb"
       bash /opt/leakscope-distribution/install.sh /opt/leakscope
       cp -a /opt/leakscope-distribution /tmp/tampered-distribution
       touch /tmp/tampered-distribution/unexpected
@@ -48,8 +51,8 @@ for version in 20.04 22.04 24.04; do
       dpkg -r leakscope
       /opt/leakscope/bin/leakscope --version
       su -s /bin/sh qa -c "/opt/leakscope/venv/bin/python -I /qa/scripts/validate-package.py --prefix /opt/leakscope --data /tmp/leakscope-preserved"
-      tar -xzf /artifacts/leakscope-0.1.0-linux-x86_64.tar.gz -C /tmp
-      bash /tmp/leakscope-0.1.0-linux-x86_64/install.sh /opt/leakscope-tar
+      tar -xzf "/artifacts/${RELEASE_STAGE}.tar.gz" -C /tmp
+      bash "/tmp/${RELEASE_STAGE}/install.sh" /opt/leakscope-tar
       su -s /bin/sh qa -c "/opt/leakscope-tar/venv/bin/python -I /qa/scripts/validate-package.py --prefix /opt/leakscope-tar"
       getconf GNU_LIBC_VERSION
     ' > "artifacts/deployment/ubuntu-$version.log" 2>&1

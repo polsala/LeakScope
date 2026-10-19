@@ -71,6 +71,8 @@ def run(command, *, root=ROOT, **kwargs):
             "CARGO_REGISTRY_TOKEN",
             "TWINE_PASSWORD",
             "RELEASE_GPG_KEY",
+            "GH_TOKEN",
+            "GITHUB_TOKEN",
         }
     }
     env.setdefault("UV_CACHE_DIR", str(root / ".cache/uv"))

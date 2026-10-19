@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Prepare, validate and build a release. This command never uploads packages."""
 
+import sys
+
+if sys.version_info < (3, 11):
+    raise SystemExit("Release tooling needs Python 3.11+; use .venv/bin/python scripts/release.py")
+
 import argparse
 import json
 from pathlib import Path

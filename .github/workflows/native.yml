@@ -44,3 +44,13 @@ jobs:
         with:
           name: installed-package-evidence
           path: artifacts/deployment/**
+
+  registry-packages:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: rustup toolchain install 1.94.1 --profile minimal
+      - run: sudo apt-get update && sudo apt-get install -y clang
+      - run: cargo package --workspace --locked
+      - run: cargo publish --workspace --locked --dry-run

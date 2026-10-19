@@ -734,6 +734,9 @@ dev = [
     { name = "types-pyyaml" },
     { name = "uv" },
 ]
+release = [
+    { name = "twine" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -760,6 +763,7 @@ dev = [
     { name = "types-pyyaml", specifier = "==6.0.12.20250516" },
     { name = "uv", specifier = "==0.11.15" },
 ]
+release = [{ name = "twine", specifier = "==6.2.0" }]
 
 [[package]]
 name = "license-expression"
