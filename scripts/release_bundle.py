@@ -183,9 +183,8 @@ def create_manifest(directory, image_id):
         **v.metadata(),
         "commit": git_sha(),
         "image_config_digest": image_id,
-        "production_certified": json.loads((directory / "release-readiness.json").read_text())[
-            "production_ready"
-        ],
+        "production_certified": v.channel == "stable"
+        and json.loads((directory / "release-readiness.json").read_text())["production_ready"],
         "source_fingerprint": __import__(
             "leakscope_api.readiness", fromlist=["fingerprint"]
         ).fingerprint(ROOT),

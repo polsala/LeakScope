@@ -429,3 +429,24 @@ def test_manual_rerun_keeps_its_original_reviewed_event_commit(monkeypatch):
     monkeypatch.setenv("GITHUB_SHA", "different")
     with pytest.raises(AssertionError, match="event commit"):
         policy.validate_request()
+
+
+def test_crate_without_repository_is_an_explicit_conflict(monkeypatch):
+    monkeypatch.setattr(
+        pub, "get", lambda *a, **kw: {"crate": {"name": "leakscope-common", "repository": None}}
+    )
+    with pytest.raises(pub.ReleaseError, match="collision or source repository mismatch"):
+        pub.crate_status({"name": "leakscope-common", "vers": "1.2.3"}, "hash")
+
+
+def test_prerelease_manifest_never_claims_production_certification(tmp_path, monkeypatch):
+    monkeypatch.setattr(bundle, "version", lambda: Version("0.2.0-rc.1"))
+    monkeypatch.setattr(bundle, "expected_assets", lambda v: ["release-readiness.json"])
+    (tmp_path / "release-readiness.json").write_text('{"production_ready":true}')
+    monkeypatch.setattr(
+        bundle,
+        "verify",
+        lambda directory: json.loads((directory / "release-manifest.json").read_text()),
+    )
+    manifest = bundle.create_manifest(tmp_path, "sha256:config")
+    assert manifest["production_certified"] is False

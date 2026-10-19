@@ -181,7 +181,7 @@ def crate_status(item, digest, *, owner=None):
     crate = project["crate"]
     if (
         crate["name"] != name
-        or crate.get("repository", "").rstrip("/") != "https://github.com/" + REPOSITORY
+        or str(crate.get("repository") or "").rstrip("/") != "https://github.com/" + REPOSITORY
     ):
         raise ReleaseError("Crate name collision or source repository mismatch: " + name)
     if owner:
