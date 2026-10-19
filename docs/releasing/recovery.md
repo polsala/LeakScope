@@ -5,6 +5,14 @@ A draft contains an immutable complete recovery bundle before registry uploads
 start. Each publication job also retains non-secret partial receipts. GitHub's
 draft flag is authoritative for whether finalization succeeded.
 
+Draft lookup includes pending tags through GitHub's read-only GraphQL query and
+fetches assets by the resolved release ID. The REST published-release endpoint's
+404 alone is not evidence that a draft does not exist. In an authorized manual
+publication, the draft job explicitly creates its missing tag at the reviewed
+commit after anchoring the validated assets. It never moves an existing tag.
+Registry jobs then verify that exact remote ref. This workflow does not depend
+on an automatic-token tag triggering another workflow.
+
 The preferred recovery is:
 
 ```sh

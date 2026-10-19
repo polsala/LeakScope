@@ -450,3 +450,74 @@ def test_prerelease_manifest_never_claims_production_certification(tmp_path, mon
     )
     manifest = bundle.create_manifest(tmp_path, "sha256:config")
     assert manifest["production_certified"] is False
+
+
+def test_draft_lookup_resolves_pending_tag_without_treating_404_as_absence(monkeypatch):
+    release = {"tag_name": version().metadata()["tag"], "draft": True, "assets": []}
+    calls = []
+
+    def get(url, **kw):
+        calls.append(url)
+        return release if url.endswith("/releases/42") else None
+
+    def query(url, **kw):
+        assert url == "https://api.github.com/graphql" and kw["method"] == "POST"
+        doc = json.loads(kw["data"])
+        assert doc["query"].startswith("query(") and "mutation" not in doc["query"]
+        assert doc["variables"]["tag"] == release["tag_name"]
+        return b'{"data":{"repository":{"release":{"databaseId":42}}}}', {}
+
+    monkeypatch.setattr(pub, "get", get)
+    monkeypatch.setattr(pub, "request", query)
+    assert pub.github_release() == release
+    assert calls[-1].endswith("/releases/42")
+
+
+def test_published_release_lookup_needs_no_draft_fallback(monkeypatch):
+    release = {"draft": False}
+    monkeypatch.setattr(pub, "get", lambda *a, **kw: release)
+    monkeypatch.setattr(pub, "request", lambda *a, **kw: pytest.fail("Unexpected GraphQL lookup"))
+    assert pub.github_release() == release
+
+
+@pytest.mark.parametrize(
+    "result", [{"errors": [{"message": "denied"}]}, {"data": {"repository": None}}]
+)
+def test_draft_lookup_errors_cannot_be_treated_as_missing_release(monkeypatch, result):
+    monkeypatch.setattr(pub, "get", lambda *a, **kw: None)
+    monkeypatch.setattr(pub, "request", lambda *a, **kw: (json.dumps(result).encode(), {}))
+    with pytest.raises(pub.ReleaseError, match="refusing duplicate creation"):
+        pub.github_release()
+
+
+def test_genuinely_missing_release_has_no_published_or_pending_draft(monkeypatch):
+    monkeypatch.setattr(pub, "get", lambda *a, **kw: None)
+    monkeypatch.setattr(
+        pub, "request", lambda *a, **kw: (b'{"data":{"repository":{"release":null}}}', {})
+    )
+    assert pub.github_release() is None
+
+
+@pytest.mark.parametrize("exists", [False, True])
+def test_authorized_manual_draft_binds_missing_tag_once(authority, monkeypatch, exists):
+    ref = {"object": {"type": "commit", "sha": "reviewed"}} if exists else None
+    calls = []
+
+    def create(*args, **kw):
+        nonlocal ref
+        calls.append(args)
+        assert args[-3:] == ("ref=refs/tags/v1.2.3", "-f", "sha=reviewed")
+        ref = {"object": {"type": "commit", "sha": "reviewed"}}
+
+    monkeypatch.setattr(pub, "get", lambda *a, **kw: ref)
+    monkeypatch.setattr(pub, "gh", create)
+    pub.ensure_draft_tag({"tag": "v1.2.3", "commit": "reviewed"})
+    pub.ensure_draft_tag({"tag": "v1.2.3", "commit": "reviewed"})
+    assert len(calls) == (0 if exists else 1)
+
+
+def test_manual_draft_never_moves_conflicting_tag(authority, monkeypatch):
+    monkeypatch.setattr(pub, "get", lambda *a, **kw: {"object": {"type": "commit", "sha": "other"}})
+    monkeypatch.setattr(pub, "gh", lambda *a, **kw: pytest.fail("Attempted tag overwrite"))
+    with pytest.raises(pub.ReleaseError, match="different commit"):
+        pub.ensure_draft_tag({"tag": "v1.2.3", "commit": "reviewed"})

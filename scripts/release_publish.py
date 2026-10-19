@@ -346,11 +346,67 @@ def gh(*arguments, capture=False):
 
 
 def github_release():
-    return get(
-        f"https://api.github.com/repos/{REPOSITORY}/releases/tags/{version().metadata()['tag']}",
+    headers = {"Authorization": "Bearer " + os.environ.get("GH_TOKEN", "")}
+    tag = version().metadata()["tag"]
+    release = get(
+        f"https://api.github.com/repos/{REPOSITORY}/releases/tags/{tag}",
         missing=True,
-        headers={"Authorization": "Bearer " + os.environ.get("GH_TOKEN", "")},
+        headers=headers,
     )
+    if release is not None:
+        return release
+    # REST's by-tag endpoint resolves published releases. Like gh release view,
+    # resolve a draft's pending tag through GraphQL, then fetch its REST assets.
+    # This is a read-only query, never a GraphQL mutation.
+    raw, unused = request(
+        "https://api.github.com/graphql",
+        method="POST",
+        data=json.dumps(
+            {
+                "query": "query($owner:String!,$name:String!,$tag:String!){repository(owner:$owner,name:$name){release(tagName:$tag){databaseId}}}",
+                "variables": {
+                    "owner": REPOSITORY.split("/")[0],
+                    "name": REPOSITORY.split("/")[1],
+                    "tag": tag,
+                },
+            }
+        ).encode(),
+        headers={**headers, "Content-Type": "application/json"},
+    )
+    result = json.loads(raw)
+    if result.get("errors") or not result.get("data", {}).get("repository"):
+        raise ReleaseError("Authenticated GitHub draft lookup failed; refusing duplicate creation")
+    draft = result["data"]["repository"]["release"]
+    if draft is None:
+        return None
+    release = get(
+        f"https://api.github.com/repos/{REPOSITORY}/releases/{int(draft['databaseId'])}",
+        headers=headers,
+    )
+    assert release["tag_name"] == tag, "GitHub draft tag mismatch"
+    return release
+
+
+def ensure_draft_tag(manifest):
+    from release_request import remote_tag
+
+    authorized("draft")
+    if not remote_tag(manifest["tag"], manifest["commit"], allow_missing=True):
+        # Saving a draft does not guarantee creation of its pending tag. A
+        # manual release must bind it now; later registry jobs require this ref.
+        # GITHUB_TOKEN does not trigger another tag workflow; this run continues.
+        gh(
+            "api",
+            f"repos/{REPOSITORY}/git/refs",
+            "--method",
+            "POST",
+            "-f",
+            "ref=refs/tags/" + manifest["tag"],
+            "-f",
+            "sha=" + manifest["commit"],
+            capture=True,
+        )
+    remote_tag(manifest["tag"], manifest["commit"])
 
 
 def recover(directory):
@@ -439,6 +495,7 @@ def draft(directory, manifest):
         else:
             assert release["draft"], "Finalized GitHub Release has missing assets"
             gh("release", "upload", tag, str(path), "--repo", REPOSITORY)
+    ensure_draft_tag(manifest)
     return {"draft": release["draft"], "commit": manifest["commit"]}
 
 

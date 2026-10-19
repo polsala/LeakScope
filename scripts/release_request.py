@@ -79,7 +79,7 @@ def remote_tag(tag, commit, *, allow_missing=False):
     ref = get(base + "/git/ref/tags/" + tag, missing=True, headers=headers)
     if ref is None:
         if allow_missing:
-            return
+            return False
         raise ReleaseError("Release tag is missing; only the initial draft job may create it")
     target = ref["object"]
     for unused in range(5):
@@ -88,7 +88,7 @@ def remote_tag(tag, commit, *, allow_missing=False):
                 raise ReleaseError(
                     "Existing release tag points at a different commit; refusing publication"
                 )
-            return
+            return True
         if target["type"] != "tag":
             raise ReleaseError("Unexpected release tag object type")
         target = get(base + "/git/tags/" + target["sha"], headers=headers)["object"]
