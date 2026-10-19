@@ -377,3 +377,55 @@ def test_failed_github_finalization_cannot_claim_completion(authority, tmp_path,
 def test_docker_context_preserves_manifested_runtime_bytecode():
     lines = (bundle.ROOT / ".dockerignore").read_text().splitlines()
     assert lines.index("!artifacts/leakscope-*-linux-x86_64/**") > lines.index("**/*.pyc")
+
+
+@pytest.mark.parametrize("annotated", [False, True])
+def test_remote_tag_must_bind_the_intended_commit(monkeypatch, annotated):
+    def response(url, **kw):
+        if "/git/tags/" in url:
+            return {"object": {"type": "commit", "sha": "intended"}}
+        return {
+            "object": {
+                "type": "tag" if annotated else "commit",
+                "sha": "annotation" if annotated else "intended",
+            }
+        }
+
+    monkeypatch.setattr(pub, "get", response)
+    policy.remote_tag("v1.2.3", "intended")
+    with pytest.raises(pub.ReleaseError, match="different commit"):
+        policy.remote_tag("v1.2.3", "wrong")
+
+
+def test_only_initial_draft_may_create_a_missing_tag(monkeypatch):
+    monkeypatch.setattr(pub, "get", lambda *a, **kw: None)
+    policy.remote_tag("v1.2.3", "intended", allow_missing=True)
+    with pytest.raises(pub.ReleaseError, match="tag is missing"):
+        policy.remote_tag("v1.2.3", "intended")
+
+
+def test_manual_and_tag_releases_share_concurrency_identity():
+    text = (bundle.ROOT / ".github/workflows/release.yml").read_text()
+    assert "inputs.version && format('v{0}', inputs.version) || github.ref_name" in text
+
+
+def test_manual_rerun_keeps_its_original_reviewed_event_commit(monkeypatch):
+    values = {
+        "GITHUB_EVENT_NAME": "workflow_dispatch",
+        "GITHUB_REF": "refs/heads/main",
+        "GITHUB_SHA": "original",
+        "INPUT_DRY_RUN": "true",
+        "INPUT_VERSION": version().semver,
+        "INPUT_CHANNEL": version().channel,
+        "GITHUB_RUN_ATTEMPT": "2",
+    }
+    for key, value in values.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    monkeypatch.setattr(policy.subprocess, "run", lambda *a, **kw: None)
+    monkeypatch.setattr(policy.subprocess, "check_output", lambda *a, **kw: "original\n")
+    result = policy.validate_request()
+    assert result["sha"] == "original" and result["publish"] == "false"
+    monkeypatch.setenv("GITHUB_SHA", "different")
+    with pytest.raises(AssertionError, match="event commit"):
+        policy.validate_request()

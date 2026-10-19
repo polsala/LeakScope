@@ -638,7 +638,7 @@ def main():
         manifest = verify(args.directory)
         from release_request import publication_gate
 
-        publication_gate(manifest, args.directory)
+        publication_gate(manifest, args.directory, allow_missing_tag=args.component == "draft")
         fn = {
             "crates": publish_crates,
             "pypi": publish_pypi,

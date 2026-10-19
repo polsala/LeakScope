@@ -58,7 +58,7 @@ def protected_environment():
     return {"reviewers": reviewers, "restricted_refs": restricted}
 
 
-def publication_gate(manifest, directory):
+def publication_gate(manifest, directory, *, allow_missing_tag=False):
     from release_bundle import git_sha
 
     assert manifest["commit"] == git_sha()
@@ -66,8 +66,33 @@ def publication_gate(manifest, directory):
         "Validated target commit is missing/mismatched"
     )
     protected_environment()
+    remote_tag(manifest["tag"], manifest["commit"], allow_missing=allow_missing_tag)
     if manifest["channel"] == "stable":
         stable_gate(directory / "release-evidence.json")
+
+
+def remote_tag(tag, commit, *, allow_missing=False):
+    from release_publish import get, ReleaseError
+
+    base = "https://api.github.com/repos/" + REPOSITORY
+    headers = {"Authorization": "Bearer " + os.environ.get("GH_TOKEN", "")}
+    ref = get(base + "/git/ref/tags/" + tag, missing=True, headers=headers)
+    if ref is None:
+        if allow_missing:
+            return
+        raise ReleaseError("Release tag is missing; only the initial draft job may create it")
+    target = ref["object"]
+    for unused in range(5):
+        if target["type"] == "commit":
+            if target["sha"] != commit:
+                raise ReleaseError(
+                    "Existing release tag points at a different commit; refusing publication"
+                )
+            return
+        if target["type"] != "tag":
+            raise ReleaseError("Unexpected release tag object type")
+        target = get(base + "/git/tags/" + target["sha"], headers=headers)["object"]
+    raise ReleaseError("Release tag annotation depth exceeds limit")
 
 
 def validate_request():
@@ -93,9 +118,9 @@ def validate_request():
     subprocess.run(["git", "merge-base", "--is-ancestor", "HEAD", "origin/main"], check=True)
     sha = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     if event == "workflow_dispatch":
-        assert (
-            sha == subprocess.check_output(["git", "rev-parse", "origin/main"], text=True).strip()
-        ), "Manual release must target the current reviewed main commit"
+        assert sha == os.environ.get("GITHUB_SHA", sha), (
+            "Manual release must use its reviewed event commit"
+        )
     result = {
         **v.metadata(),
         "sha": sha,
