@@ -9,7 +9,11 @@ import re
 import subprocess
 import tomllib
 
-ROOT = Path(__file__).resolve().parents[1]
+# Recovery runs reviewed publisher tools against an unchanged historical source
+# checkout. Never copy new scripts into that checkout or change its fingerprint.
+ROOT = Path(
+    os.environ.get("LEAKSCOPE_RELEASE_SOURCE_ROOT", Path(__file__).resolve().parents[1])
+).resolve()
 REPOSITORY = "polsala/LeakScope"
 IMAGE = "ghcr.io/polsala/leakscope"
 

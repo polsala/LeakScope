@@ -443,6 +443,97 @@ def release_assets(directory):
     return sorted(directory.iterdir()) + [archive_bundle(directory)]
 
 
+def verify_github_asset(item, path, tag):
+    assert item["state"] == "uploaded", "GitHub asset upload is incomplete: " + item["name"]
+    assert item["size"] == path.stat().st_size, "GitHub asset size conflict: " + item["name"]
+    if item.get("digest"):
+        assert item["digest"] == "sha256:" + sha(path), (
+            "GitHub asset checksum conflict: " + item["name"]
+        )
+    else:
+        with tempfile.TemporaryDirectory() as tmp:
+            gh(
+                "release",
+                "download",
+                tag,
+                "--repo",
+                REPOSITORY,
+                "--pattern",
+                item["name"],
+                "--dir",
+                tmp,
+            )
+            assert sha(Path(tmp) / item["name"]) == sha(path), (
+                "GitHub asset checksum conflict: " + item["name"]
+            )
+
+
+def github_asset_index(release, paths):
+    """Map only the known Debian '~' upload rename; verify its original bytes.
+
+    GitHub changes '~' to '.' in asset names, including metadata PATCH requests.
+    All other unknown names, duplicate aliases and mismatched contents fail.
+    """
+    aliases = {}
+    for path in paths:
+        aliases[path.name] = path
+        if (
+            path.name.startswith("leakscope_")
+            and path.name.endswith("_amd64.deb")
+            and "~" in path.name
+        ):
+            alias = path.name.replace("~", ".")
+            assert alias not in aliases, "Ambiguous GitHub asset name"
+            aliases[alias] = path
+    result = {}
+    auxiliary = {"publication-state.json", "SHA256SUMS.github"}
+    seen = set()
+    for item in release["assets"]:
+        name = item["name"]
+        assert name not in seen, "Duplicate GitHub Release asset: " + name
+        seen.add(name)
+        if name in auxiliary:
+            continue
+        assert name in aliases, "Unexpected GitHub Release assets: " + name
+        path = aliases[name]
+        assert path.name not in result, "Duplicate GitHub asset aliases: " + path.name
+        verify_github_asset(item, path, release["tag_name"])
+        result[path.name] = item
+    return result
+
+
+def verify_release_assets(directory, manifest):
+    paths = release_assets(directory)
+    release = github_release()
+    assert release and release["target_commitish"] == manifest["commit"], (
+        "Existing GitHub Release source differs; manual reconciliation required"
+    )
+    index = github_asset_index(release, paths)
+    missing = sorted({p.name for p in paths} - set(index))
+    assert not missing, "Missing GitHub Release assets: " + ", ".join(missing)
+    return release, paths, index
+
+
+def github_checksums(directory, manifest):
+    release, paths, index = verify_release_assets(directory, manifest)
+    path = directory.parent / "SHA256SUMS.github"
+    path.write_text(
+        "".join(
+            f"{sha(p)}  {index[p.name]['name']}\n"
+            for p in sorted(paths, key=lambda p: index[p.name]["name"])
+        )
+    )
+    existing = [a for a in release["assets"] if a["name"] == path.name]
+    if existing:
+        verify_github_asset(existing[0], path, manifest["tag"])
+    else:
+        assert release["draft"], "Finalized GitHub Release is missing download checksums"
+        gh("release", "upload", manifest["tag"], str(path), "--repo", REPOSITORY)
+        uploaded = next(a for a in github_release()["assets"] if a["name"] == path.name)
+        verify_github_asset(uploaded, path, manifest["tag"])
+    return {name: item["name"] for name, item in index.items() if name != item["name"]}
+
+
 def draft(directory, manifest):
     authorized("draft")
     release = github_release()
@@ -469,33 +560,17 @@ def draft(directory, manifest):
         "Existing GitHub Release source differs; manual reconciliation required"
     )
     assets = release_assets(directory)
-    existing = {a["name"]: a for a in release["assets"]}
-    allowed = {p.name for p in assets} | {"publication-state.json"}
-    assert set(existing) <= allowed, "Unexpected GitHub Release assets"
+    existing = github_asset_index(release, assets)
     # Anchor the full validated bundle first so a partial upload can be recovered.
     for path in sorted(assets, key=lambda p: (not p.name.startswith("leakscope-release-"), p.name)):
         if path.name in existing:
-            item = existing[path.name]
-            if item.get("digest"):
-                assert item["digest"] == "sha256:" + sha(path), "GitHub asset checksum conflict"
-            else:
-                with tempfile.TemporaryDirectory() as tmp:
-                    gh(
-                        "release",
-                        "download",
-                        tag,
-                        "--repo",
-                        REPOSITORY,
-                        "--pattern",
-                        path.name,
-                        "--dir",
-                        tmp,
-                    )
-                    assert sha(Path(tmp) / path.name) == sha(path), "GitHub asset checksum conflict"
+            continue
         else:
             assert release["draft"], "Finalized GitHub Release has missing assets"
             gh("release", "upload", tag, str(path), "--repo", REPOSITORY)
     ensure_draft_tag(manifest)
+    # Check the actual names and hashes after upload, before any registry writes.
+    verify_release_assets(directory, manifest)
     return {"draft": release["draft"], "commit": manifest["commit"]}
 
 
@@ -578,8 +653,7 @@ def state(directory, component, result):
     )
 
 
-def finalize(directory, manifest):
-    authorized("finalize")
+def verify_published_registries(directory, manifest):
     metadata = json.loads((directory / "cargo-publish.json").read_text())
     for item in metadata:
         digest = manifest["assets"][f"{item['name']}-{item['vers']}.crate"]["sha256"]
@@ -589,7 +663,38 @@ def finalize(directory, manifest):
     assert set(names) == set(files), "PyPI publication is incomplete"
     image = ghcr_manifest(manifest["version"])
     assert image and image[0]["config"]["digest"] == manifest["image_config_digest"]
+    return metadata, files, image
+
+
+def verify_existing(directory):
+    from release_bundle import verify
+    from release_request import publication_gate
+
+    manifest = verify(directory)
+    publication_gate(manifest, directory)
+    metadata, files, image = verify_published_registries(directory, manifest)
+    unused, paths, index = verify_release_assets(directory, manifest)
+    return {
+        "commit": manifest["commit"],
+        "version": manifest["version"],
+        "crates_verified": len(metadata),
+        "pypi_files_verified": len(files),
+        "ghcr_digest": image[1],
+        "github_assets_verified": len(paths),
+        "github_asset_names": {n: a["name"] for n, a in index.items() if n != a["name"]},
+        "public_writes": False,
+    }
+
+
+def finalize(directory, manifest):
+    authorized("finalize")
+    if os.getenv("RELEASE_RECOVERY_RUN_ID"):
+        assert manifest["channel"] == "prerelease", (
+            "Finalization-only recovery is restricted to engineering prereleases"
+        )
+    metadata, files, image = verify_published_registries(directory, manifest)
     draft(directory, manifest)
+    asset_names = github_checksums(directory, manifest)
     if manifest["channel"] == "stable":
         # Verified again immediately before promotion; no stable/latest bypass.
         from release_request import stable_gate
@@ -636,8 +741,14 @@ def finalize(directory, manifest):
         "crates": [p["name"] for p in metadata],
         "pypi": files,
         "ghcr_digest": image[1],
+        "github_asset_names": asset_names,
         "production_ready": manifest["channel"] == "stable",
     }
+    if original_run := os.getenv("RELEASE_RECOVERY_RUN_ID"):
+        result["recovery"] = {
+            "original_run_id": original_run,
+            "tooling_commit": os.environ["GITHUB_SHA"],
+        }
     path = directory.parent / "publication-state.json"
     path.write_text(json.dumps(result, indent=2) + "\n")
     release = github_release()
@@ -682,12 +793,15 @@ def finalize(directory, manifest):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "component", choices=["crates", "pypi", "ghcr", "draft", "finalize", "plan"]
+        "component",
+        choices=["crates", "pypi", "ghcr", "draft", "finalize", "plan", "verify-existing"],
     )
     parser.add_argument("--directory", type=Path, default=ROOT / "artifacts/release")
     args = parser.parse_args()
     if args.component == "plan":
         result = registry_plan(args.directory)
+    elif args.component == "verify-existing":
+        result = verify_existing(args.directory)
     else:
         authorized(args.component)
         from release_bundle import verify

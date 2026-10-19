@@ -330,6 +330,7 @@ def test_prerelease_finalization_does_not_promote_latest(authority, tmp_path, mo
         lambda *a: ({"config": {"digest": "sha256:config"}}, "sha256:manifest"),
     )
     monkeypatch.setattr(pub, "draft", lambda *a: {})
+    monkeypatch.setattr(pub, "github_checksums", lambda *a: {})
     releases = iter([{"assets": [], "draft": True}, {"draft": False, "prerelease": True}])
     monkeypatch.setattr(pub, "github_release", lambda: next(releases))
     calls = []
@@ -360,6 +361,7 @@ def test_failed_github_finalization_cannot_claim_completion(authority, tmp_path,
         lambda *a: ({"config": {"digest": "sha256:config"}}, "sha256:manifest"),
     )
     monkeypatch.setattr(pub, "draft", lambda *a: {})
+    monkeypatch.setattr(pub, "github_checksums", lambda *a: {})
     monkeypatch.setattr(
         pub, "github_release", lambda: {"assets": [], "draft": True, "prerelease": True}
     )

@@ -310,7 +310,9 @@ def build(directory):
 def archive_bundle(directory):
     verify(directory)
     output = directory.parent / ("leakscope-release-" + version().semver + ".tar.gz")
-    epoch = int(subprocess.check_output(["git", "show", "-s", "--format=%ct", "HEAD"], text=True))
+    epoch = int(
+        subprocess.check_output(["git", "show", "-s", "--format=%ct", "HEAD"], cwd=ROOT, text=True)
+    )
     with (
         output.open("wb") as stream,
         gzip.GzipFile(filename="", mode="wb", fileobj=stream, mtime=epoch) as compressed,
