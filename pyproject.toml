@@ -1,6 +1,6 @@
 [project]
 name = "leakscope"
-version = "0.2.0rc1"
+version = "0.2.0"
 description = "LeakScope Python collector and CLI; native executables and web assets are installed separately"
 readme = "apps/api/PYPI.md"
 license = "MIT"

@@ -11,7 +11,7 @@ readme = "README.md"
 keywords = ["memory", "profiling", "linux"]
 publish = ["crates-io"]
 [dependencies]
-leakscope-protocol = { path = "../protocol", version = "=0.2.0-rc.1" }
-leakscope-capture = { path = "../capture", version = "=0.2.0-rc.1" }
+leakscope-protocol = { path = "../protocol", version = "=0.2.0" }
+leakscope-capture = { path = "../capture", version = "=0.2.0" }
 serde.workspace = true
 serde_json.workspace = true

@@ -259,7 +259,7 @@ dependencies = [
 
 [[package]]
 name = "leakscope-analyzer"
-version = "0.2.0-rc.1"
+version = "0.2.0"
 dependencies = [
  "leakscope-capture",
  "leakscope-protocol",
@@ -269,7 +269,7 @@ dependencies = [
 
 [[package]]
 name = "leakscope-capture"
-version = "0.2.0-rc.1"
+version = "0.2.0"
 dependencies = [
  "serde_json",
  "sha2",
@@ -278,7 +278,7 @@ dependencies = [
 
 [[package]]
 name = "leakscope-common"
-version = "0.2.0-rc.1"
+version = "0.2.0"
 dependencies = [
  "serde",
  "sha2",
@@ -286,7 +286,7 @@ dependencies = [
 
 [[package]]
 name = "leakscope-procfs"
-version = "0.2.0-rc.1"
+version = "0.2.0"
 dependencies = [
  "leakscope-common",
  "serde",
@@ -295,7 +295,7 @@ dependencies = [
 
 [[package]]
 name = "leakscope-protocol"
-version = "0.2.0-rc.1"
+version = "0.2.0"
 dependencies = [
  "prost",
  "serde",
@@ -305,7 +305,7 @@ dependencies = [
 
 [[package]]
 name = "leakscope-sensor"
-version = "0.2.0-rc.1"
+version = "0.2.0"
 dependencies = [
  "aya",
  "leakscope-common",
@@ -320,7 +320,7 @@ dependencies = [
 
 [[package]]
 name = "leakscope-symbolizer"
-version = "0.2.0-rc.1"
+version = "0.2.0"
 dependencies = [
  "addr2line",
  "gimli",
